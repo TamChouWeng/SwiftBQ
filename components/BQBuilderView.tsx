@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, MoreVertical, FileText } from 'lucide-react';
 import { useAppStore } from '../store';
 import { AppLanguage, Project, BQItem } from '../types';
@@ -34,8 +34,54 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     projectName: '',
     clientName: '',
     date: new Date().toISOString().split('T')[0],
-    validityPeriod: '30 Days',
+    validityPeriod: '30',
   });
+
+  // --- Column Resizing State ---
+  const [colWidths, setColWidths] = useState<{ [key: string]: number }>({
+    category: 160,
+    item: 200,
+    description: 250,
+    uom: 80,
+    price: 120,
+    qty: 80,
+    rexTsc: 120,
+    rexTsp: 120,
+    rexTrsp: 120,
+    rexGp: 120,
+    rexGpPercent: 80,
+    action: 60
+  });
+
+  const resizingRef = useRef<{ colKey: string; startX: number; startWidth: number } | null>(null);
+
+  const startResize = (e: React.MouseEvent, colKey: string) => {
+    e.preventDefault();
+    e.stopPropagation(); // Prevent sorting or other events if any
+    resizingRef.current = {
+      colKey,
+      startX: e.pageX,
+      startWidth: colWidths[colKey],
+    };
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!resizingRef.current) return;
+    const { colKey, startX, startWidth } = resizingRef.current;
+    const diff = e.pageX - startX;
+    const newWidth = Math.max(50, startWidth + diff); // Min width 50
+    setColWidths((prev) => ({ ...prev, [colKey]: newWidth }));
+  };
+
+  const handleMouseUp = () => {
+    resizingRef.current = null;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = '';
+  };
 
   // Derived State
   const activeProject = useMemo(() => 
@@ -75,7 +121,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     addProject(project);
     setIsAddModalOpen(false);
     setCurrentProjectId(project.id);
-    setNewProject({ projectName: '', clientName: '', date: new Date().toISOString().split('T')[0], validityPeriod: '30 Days' });
+    setNewProject({ projectName: '', clientName: '', date: new Date().toISOString().split('T')[0], validityPeriod: '30' });
   };
 
   const handleCategoryChange = (rowId: string, newCategory: string) => {
@@ -135,6 +181,8 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   }, [activeItems]);
 
   const contentPadding = !isSidebarOpen ? 'pl-4 md:pl-24 pr-4' : 'px-4';
+
+  const totalTableWidth = Object.values(colWidths).reduce((a, b) => a + b, 0);
 
   // --- Views ---
 
@@ -202,7 +250,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                              <div>
                                  <p className="text-xs text-slate-400 mb-1">{t.validityPeriod}</p>
                                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                                     <Clock size={12} /> {project.validityPeriod}
+                                     <Clock size={12} /> {project.validityPeriod} Days
                                  </p>
                              </div>
                         </div>
@@ -241,7 +289,16 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.validityPeriod}</label>
-                                    <input type="text" value={newProject.validityPeriod} onChange={(e) => setNewProject({...newProject, validityPeriod: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                                    <div className="relative">
+                                        <input 
+                                            type="number" 
+                                            value={newProject.validityPeriod} 
+                                            onChange={(e) => setNewProject({...newProject, validityPeriod: e.target.value})} 
+                                            className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg pl-4 pr-12 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" 
+                                            placeholder="30"
+                                        />
+                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400">Days</span>
+                                    </div>
                                 </div>
                              </div>
                          </div>
@@ -298,36 +355,72 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
              </div>
              <div>
                  <label className="text-xs text-slate-400 block mb-1">{t.validityPeriod}</label>
-                 <input 
-                    type="text" 
-                    value={activeProject?.validityPeriod || ''}
-                    onChange={(e) => updateProject(activeProject!.id, { validityPeriod: e.target.value })}
-                    className="w-full bg-transparent border-b border-gray-200 dark:border-slate-700 focus:border-primary-500 focus:outline-none text-sm text-slate-800 dark:text-white pb-1"
-                 />
+                 <div className="relative">
+                    <input 
+                        type="number" 
+                        value={activeProject?.validityPeriod || ''}
+                        onChange={(e) => updateProject(activeProject!.id, { validityPeriod: e.target.value })}
+                        className="w-full bg-transparent border-b border-gray-200 dark:border-slate-700 focus:border-primary-500 focus:outline-none text-sm text-slate-800 dark:text-white pb-1 pr-8"
+                    />
+                    <span className="absolute right-0 top-0 text-sm text-slate-400">Days</span>
+                 </div>
              </div>
         </div>
       </div>
 
       {/* Builder Table */}
       <div className="bg-white dark:bg-slate-800 rounded-none md:rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden overflow-x-auto mx-0 md:mx-4">
-        <table className="w-full min-w-[1400px] text-left border-collapse">
+        <table className="text-left border-collapse table-fixed" style={{ width: totalTableWidth, minWidth: '100%' }}>
           <thead>
-            <tr className="bg-gray-50 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 text-xs uppercase tracking-wider border-b border-gray-100 dark:border-slate-700">
-              <th className="p-4 w-32 font-semibold">{t.category}</th>
-              <th className="p-4 w-48 font-semibold">{t.item}</th>
-              <th className="p-4 font-semibold">{t.description}</th>
-              <th className="p-4 w-20 text-center font-semibold">{t.uom}</th>
-              <th className="p-4 w-28 text-right font-semibold">{t.price} (RSP)</th>
-              <th className="p-4 w-20 text-center font-semibold">{t.qty}</th>
+            <tr className="text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+              <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.category }}>
+                {t.category}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'category')} />
+              </th>
+              <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.item }}>
+                {t.item}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'item')} />
+              </th>
+              <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.description }}>
+                {t.description}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'description')} />
+              </th>
+              <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.uom }}>
+                {t.uom}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'uom')} />
+              </th>
+              <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.price }}>
+                {t.price} (RSP)
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'price')} />
+              </th>
+              <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.qty }}>
+                {t.qty}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'qty')} />
+              </th>
               
               {/* Calculated Columns U-Y */}
-              <th className="p-4 w-28 text-right font-semibold bg-gray-100/50 dark:bg-slate-800/50">{t.rexTsc}</th>
-              <th className="p-4 w-28 text-right font-semibold bg-gray-100/50 dark:bg-slate-800/50">{t.rexTsp}</th>
-              <th className="p-4 w-28 text-right font-semibold bg-gray-100/50 dark:bg-slate-800/50">{t.rexTrsp}</th>
-              <th className="p-4 w-28 text-right font-semibold bg-gray-100/50 dark:bg-slate-800/50">{t.rexGp}</th>
-              <th className="p-4 w-20 text-right font-semibold bg-gray-100/50 dark:bg-slate-800/50">{t.rexGpPercent}</th>
+              <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTsc }}>
+                {t.rexTsc}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTsc')} />
+              </th>
+              <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTsp }}>
+                {t.rexTsp}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTsp')} />
+              </th>
+              <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTrsp }}>
+                {t.rexTrsp}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTrsp')} />
+              </th>
+              <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexGp }}>
+                {t.rexGp}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexGp')} />
+              </th>
+              <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexGpPercent }}>
+                {t.rexGpPercent}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexGpPercent')} />
+              </th>
               
-              <th className="p-4 w-16"></th>
+              <th className="relative p-4 select-none" style={{ width: colWidths.action }}></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-slate-700 text-sm">
@@ -348,7 +441,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     <select
                       value={item.category}
                       onChange={(e) => handleCategoryChange(item.id, e.target.value)}
-                      className="w-full p-2 rounded border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs focus:border-primary-500 focus:outline-none dark:text-white"
+                      className="w-full p-2 rounded border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs focus:border-primary-500 focus:outline-none dark:text-white font-normal"
                     >
                       <option value="">Select...</option>
                       {categories.map((cat) => (
@@ -361,7 +454,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                       value={item.masterId || ''}
                       onChange={(e) => handleItemSelect(item.id, e.target.value)}
                       disabled={!item.category}
-                      className="w-full p-2 rounded border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs focus:border-primary-500 focus:outline-none disabled:opacity-50 dark:text-white"
+                      className="w-full p-2 rounded border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs focus:border-primary-500 focus:outline-none disabled:opacity-50 dark:text-white font-normal"
                     >
                       <option value="">Select Item...</option>
                       {availableItems.map((m) => (
@@ -374,7 +467,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                       value={item.description}
                       onChange={(e) => updateBQItem(item.id, 'description', e.target.value)}
                       rows={1}
-                      className="w-full p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 bg-transparent text-xs focus:bg-white dark:focus:bg-slate-900 focus:outline-none resize-none dark:text-slate-200"
+                      className="w-full p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 bg-transparent text-xs focus:bg-white dark:focus:bg-slate-900 focus:outline-none resize-none dark:text-slate-200 font-normal"
                     />
                   </td>
                   <td className="p-2 align-top">
@@ -382,7 +475,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                       type="text"
                       value={item.uom}
                       onChange={(e) => updateBQItem(item.id, 'uom', e.target.value)}
-                      className="w-full text-center bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-slate-200"
+                      className="w-full text-center bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-slate-200 font-normal"
                     />
                   </td>
                   <td className="p-2 align-top">
@@ -390,7 +483,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                       type="number"
                       value={item.price}
                       onChange={(e) => updateBQItem(item.id, 'price', e.target.value)}
-                      className="w-full text-right bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-slate-200"
+                      className="w-full text-right bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-slate-200 font-normal"
                     />
                   </td>
                   <td className="p-2 align-top">
@@ -398,24 +491,24 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                       type="number"
                       value={item.qty}
                       onChange={(e) => updateBQItem(item.id, 'qty', e.target.value)}
-                      className="w-full text-center bg-gray-50 dark:bg-slate-700/50 rounded border border-gray-200 dark:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-white p-1"
+                      className="w-full text-center bg-gray-50 dark:bg-slate-700/50 rounded border border-gray-200 dark:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-white p-1 font-normal"
                     />
                   </td>
 
-                  {/* READ ONLY COLUMNS */}
-                  <td className="p-2 align-top text-right text-slate-500 bg-gray-50/30 dark:bg-slate-800/30">
+                  {/* READ ONLY COLUMNS - Plain style */}
+                  <td className="p-2 align-top text-right text-slate-500 font-normal">
                      {fmt(rowRexTsc)}
                   </td>
-                  <td className="p-2 align-top text-right text-slate-500 bg-gray-50/30 dark:bg-slate-800/30">
+                  <td className="p-2 align-top text-right text-slate-500 font-normal">
                      {fmt(rowRexTsp)}
                   </td>
-                  <td className="p-2 align-top text-right font-medium text-slate-900 dark:text-white bg-gray-50/30 dark:bg-slate-800/30">
+                  <td className="p-2 align-top text-right text-slate-900 dark:text-white font-normal">
                      {fmt(rowRexTrsp)}
                   </td>
-                  <td className="p-2 align-top text-right text-slate-500 bg-gray-50/30 dark:bg-slate-800/30">
+                  <td className="p-2 align-top text-right text-slate-500 font-normal">
                      {fmt(rowRexGp)}
                   </td>
-                  <td className="p-2 align-top text-right text-slate-500 bg-gray-50/30 dark:bg-slate-800/30">
+                  <td className="p-2 align-top text-right text-slate-500 font-normal">
                      {fmtPct(rowRexGpPercent)}
                   </td>
 
