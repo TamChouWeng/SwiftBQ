@@ -7,9 +7,10 @@ import { TRANSLATIONS } from '../constants';
 
 interface Props {
   currentLanguage: AppLanguage;
+  isSidebarOpen: boolean;
 }
 
-const MasterListView: React.FC<Props> = ({ currentLanguage }) => {
+const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   const { masterData, updateMasterItem, addMasterItem, deleteMasterItem } = useAppStore();
   const t = TRANSLATIONS[currentLanguage];
 
@@ -58,6 +59,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage }) => {
 
   // 1. Get Unique Categories
   const categories = useMemo(() => {
+    // Separate "All" from the list to ensure it's always at the top
     const cats = Array.from(new Set(masterData.map((item) => item.category))).sort();
     return ['All', ...cats];
   }, [masterData]);
@@ -198,10 +200,13 @@ const MasterListView: React.FC<Props> = ({ currentLanguage }) => {
   const uniqueCategories = useMemo(() => Array.from(new Set(masterData.map(i => i.category))), [masterData]);
   const uniqueTypes = useMemo(() => Array.from(new Set(masterData.map(i => i.description))), [masterData]);
 
+  // Dynamic Padding for Title/Toolbar
+  const headerPadding = !isSidebarOpen ? 'pl-4 md:pl-24 pr-4' : 'px-4';
+
   return (
-    <div className="space-y-6 animate-fade-in flex flex-col h-[calc(100vh-8rem)] relative">
+    <div className="space-y-6 animate-fade-in flex flex-col h-[calc(100vh-3.5rem)] relative">
       {/* Header & Toolbar */}
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0">
+      <div className={`flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0 transition-all duration-300 ${headerPadding}`}>
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-1">{t.masterList}</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm">
@@ -269,8 +274,8 @@ const MasterListView: React.FC<Props> = ({ currentLanguage }) => {
         </div>
       </div>
 
-      {/* Table Container */}
-      <div className="flex-1 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden flex flex-col relative">
+      {/* Table Container - Expanded width (reduced margins) */}
+      <div className="flex-1 bg-white dark:bg-slate-800 rounded-none md:rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden flex flex-col relative mx-0 md:mx-4">
         <div className="overflow-auto flex-1">
           <table className="text-left border-collapse table-fixed" style={{ width: Object.values(colWidths).reduce((a: number, b: number) => a + b, 0) + 'px', minWidth: '100%' }}>
             <thead className="sticky top-0 bg-gray-50 dark:bg-slate-700/90 backdrop-blur-sm z-10">
@@ -285,9 +290,9 @@ const MasterListView: React.FC<Props> = ({ currentLanguage }) => {
                 <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.forex }}>{t.forex}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'forex')} /></th>
                 <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.sst }}>{t.sst}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'sst')} /></th>
                 <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.opta }}>{t.opta}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'opta')} /></th>
-                <th className="relative p-4 font-semibold text-right select-none bg-gray-50/50 dark:bg-slate-700/50" style={{ width: colWidths.ddp }}>{t.rexScDdp}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'ddp')} /></th>
-                <th className="relative p-4 font-semibold text-right select-none bg-gray-50/50 dark:bg-slate-700/50" style={{ width: colWidths.sp }}>{t.rexSp}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'sp')} /></th>
-                <th className="relative p-4 font-semibold text-right select-none bg-primary-50/30 dark:bg-primary-900/10" style={{ width: colWidths.rsp }}>{t.rexRsp}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'rsp')} /></th>
+                <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.ddp }}>{t.rexScDdp}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'ddp')} /></th>
+                <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.sp }}>{t.rexSp}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'sp')} /></th>
+                <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.rsp }}>{t.rexRsp}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'rsp')} /></th>
 
                 <th className="relative p-4 font-semibold text-center select-none" style={{ width: colWidths.action }}>{t.actions}</th>
               </tr>
@@ -308,14 +313,14 @@ const MasterListView: React.FC<Props> = ({ currentLanguage }) => {
                     <td className="p-2"><input type="number" value={item.opta} onChange={(e) => handleEdit(item.id, 'opta', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>
                     
                     {/* Read-Only Calculated Fields */}
-                    <td className="p-2 bg-gray-50/50 dark:bg-slate-700/50">
+                    <td className="p-2">
                         <input type="number" value={item.rexScDdp} readOnly className="w-full bg-transparent p-2 rounded border-none text-right text-slate-500 dark:text-slate-400 text-sm font-medium cursor-not-allowed" />
                     </td>
-                    <td className="p-2 bg-gray-50/50 dark:bg-slate-700/50">
+                    <td className="p-2">
                         <input type="number" value={item.rexSp} readOnly className="w-full bg-transparent p-2 rounded border-none text-right text-slate-500 dark:text-slate-400 text-sm font-medium cursor-not-allowed" />
                     </td>
-                    <td className="p-2 bg-primary-50/30 dark:bg-primary-900/10">
-                        <input type="number" value={item.rexRsp} readOnly className="w-full bg-transparent p-2 rounded border-none text-right text-slate-800 dark:text-white text-sm font-bold cursor-not-allowed" />
+                    <td className="p-2">
+                        <input type="number" value={item.rexRsp} readOnly className="w-full bg-transparent p-2 rounded border-none text-right text-slate-800 dark:text-white text-sm font-medium cursor-not-allowed" />
                     </td>
 
                     <td className="p-2 text-center">
@@ -335,9 +340,10 @@ const MasterListView: React.FC<Props> = ({ currentLanguage }) => {
         </div>
 
         {/* Footer / Pagination */}
-        <div className="p-4 border-t border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/20 flex flex-col sm:flex-row items-center justify-between gap-4 shrink-0">
+        <div className="p-4 border-t border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/20 flex items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-            <span>Rows per page:</span>
+            <span className="hidden sm:inline">Rows per page:</span>
+            <span className="sm:hidden">Rows:</span>
             <select
               value={itemsPerPage}
               onChange={(e) => setItemsPerPage(Number(e.target.value))}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
@@ -92,15 +93,15 @@ const AppContent: React.FC = () => {
         )}
 
         {/* Content Wrapper */}
-        <main className="flex-1 p-4 md:p-8 lg:p-12 max-w-7xl mx-auto w-full">
+        <main className="flex-1 py-6 w-full transition-all duration-300">
           {activeTab === ActiveTab.MASTER_LIST && (
-            <MasterListView currentLanguage={language} />
+            <MasterListView currentLanguage={language} isSidebarOpen={isSidebarOpen} />
           )}
           {activeTab === ActiveTab.BQ_BUILDER && (
-            <BQBuilderView currentLanguage={language} />
+            <BQBuilderView currentLanguage={language} isSidebarOpen={isSidebarOpen} />
           )}
           {activeTab === ActiveTab.QUOTATION_VIEW && (
-            <QuotationView currentLanguage={language} />
+            <QuotationView currentLanguage={language} isSidebarOpen={isSidebarOpen} />
           )}
           {activeTab === ActiveTab.SETTINGS && (
             <SettingsView
@@ -108,6 +109,7 @@ const AppContent: React.FC = () => {
               setTheme={setTheme}
               currentLanguage={language}
               setLanguage={setLanguage}
+              isSidebarOpen={isSidebarOpen}
             />
           )}
         </main>

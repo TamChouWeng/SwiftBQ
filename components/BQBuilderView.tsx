@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useAppStore } from '../store';
@@ -6,9 +7,10 @@ import { TRANSLATIONS } from '../constants';
 
 interface Props {
   currentLanguage: AppLanguage;
+  isSidebarOpen: boolean;
 }
 
-const BQBuilderView: React.FC<Props> = ({ currentLanguage }) => {
+const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   const {
     masterData,
     bqItems,
@@ -49,42 +51,52 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage }) => {
     }
   };
 
+  // Dynamic Padding for Title Header Only
+  const contentPadding = !isSidebarOpen ? 'pl-4 md:pl-24 pr-4' : 'px-4';
+
   return (
-    <div className="space-y-8 animate-fade-in pb-20">
+    <div className="space-y-8 animate-fade-in pb-20 relative">
       
-      {/* Project Details Header */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.clientName}</label>
-          <input
-            type="text"
-            value={projectDetails.clientName}
-            onChange={(e) => setProjectDetails({ ...projectDetails, clientName: e.target.value })}
-            className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.date}</label>
-          <input
-            type="date"
-            value={projectDetails.date}
-            onChange={(e) => setProjectDetails({ ...projectDetails, date: e.target.value })}
-            className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.quoteId}</label>
-          <input
-            type="text"
-            value={projectDetails.quoteId}
-            onChange={(e) => setProjectDetails({ ...projectDetails, quoteId: e.target.value })}
-            className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
-          />
+      {/* Title Header - Retains padding to clear floating button */}
+      <div className={`transition-all duration-300 ${contentPadding}`}>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-1">{t.bqBuilder}</h1>
+      </div>
+
+      {/* Project Details Header - Aligned with Table */}
+      <div className="mx-0 md:mx-4 transition-all duration-300">
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-none md:rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.clientName}</label>
+            <input
+                type="text"
+                value={projectDetails.clientName}
+                onChange={(e) => setProjectDetails({ ...projectDetails, clientName: e.target.value })}
+                className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+            />
+            </div>
+            <div>
+            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.date}</label>
+            <input
+                type="date"
+                value={projectDetails.date}
+                onChange={(e) => setProjectDetails({ ...projectDetails, date: e.target.value })}
+                className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+            />
+            </div>
+            <div>
+            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.quoteId}</label>
+            <input
+                type="text"
+                value={projectDetails.quoteId}
+                onChange={(e) => setProjectDetails({ ...projectDetails, quoteId: e.target.value })}
+                className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+            />
+            </div>
         </div>
       </div>
 
-      {/* Builder Table */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden overflow-x-auto">
+      {/* Builder Table - Full Width */}
+      <div className="bg-white dark:bg-slate-800 rounded-none md:rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden overflow-x-auto mx-0 md:mx-4">
         <table className="w-full min-w-[1000px] text-left border-collapse">
           <thead>
             <tr className="bg-gray-50 dark:bg-slate-700/50 text-slate-600 dark:text-slate-300 text-sm border-b border-gray-100 dark:border-slate-700">

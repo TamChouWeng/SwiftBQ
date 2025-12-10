@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Moon, Sun, Globe, Info, Check, Building } from 'lucide-react';
 import { AppLanguage, AppTheme, LANGUAGES } from '../types';
@@ -9,6 +10,7 @@ interface SettingsViewProps {
   setTheme: (theme: AppTheme) => void;
   currentLanguage: AppLanguage;
   setLanguage: (lang: AppLanguage) => void;
+  isSidebarOpen: boolean;
 }
 
 const SettingsView: React.FC<SettingsViewProps> = ({
@@ -16,6 +18,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
   setTheme,
   currentLanguage,
   setLanguage,
+  isSidebarOpen,
 }) => {
   const t = TRANSLATIONS[currentLanguage];
   const { appSettings, setAppSettings } = useAppStore();
@@ -24,8 +27,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({
       setAppSettings({ ...appSettings, [field]: value });
   };
 
+  const containerPadding = !isSidebarOpen ? 'pl-4 md:pl-24 pr-4' : 'px-4';
+
   return (
-    <div className="max-w-3xl mx-auto space-y-8 animate-fade-in pb-12">
+    <div className={`space-y-8 animate-fade-in pb-12 transition-all duration-300 ${containerPadding}`}>
       <header className="mb-10">
         <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white mb-3 tracking-tight">
           {t.settings}
