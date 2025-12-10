@@ -306,8 +306,8 @@ const INITIAL_MASTER_DATA: MasterItem[] = [
 ];
 
 const INITIAL_SETTINGS: AppSettings = {
-  companyName: 'Acme Construction Co.',
-  companyAddress: '123 Builder Lane, Construct City, 54321',
+  companyName: 'Recharge Xolutions Sdn Bhd (0295251X)',
+  companyAddress: 'L3-023, Level 3, MyTOWN Shopping Centre, \n6,Jalan Cochrane, Seksyen 90,\n55100 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur',
   logoUrl: 'https://cdn-icons-png.flaticon.com/512/25/25694.png',
   currencySymbol: 'RM',
   taxRate: 6,
