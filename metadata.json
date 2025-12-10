@@ -1,0 +1,5 @@
+{
+  "name": "SwitftBQ",
+  "description": "A sleek, responsive application featuring a sliding navigation drawer with Main and Settings views. Includes comprehensive theme management (Dark/Light) and multilingual support (English, Malay, Chinese).",
+  "requestFramePermissions": []
+}
