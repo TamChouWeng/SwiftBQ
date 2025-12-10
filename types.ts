@@ -36,22 +36,30 @@ export interface MasterItem {
   spMargin?: number;
 }
 
+export interface Project {
+  id: string;
+  projectName: string;
+  clientName: string;
+  date: string;
+  validityPeriod: string;
+  quoteId: string; // Keeping for reference
+}
+
 export interface BQItem {
   id: string;
+  projectId: string; // Linked project
   masterId?: string;
   category: string;
   itemName: string;
   description: string;
-  price: number;
+  price: number; // This is REX RSP
   qty: number;
   uom: string;
-  total: number;
-}
-
-export interface ProjectDetails {
-  clientName: string;
-  date: string;
-  quoteId: string;
+  total: number; // This is REX TRSP
+  // Snapshots for calculation
+  rexScDdp: number;
+  rexSp: number;
+  rexRsp: number;
 }
 
 export interface AppSettings {
@@ -112,6 +120,19 @@ export interface Translations {
   rexScDdp: string;
   rexSp: string;
   rexRsp: string;
+  // Project & BQ New Headers
+  projects: string;
+  addProject: string;
+  projectName: string;
+  validityPeriod: string;
+  backToProjects: string;
+  rexTsc: string;
+  rexTsp: string;
+  rexTrsp: string;
+  rexGp: string;
+  rexGpPercent: string;
+  createProject: string;
+  searchProjects: string;
 }
 
 export const LANGUAGES = [

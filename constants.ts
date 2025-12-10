@@ -1,4 +1,5 @@
 
+
 import { AppLanguage, Translations } from './types';
 
 export const TRANSLATIONS: Record<AppLanguage, Translations> = {
@@ -51,6 +52,18 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     rexScDdp: 'REX SC (DDP)',
     rexSp: 'REX SP',
     rexRsp: 'REX RSP',
+    projects: 'Projects',
+    addProject: 'Add Project',
+    projectName: 'Project Name',
+    validityPeriod: 'Validity Period',
+    backToProjects: 'Back to Projects',
+    rexTsc: 'REX TSC',
+    rexTsp: 'REX TSP',
+    rexTrsp: 'REX TRSP',
+    rexGp: 'REX GP',
+    rexGpPercent: 'REX GP%',
+    createProject: 'Create Project',
+    searchProjects: 'Search Projects...',
   },
   [AppLanguage.MALAY]: {
     main: 'Papan Pemuka',
@@ -101,6 +114,18 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     rexScDdp: 'REX SC (DDP)',
     rexSp: 'REX SP',
     rexRsp: 'REX RSP',
+    projects: 'Projek',
+    addProject: 'Tambah Projek',
+    projectName: 'Nama Projek',
+    validityPeriod: 'Tempoh Sah',
+    backToProjects: 'Kembali ke Projek',
+    rexTsc: 'REX TSC',
+    rexTsp: 'REX TSP',
+    rexTrsp: 'REX TRSP',
+    rexGp: 'REX GP',
+    rexGpPercent: 'REX GP%',
+    createProject: 'Cipta Projek',
+    searchProjects: 'Cari Projek...',
   },
   [AppLanguage.CHINESE]: {
     main: '仪表板',
@@ -151,5 +176,17 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     rexScDdp: 'REX SC (DDP)',
     rexSp: 'REX SP',
     rexRsp: 'REX RSP',
+    projects: '项目',
+    addProject: '添加项目',
+    projectName: '项目名称',
+    validityPeriod: '有效期',
+    backToProjects: '返回项目',
+    rexTsc: 'REX TSC',
+    rexTsp: 'REX TSP',
+    rexTrsp: 'REX TRSP',
+    rexGp: 'REX GP',
+    rexGpPercent: 'REX GP%',
+    createProject: '创建项目',
+    searchProjects: '搜索项目...',
   },
 };

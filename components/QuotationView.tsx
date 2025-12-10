@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { Download, FileText } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Download, FileText, AlertCircle } from 'lucide-react';
 import { useAppStore } from '../store';
 import { AppLanguage, BQItem } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -13,12 +13,22 @@ interface Props {
 }
 
 const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
-  const { bqItems, projectDetails, calculateTotal, appSettings } = useAppStore();
+  const { bqItems, currentProjectId, projects, getProjectTotal, appSettings } = useAppStore();
   const t = TRANSLATIONS[currentLanguage];
-  const { subtotal, tax, grandTotal } = calculateTotal();
+
+  // Get current project details
+  const activeProject = useMemo(() => 
+    projects.find(p => p.id === currentProjectId), 
+  [projects, currentProjectId]);
+
+  const activeItems = useMemo(() => 
+    bqItems.filter(item => item.projectId === currentProjectId),
+  [bqItems, currentProjectId]);
+
+  const { subtotal, tax, grandTotal } = currentProjectId ? getProjectTotal(currentProjectId) : { subtotal: 0, tax: 0, grandTotal: 0 };
 
   // Group items by category
-  const groupedItems = bqItems.reduce<Record<string, BQItem[]>>((acc, item) => {
+  const groupedItems = activeItems.reduce<Record<string, BQItem[]>>((acc, item) => {
     const cat = item.category || 'Uncategorized';
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(item);
@@ -52,7 +62,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
 
-      // Handle multi-page
       while (heightLeft >= 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
@@ -60,16 +69,28 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         heightLeft -= pageHeight;
       }
 
-      pdf.save(`Quotation-${projectDetails.quoteId}.pdf`);
+      pdf.save(`Quotation-${activeProject?.quoteId || 'draft'}.pdf`);
     } catch (error) {
       console.error('PDF Generation failed', error);
-      alert('Failed to generate PDF. You can try using the browser print function (Ctrl+P).');
+      alert('Failed to generate PDF.');
     }
   };
 
   const contentPadding = !isSidebarOpen ? 'pl-4 md:pl-24 pr-4' : 'px-4';
 
-  if (bqItems.length === 0) {
+  if (!currentProjectId) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in h-full">
+            <div className="bg-orange-50 dark:bg-orange-900/20 p-6 rounded-full mb-4 text-orange-500">
+                <AlertCircle size={48} />
+            </div>
+            <h2 className="text-xl font-bold text-slate-700 dark:text-slate-300 mb-2">No Project Selected</h2>
+            <p className="text-slate-500 dark:text-slate-400">Please select or create a project in BQ Builder first.</p>
+        </div>
+      );
+  }
+
+  if (activeItems.length === 0) {
     return (
         <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
             <div className="bg-gray-100 dark:bg-slate-800 p-6 rounded-full mb-4">
@@ -86,6 +107,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
       <div className={`transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${contentPadding}`}>
         <div>
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-1">{t.quotationView}</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Project: {activeProject?.projectName}</p>
         </div>
         <button
           onClick={handleExportPDF}
@@ -96,7 +118,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         </button>
       </div>
 
-      {/* PDF Container - Centered and scaled down if needed on smaller screens, but capture source is this */}
+      {/* PDF Container */}
       <div className="overflow-auto w-full px-4">
           <div
             id="quotation-content"
@@ -119,9 +141,9 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
               <div className="text-right">
                 <h2 className="text-4xl font-light text-slate-300 mb-2">QUOTATION</h2>
                 <div className="space-y-1 text-sm">
-                    <p><span className="font-semibold text-slate-600">{t.quoteId}:</span> {projectDetails.quoteId}</p>
-                    <p><span className="font-semibold text-slate-600">{t.date}:</span> {projectDetails.date}</p>
-                    <p><span className="font-semibold text-slate-600">{t.clientName}:</span> {projectDetails.clientName}</p>
+                    <p><span className="font-semibold text-slate-600">{t.quoteId}:</span> {activeProject?.quoteId}</p>
+                    <p><span className="font-semibold text-slate-600">{t.date}:</span> {activeProject?.date}</p>
+                    <p><span className="font-semibold text-slate-600">{t.clientName}:</span> {activeProject?.clientName}</p>
                 </div>
               </div>
             </div>
