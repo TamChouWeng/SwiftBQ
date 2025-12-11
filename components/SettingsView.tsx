@@ -1,6 +1,5 @@
-
-import React from 'react';
-import { Moon, Sun, Globe, Info, Check, Building } from 'lucide-react';
+import React, { useState } from 'react';
+import { Moon, Sun, Globe, Info, Check, Building, User, ShieldCheck } from 'lucide-react';
 import { AppLanguage, AppTheme, LANGUAGES } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { useAppStore } from '../store';
@@ -23,8 +22,25 @@ const SettingsView: React.FC<SettingsViewProps> = ({
   const t = TRANSLATIONS[currentLanguage];
   const { appSettings, setAppSettings } = useAppStore();
 
+  // Local state for profile form to defer updates until confirmation
+  const [profileForm, setProfileForm] = useState({
+      name: appSettings.profileName,
+      contact: appSettings.profileContact,
+      role: appSettings.profileRole || 'Admin'
+  });
+
   const handleSettingChange = (field: keyof typeof appSettings, value: string | number) => {
       setAppSettings({ ...appSettings, [field]: value });
+  };
+
+  const handleProfileSave = () => {
+      setAppSettings({
+          ...appSettings,
+          profileName: profileForm.name,
+          profileContact: profileForm.contact,
+          profileRole: profileForm.role
+      });
+      // Optional: Add a toast notification here
   };
 
   const containerPadding = !isSidebarOpen ? 'pl-4 md:pl-24 pr-4' : 'px-4';
@@ -38,7 +54,65 @@ const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="h-1 w-20 bg-primary-500 rounded-full"></div>
       </header>
 
-      {/* Company Settings (New) */}
+      {/* Profile Settings (New) */}
+      <section className="space-y-4">
+         <h2 className="text-sm uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 px-1">
+            {t.profileSettings}
+         </h2>
+         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden p-6 space-y-4">
+            <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                    <User size={20} />
+                </div>
+                <h3 className="font-semibold text-slate-900 dark:text-white">{t.profileSettings}</h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div>
+                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.yourName}</label>
+                    <input 
+                        type="text" 
+                        value={profileForm.name}
+                        onChange={(e) => setProfileForm({...profileForm, name: e.target.value})}
+                        className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                    />
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.yourContact}</label>
+                    <input 
+                        type="text" 
+                        value={profileForm.contact}
+                        onChange={(e) => setProfileForm({...profileForm, contact: e.target.value})}
+                        className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.profileRole}</label>
+                    <div className="relative">
+                        <select 
+                            value={profileForm.role}
+                            onChange={(e) => setProfileForm({...profileForm, role: e.target.value})}
+                            className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none appearance-none cursor-pointer"
+                        >
+                            <option value="Admin">{t.roleAdmin}</option>
+                            <option value="User">{t.roleUser}</option>
+                        </select>
+                        <ShieldCheck className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                    </div>
+                </div>
+                <div>
+                    <button 
+                        onClick={handleProfileSave}
+                        className="w-full bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition-colors shadow-lg shadow-primary-500/30 font-medium"
+                    >
+                        {t.confirm}
+                    </button>
+                </div>
+            </div>
+         </div>
+      </section>
+
+      {/* Company Settings */}
       <section className="space-y-4">
          <h2 className="text-sm uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 px-1">
             {t.general}

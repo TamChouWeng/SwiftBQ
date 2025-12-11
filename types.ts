@@ -1,4 +1,5 @@
 
+
 export enum AppTheme {
   LIGHT = 'light',
   DARK = 'dark',
@@ -70,6 +71,10 @@ export interface AppSettings {
   logoUrl: string;
   currencySymbol: string;
   taxRate: number;
+  // Profile Info
+  profileName: string;
+  profileContact: string;
+  profileRole: string;
 }
 
 export interface Translations {
@@ -141,6 +146,14 @@ export interface Translations {
   editDetails: string;
   updateProject: string;
   projectDetails: string;
+  // Profile Settings
+  profileSettings: string;
+  yourName: string;
+  yourContact: string;
+  profileRole: string;
+  confirm: string;
+  roleAdmin: string;
+  roleUser: string;
 }
 
 export const LANGUAGES = [

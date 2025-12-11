@@ -262,11 +262,11 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                 </tr>
                                 <tr>
                                     <td className="w-24 font-semibold align-top py-0.5">Issued by:</td>
-                                    <td className="align-top py-0.5">Teoh Chi Yang</td>
+                                    <td className="align-top py-0.5">{appSettings.profileName}</td>
                                 </tr>
                                 <tr>
                                     <td className="w-24 font-semibold align-top py-0.5">Contact:</td>
-                                    <td className="align-top py-0.5">+6012 528 0665</td>
+                                    <td className="align-top py-0.5">{appSettings.profileContact}</td>
                                 </tr>
                             </tbody>
                         </table>

@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { MasterItem, BQItem, Project, AppSettings } from './types';
 
@@ -286,6 +287,9 @@ const INITIAL_SETTINGS: AppSettings = {
   logoUrl: 'https://cdn-icons-png.flaticon.com/512/25/25694.png',
   currencySymbol: 'RM',
   taxRate: 6,
+  profileName: 'Teoh Chi Yang',
+  profileContact: '+6012 528 0665',
+  profileRole: 'Admin',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

@@ -1,7 +1,10 @@
+
+
 import React from 'react';
 import { Settings, X, ChevronLeft, List, Hammer, FileText } from 'lucide-react';
 import { ActiveTab, AppLanguage } from '../types';
 import { TRANSLATIONS } from '../constants';
+import { useAppStore } from '../store';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -19,6 +22,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentLanguage,
 }) => {
   const t = TRANSLATIONS[currentLanguage];
+  const { appSettings } = useAppStore();
 
   const handleTabClick = (tab: ActiveTab) => {
     setActiveTab(tab);
@@ -103,11 +107,11 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-6 border-t border-gray-100 dark:border-slate-700">
            <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-700/50">
              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-               TC
+               {appSettings.profileName.charAt(0).toUpperCase()}
              </div>
              <div className="flex-1 min-w-0">
-               <p className="text-sm font-medium text-slate-900 dark:text-white truncate">TamCW</p>
-               <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Pro User</p>
+               <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{appSettings.profileName}</p>
+               <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{appSettings.profileRole || 'Admin'}</p>
              </div>
            </div>
         </div>

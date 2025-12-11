@@ -1,4 +1,5 @@
 
+
 import { AppLanguage, Translations } from './types';
 
 export const TRANSLATIONS: Record<AppLanguage, Translations> = {
@@ -68,6 +69,13 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     editDetails: 'Edit Details',
     updateProject: 'Update Project',
     projectDetails: 'Project Details',
+    profileSettings: 'Profile Information',
+    yourName: 'Your Name',
+    yourContact: 'Your Contact Number',
+    profileRole: 'Role',
+    confirm: 'Confirm Changes',
+    roleAdmin: 'Admin',
+    roleUser: 'User',
   },
   [AppLanguage.MALAY]: {
     main: 'Papan Pemuka',
@@ -135,6 +143,13 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     editDetails: 'Sunting Butiran',
     updateProject: 'Kemaskini Projek',
     projectDetails: 'Butiran Projek',
+    profileSettings: 'Maklumat Profil',
+    yourName: 'Nama Anda',
+    yourContact: 'Nombor Telefon Anda',
+    profileRole: 'Peranan',
+    confirm: 'Sahkan Perubahan',
+    roleAdmin: 'Pentadbir',
+    roleUser: 'Pengguna',
   },
   [AppLanguage.CHINESE]: {
     main: '仪表板',
@@ -202,5 +217,12 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     editDetails: '编辑详情',
     updateProject: '更新项目',
     projectDetails: '项目详情',
+    profileSettings: '个人资料信息',
+    yourName: '您的姓名',
+    yourContact: '您的联系电话',
+    profileRole: '角色',
+    confirm: '确认更改',
+    roleAdmin: '管理员',
+    roleUser: '用户',
   },
 };
