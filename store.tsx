@@ -309,9 +309,7 @@ const INITIAL_MASTER_DATA: MasterItem[] = [
 const INITIAL_SETTINGS: AppSettings = {
   companyName: 'Recharge Xolutions Sdn Bhd (0295251X)',
   companyAddress: 'L3-023, Level 3, MyTOWN Shopping Centre, \n6,Jalan Cochrane, Seksyen 90,\n55100 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur',
-  logoUrl: 'https://cdn-icons-png.flaticon.com/512/25/25694.png',
   currencySymbol: 'RM',
-  taxRate: 6,
   profileName: 'Teoh Chi Yang',
   profileContact: '+6012 528 0665',
   profileRole: 'Admin',
@@ -415,7 +413,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const getProjectTotal = (projectId: string) => {
     const projectItems = bqItems.filter(i => i.projectId === projectId);
     const subtotal = projectItems.reduce((acc, item) => acc + item.total, 0);
-    const tax = subtotal * (appSettings.taxRate / 100);
+    const tax = 0; // Tax rate removed
     const grandTotal = subtotal + tax;
     return { subtotal, tax, grandTotal };
   };

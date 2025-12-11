@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import { Moon, Sun, Globe, Info, Check, Building, User, ShieldCheck } from 'lucide-react';
 import { AppLanguage, AppTheme, LANGUAGES } from '../types';
@@ -151,24 +153,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                         onChange={(e) => handleSettingChange('companyAddress', e.target.value)}
                         rows={2}
                         className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none resize-none"
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.logoUrl}</label>
-                    <input 
-                        type="text" 
-                        value={appSettings.logoUrl}
-                        onChange={(e) => handleSettingChange('logoUrl', e.target.value)}
-                        className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
-                    />
-                </div>
-                 <div>
-                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.taxRate}</label>
-                    <input 
-                        type="number" 
-                        value={appSettings.taxRate}
-                        onChange={(e) => handleSettingChange('taxRate', parseFloat(e.target.value))}
-                        className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
                     />
                 </div>
             </div>

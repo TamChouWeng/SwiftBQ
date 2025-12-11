@@ -74,9 +74,7 @@ export interface BQItem {
 export interface AppSettings {
   companyName: string;
   companyAddress: string;
-  logoUrl: string;
   currencySymbol: string;
-  taxRate: number;
   // Profile Info
   profileName: string;
   profileContact: string;
@@ -120,8 +118,6 @@ export interface Translations {
   companyName: string;
   companyAddress: string;
   currencySymbol: string;
-  taxRate: string;
-  logoUrl: string;
   exportPDF: string;
   noData: string;
   generatedBy: string;

@@ -70,7 +70,8 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
 
-      while (heightLeft >= 0) {
+      // Fixed: changed from >= 0 to > 0 to prevent extra blank page when content fits exactly
+      while (heightLeft > 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
         pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
@@ -178,12 +179,14 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 <p className="text-sm text-slate-500 dark:text-slate-400">Project: {activeProject?.projectName}</p>
             </div>
         </div>
+        
+        {/* Square Export Button */}
         <button
           onClick={handleExportPDF}
-          className="flex items-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-3 rounded-xl font-medium shadow-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+          className="w-10 h-10 flex items-center justify-center bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg shadow-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+          title={t.exportPDF}
         >
           <Download size={20} />
-          {t.exportPDF}
         </button>
       </div>
 
@@ -199,33 +202,33 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
           <div className="overflow-auto w-full px-4 flex justify-center bg-gray-100 dark:bg-slate-900 py-8">
               <div
                 id="quotation-content"
-                className="bg-white text-black p-[10mm] w-[210mm] min-h-[297mm] shadow-2xl relative font-sans"
+                className="bg-white text-black p-[10mm] w-[210mm] min-h-[297mm] shadow-2xl relative font-sans flex flex-col"
                 style={{ fontSize: '10pt', lineHeight: '1.3' }}
               >
                 {/* 1. Header Section */}
-                <div className="flex justify-between items-start mb-6">
+                <div className="flex justify-between items-end mb-4">
                   {/* Left: Company Details */}
-                  <div className="w-[60%]">
-                     {/* Logo Ignored per request, kept layout space */}
-                     <div className="mb-3 h-12 flex items-center">
-                        {/* <div className="bg-gray-200 text-gray-400 text-xs p-2">Logo Placeholder</div> */}
-                     </div>
-                     <h2 className="font-bold text-lg uppercase tracking-wide text-red-600">{appSettings.companyName}</h2>
-                     <p className="whitespace-pre-line text-xs text-black mt-1">{appSettings.companyAddress}</p>
+                  <div className="w-[60%] pb-2">
+                     <h2 className="font-bold text-xl text-red-600 mb-2">{appSettings.companyName}</h2>
+                     <p className="whitespace-pre-line text-xs leading-normal">{appSettings.companyAddress}</p>
                   </div>
                   
                   {/* Right: QUOTE Title */}
-                  <div className="w-[40%] text-right flex flex-col justify-end h-full mt-10">
-                     <h1 className="text-2xl font-bold tracking-widest uppercase text-black">QUOTE</h1>
+                  <div className="w-[40%] text-right pb-2">
+                     <h1 className="text-3xl font-bold tracking-widest uppercase mb-4">QUOTE</h1>
                   </div>
                 </div>
 
+                {/* Main Separator Line */}
+                <div className="w-full border-t-2 border-black mb-6"></div>
+
                 {/* 2. Bill To / Reference Section */}
-                <div className="flex justify-between gap-6 mb-6">
+                <div className="flex justify-between gap-8 mb-6">
                     {/* Bill To */}
                     <div className="w-[55%]">
-                        <h3 className="font-bold border-b border-black mb-2 uppercase text-xs text-black">BILL / SHIP TO:</h3>
-                        <table className="w-full text-xs text-black">
+                        <h3 className="font-bold text-xs uppercase mb-1">BILL / SHIP TO:</h3>
+                        <div className="w-full border-t border-black mb-3"></div>
+                        <table className="w-full text-xs text-black border-collapse">
                             <tbody>
                                 <tr>
                                     <td className="w-20 font-semibold align-top py-0.5">Attn to:</td>
@@ -245,8 +248,9 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
                     {/* Quote Reference */}
                     <div className="w-[40%]">
-                         <h3 className="font-bold border-b border-black mb-2 uppercase text-xs text-black">QUOTE REFERENCE:</h3>
-                         <table className="w-full text-xs text-black">
+                         <h3 className="font-bold text-xs uppercase mb-1">QUOTE REFERENCE:</h3>
+                         <div className="w-full border-t border-black mb-3"></div>
+                         <table className="w-full text-xs text-black border-collapse">
                             <tbody>
                                 <tr>
                                     <td className="w-24 font-semibold align-top py-0.5">Quote #:</td>
@@ -274,47 +278,49 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 </div>
 
                 {/* 3. Items Table */}
-                <table className="w-full border-collapse border border-black text-xs mb-6 text-black">
-                    <thead>
-                        <tr className="bg-gray-100">
-                            <th className="border border-black p-2 w-10 text-center font-bold">NO</th>
-                            <th className="border border-black p-2 text-left font-bold">DESCRIPTION</th>
-                            <th className="border border-black p-2 w-28 text-right font-bold">Unit Price ({appSettings.currencySymbol})</th>
-                            <th className="border border-black p-2 w-12 text-center font-bold">QTY</th>
-                            <th className="border border-black p-2 w-16 text-center font-bold">UOM</th>
-                            <th className="border border-black p-2 w-28 text-right font-bold">Total Price ({appSettings.currencySymbol})</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {Object.entries(groupedItems).map(([category, items], catIndex) => (
-                            <React.Fragment key={category}>
-                                {/* Category Header */}
-                                <tr>
-                                    <td className="border border-black p-1 bg-gray-200"></td>
-                                    <td className="border border-black p-1 font-bold bg-gray-50" colSpan={5}>
-                                        {category}
-                                    </td>
-                                </tr>
-                                {/* Items */}
-                                {items.map((item) => (
-                                    <tr key={item.id}>
-                                        <td className="border border-black p-2 text-center align-top">{rowCounter++}</td>
-                                        <td className="border border-black p-2 align-top">
-                                            <div className="font-bold text-xs mb-1">{item.itemName}</div>
-                                            <div className="text-[10px] text-black whitespace-pre-wrap leading-tight pl-2">
-                                                {item.description}
-                                            </div>
+                <div className="mb-6">
+                    <table className="w-full border-collapse border border-black text-xs text-black">
+                        <thead>
+                            <tr className="bg-gray-100">
+                                <th className="border border-black p-2 w-10 text-center font-bold">NO</th>
+                                <th className="border border-black p-2 text-left font-bold">DESCRIPTION</th>
+                                <th className="border border-black p-2 w-28 text-right font-bold">Unit Price ({appSettings.currencySymbol})</th>
+                                <th className="border border-black p-2 w-12 text-center font-bold">QTY</th>
+                                <th className="border border-black p-2 w-16 text-center font-bold">UOM</th>
+                                <th className="border border-black p-2 w-28 text-right font-bold">Total Price ({appSettings.currencySymbol})</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {Object.entries(groupedItems).map(([category, items]) => (
+                                <React.Fragment key={category}>
+                                    {/* Category Header */}
+                                    <tr>
+                                        <td className="border border-black p-1 bg-gray-200"></td>
+                                        <td className="border border-black p-1 font-bold bg-gray-50 uppercase pl-2" colSpan={5}>
+                                            {category}
                                         </td>
-                                        <td className="border border-black p-2 text-right align-top">{fmt(item.price)}</td>
-                                        <td className="border border-black p-2 text-center align-top">{item.qty}</td>
-                                        <td className="border border-black p-2 text-center align-top">{item.uom}</td>
-                                        <td className="border border-black p-2 text-right align-top font-semibold">{fmt(item.total)}</td>
                                     </tr>
-                                ))}
-                            </React.Fragment>
-                        ))}
-                    </tbody>
-                </table>
+                                    {/* Items */}
+                                    {items.map((item) => (
+                                        <tr key={item.id}>
+                                            <td className="border border-black p-2 text-center align-top">{rowCounter++}</td>
+                                            <td className="border border-black p-2 align-top">
+                                                <div className="font-bold text-xs mb-1">{item.itemName}</div>
+                                                <div className="text-[10px] text-black whitespace-pre-wrap leading-tight pl-2">
+                                                    {item.description}
+                                                </div>
+                                            </td>
+                                            <td className="border border-black p-2 text-right align-top">{fmt(item.price)}</td>
+                                            <td className="border border-black p-2 text-center align-top">{item.qty}</td>
+                                            <td className="border border-black p-2 text-center align-top">{item.uom}</td>
+                                            <td className="border border-black p-2 text-right align-top font-semibold">{fmt(item.total)}</td>
+                                        </tr>
+                                    ))}
+                                </React.Fragment>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
 
                 {/* 4. Totals */}
                 <div className="flex justify-end mb-8 break-inside-avoid text-black">
@@ -335,7 +341,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 </div>
 
                 {/* 5. Footer Terms & Signature */}
-                <div className="break-inside-avoid text-black">
+                <div className="mt-auto break-inside-avoid text-black">
                     {/* Terms */}
                     <div className="text-xs mb-8">
                         <h4 className="font-bold underline mb-2">TERMS & CONDITIONS:</h4>
@@ -349,12 +355,12 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </div>
 
                     {/* Closing & Signature */}
-                    <div className="flex justify-between items-end text-xs mt-8">
+                    <div className="flex justify-between items-end text-xs mt-6">
                         {/* Banking / Company Info */}
                         <div className="w-[50%]">
                             <p className="mb-4 italic">Thank you for your business,</p>
                             <div className="text-[10px] space-y-1">
-                                <p className="font-bold">{appSettings.companyName}</p>
+                                <p className="font-bold text-xs">{appSettings.companyName}</p>
                                 <p className="text-blue-600 underline">xxx@rexharge.net</p>
                                 <div className="mt-3 border-t border-gray-200 pt-2">
                                     <p className="italic mb-1">All cheques should be crossed and made to :</p>
@@ -367,17 +373,21 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
                         {/* Signature Block */}
                         <div className="w-[40%]">
-                            <p className="text-center font-bold italic text-black mb-12 text-[10px]">
+                            <p className="text-center font-bold italic text-black mb-10 text-[10px]">
                                 Sign and return to confirm your order.
                             </p>
-                            <div className="border-t border-black pt-1">
+                            <div className="border-t border-black pt-2">
                                 <div className="flex justify-between text-[10px] text-black uppercase font-bold mb-6">
-                                    <span>Company Stamp</span>
-                                    <span>Authorized Signature</span>
+                                    <span>COMPANY STAMP</span>
+                                    <span>AUTHORIZED SIGNATURE</span>
                                 </div>
-                                <div className="text-left space-y-2 font-semibold text-black">
-                                    <p>Name:</p>
-                                    <p>Mobile:</p>
+                                <div className="space-y-3 font-semibold text-black text-[10px]">
+                                    <div className="flex items-end gap-2">
+                                        <span className="w-12">Name:</span>
+                                    </div>
+                                    <div className="flex items-end gap-2">
+                                        <span className="w-12">Mobile:</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
