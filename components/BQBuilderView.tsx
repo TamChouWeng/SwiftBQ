@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useRef } from 'react';
-import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Phone, Edit2, X } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Phone, Edit2, X, ArrowUpDown } from 'lucide-react';
 import { useAppStore } from '../store';
 import { AppLanguage, Project, BQItem } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -9,6 +9,9 @@ interface Props {
   currentLanguage: AppLanguage;
   isSidebarOpen: boolean;
 }
+
+type SortKey = 'date' | 'validityPeriod';
+type SortDirection = 'asc' | 'desc';
 
 const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   const {
@@ -29,6 +32,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   
   const t = TRANSLATIONS[currentLanguage];
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection }>({ key: 'date', direction: 'desc' });
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [projectForm, setProjectForm] = useState<Partial<Project>>({
     projectName: '',
@@ -97,11 +101,28 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   const { subtotal, tax, grandTotal } = currentProjectId ? getProjectTotal(currentProjectId) : { subtotal: 0, tax: 0, grandTotal: 0 };
 
   const filteredProjects = useMemo(() => {
-    return projects.filter(p => 
+    const filtered = projects.filter(p => 
         p.projectName.toLowerCase().includes(searchQuery.toLowerCase()) || 
         p.clientName.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [projects, searchQuery]);
+
+    return filtered.sort((a, b) => {
+        const { key, direction } = sortConfig;
+        let valA: any = a[key];
+        let valB: any = b[key];
+
+        // Handle numeric conversion for validityPeriod if stored as string
+        if (key === 'validityPeriod') {
+            valA = Number(valA);
+            valB = Number(valB);
+        }
+
+        if (valA < valB) return direction === 'asc' ? -1 : 1;
+        if (valA > valB) return direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+  }, [projects, searchQuery, sortConfig]);
 
   // Extract unique categories from Master Data
   const categories = useMemo(() => {
@@ -247,16 +268,36 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 </button>
             </div>
 
-            {/* Search Bar */}
-            <div className="relative max-w-md">
-                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                 <input 
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={t.searchProjects}
-                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white"
-                 />
+            {/* Search Bar & Sort */}
+            <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input 
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder={t.searchProjects}
+                        className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white"
+                    />
+                </div>
+                <div className="relative min-w-[180px]">
+                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                        <ArrowUpDown size={16} />
+                     </div>
+                     <select
+                        value={`${sortConfig.key}-${sortConfig.direction}`}
+                        onChange={(e) => {
+                            const [key, direction] = e.target.value.split('-');
+                            setSortConfig({ key: key as SortKey, direction: direction as SortDirection });
+                        }}
+                        className="w-full pl-10 pr-8 py-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white appearance-none cursor-pointer"
+                     >
+                        <option value="date-desc">Newest Date First</option>
+                        <option value="date-asc">Oldest Date First</option>
+                        <option value="validityPeriod-desc">Longest Validity</option>
+                        <option value="validityPeriod-asc">Shortest Validity</option>
+                     </select>
+                </div>
             </div>
 
             {/* Project Grid/List */}

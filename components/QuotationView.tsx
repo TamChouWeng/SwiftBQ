@@ -86,6 +86,9 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
   const contentPadding = !isSidebarOpen ? 'pl-4 md:pl-24 pr-4' : 'px-4';
 
+  // Helper for currency format
+  const fmt = (n: number) => n?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00';
+
   if (!currentProjectId) {
       return (
         <div className={`space-y-6 animate-fade-in pb-20 transition-all duration-300 ${contentPadding}`}>
@@ -155,6 +158,8 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
       );
   }
 
+  let rowCounter = 1;
+
   // === DETAIL VIEW ===
   return (
     <div className="animate-fade-in space-y-6 pb-12">
@@ -190,101 +195,195 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-300">{t.noData}</h2>
           </div>
       ) : (
-          /* PDF Container */
-          <div className="overflow-auto w-full px-4">
+          /* PDF Container - A4 Size Simulation */
+          <div className="overflow-auto w-full px-4 flex justify-center bg-gray-100 dark:bg-slate-900 py-8">
               <div
                 id="quotation-content"
-                className="bg-white text-slate-900 p-12 max-w-[210mm] mx-auto shadow-2xl min-h-[297mm] relative"
+                className="bg-white text-black p-[10mm] w-[210mm] min-h-[297mm] shadow-2xl relative font-sans"
+                style={{ fontSize: '10pt', lineHeight: '1.3' }}
               >
-                {/* Header */}
-                <div className="flex justify-between items-start mb-12 border-b-2 border-slate-100 pb-8">
-                  <div className="flex items-center gap-4">
-                    {appSettings.logoUrl && (
-                        <img src={appSettings.logoUrl} alt="Logo" className="h-16 w-auto object-contain" />
-                    )}
-                    {!appSettings.logoUrl && (
-                        <div className="h-16 w-16 bg-primary-500 rounded flex items-center justify-center text-white font-bold text-2xl">C</div>
-                    )}
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-900">{appSettings.companyName}</h1>
-                        <p className="text-slate-500 text-sm whitespace-pre-line max-w-xs">{appSettings.companyAddress}</p>
-                    </div>
+                {/* 1. Header Section */}
+                <div className="flex justify-between items-start mb-6">
+                  {/* Left: Company Details */}
+                  <div className="w-[60%]">
+                     {/* Logo Ignored per request, kept layout space */}
+                     <div className="mb-3 h-12 flex items-center">
+                        {/* <div className="bg-gray-200 text-gray-400 text-xs p-2">Logo Placeholder</div> */}
+                     </div>
+                     <h2 className="font-bold text-lg uppercase tracking-wide text-red-600">{appSettings.companyName}</h2>
+                     <p className="whitespace-pre-line text-xs text-black mt-1">{appSettings.companyAddress}</p>
                   </div>
-                  <div className="text-right">
-                    <h2 className="text-4xl font-light text-slate-300 mb-2">QUOTATION</h2>
-                    <div className="space-y-1 text-sm">
-                        <p><span className="font-semibold text-slate-600">{t.quoteId}:</span> {activeProject?.quoteId}</p>
-                        <p><span className="font-semibold text-slate-600">{t.date}:</span> {activeProject?.date}</p>
-                        <p><span className="font-semibold text-slate-600">{t.clientName}:</span> {activeProject?.clientName}</p>
-                        {activeProject?.clientContact && (
-                            <p><span className="font-semibold text-slate-600">{t.clientContact}:</span> {activeProject.clientContact}</p>
-                        )}
-                         {activeProject?.clientAddress && (
-                            <p><span className="font-semibold text-slate-600">{t.clientAddress}:</span> <span className="block max-w-[200px] ml-auto whitespace-pre-wrap">{activeProject.clientAddress}</span></p>
-                        )}
-                        <p><span className="font-semibold text-slate-600">{t.validityPeriod}:</span> {activeProject?.validityPeriod} Days</p>
-                    </div>
+                  
+                  {/* Right: QUOTE Title */}
+                  <div className="w-[40%] text-right flex flex-col justify-end h-full mt-10">
+                     <h1 className="text-2xl font-bold tracking-widest uppercase text-black">QUOTE</h1>
                   </div>
                 </div>
 
-                {/* Content */}
-                <div className="space-y-8">
-                  {Object.entries(groupedItems).map(([category, items]: [string, BQItem[]]) => (
-                    <div key={category} className="break-inside-avoid">
-                      <h3 className="text-lg font-bold text-primary-700 mb-3 border-b border-primary-100 pb-1">{category}</h3>
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="text-slate-500 border-b border-slate-200">
-                            <th className="py-2 text-left font-medium w-1/2">{t.description}</th>
-                            <th className="py-2 text-center font-medium">{t.uom}</th>
-                            <th className="py-2 text-right font-medium">{t.price}</th>
-                            <th className="py-2 text-center font-medium">{t.qty}</th>
-                            <th className="py-2 text-right font-medium">{t.total}</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {items.map((item) => (
-                            <tr key={item.id}>
-                              <td className="py-3 pr-4">
-                                <p className="font-medium text-slate-800">{item.itemName}</p>
-                                <p className="text-slate-500 text-xs">{item.description}</p>
-                              </td>
-                              <td className="py-3 text-center text-slate-600">{item.uom}</td>
-                              <td className="py-3 text-right text-slate-600">{item.price.toFixed(2)}</td>
-                              <td className="py-3 text-center text-slate-600">{item.qty}</td>
-                              <td className="py-3 text-right font-medium text-slate-900">{item.total.toFixed(2)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                {/* 2. Bill To / Reference Section */}
+                <div className="flex justify-between gap-6 mb-6">
+                    {/* Bill To */}
+                    <div className="w-[55%]">
+                        <h3 className="font-bold border-b border-black mb-2 uppercase text-xs text-black">BILL / SHIP TO:</h3>
+                        <table className="w-full text-xs text-black">
+                            <tbody>
+                                <tr>
+                                    <td className="w-20 font-semibold align-top py-0.5">Attn to:</td>
+                                    <td className="align-top py-0.5 uppercase">{activeProject?.clientContact || 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <td className="w-20 font-semibold align-top py-0.5">Client:</td>
+                                    <td className="align-top py-0.5 uppercase">{activeProject?.clientName}</td>
+                                </tr>
+                                <tr>
+                                    <td className="w-20 font-semibold align-top py-0.5">Address:</td>
+                                    <td className="align-top py-0.5 whitespace-pre-wrap">{activeProject?.clientAddress}</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
-                  ))}
+
+                    {/* Quote Reference */}
+                    <div className="w-[40%]">
+                         <h3 className="font-bold border-b border-black mb-2 uppercase text-xs text-black">QUOTE REFERENCE:</h3>
+                         <table className="w-full text-xs text-black">
+                            <tbody>
+                                <tr>
+                                    <td className="w-24 font-semibold align-top py-0.5">Quote #:</td>
+                                    <td className="align-top py-0.5">{activeProject?.quoteId}</td>
+                                </tr>
+                                <tr>
+                                    <td className="w-24 font-semibold align-top py-0.5">Date:</td>
+                                    <td className="align-top py-0.5">{activeProject?.date}</td>
+                                </tr>
+                                <tr>
+                                    <td className="w-24 font-semibold align-top py-0.5">Valid for:</td>
+                                    <td className="align-top py-0.5">{activeProject?.validityPeriod} Days</td>
+                                </tr>
+                                <tr>
+                                    <td className="w-24 font-semibold align-top py-0.5">Issued by:</td>
+                                    <td className="align-top py-0.5">Teoh Chi Yang</td>
+                                </tr>
+                                <tr>
+                                    <td className="w-24 font-semibold align-top py-0.5">Contact:</td>
+                                    <td className="align-top py-0.5">+6012 528 0665</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
-                {/* Footer Totals */}
-                <div className="mt-12 border-t-2 border-slate-100 pt-6 break-inside-avoid">
-                    <div className="flex justify-end">
-                        <div className="w-64 space-y-3">
-                            <div className="flex justify-between text-slate-600">
-                                <span>{t.subtotal}</span>
-                                <span>{appSettings.currencySymbol}{subtotal.toFixed(2)}</span>
+                {/* 3. Items Table */}
+                <table className="w-full border-collapse border border-black text-xs mb-6 text-black">
+                    <thead>
+                        <tr className="bg-gray-100">
+                            <th className="border border-black p-2 w-10 text-center font-bold">NO</th>
+                            <th className="border border-black p-2 text-left font-bold">DESCRIPTION</th>
+                            <th className="border border-black p-2 w-28 text-right font-bold">Unit Price ({appSettings.currencySymbol})</th>
+                            <th className="border border-black p-2 w-12 text-center font-bold">QTY</th>
+                            <th className="border border-black p-2 w-16 text-center font-bold">UOM</th>
+                            <th className="border border-black p-2 w-28 text-right font-bold">Total Price ({appSettings.currencySymbol})</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {Object.entries(groupedItems).map(([category, items], catIndex) => (
+                            <React.Fragment key={category}>
+                                {/* Category Header */}
+                                <tr>
+                                    <td className="border border-black p-1 bg-gray-200"></td>
+                                    <td className="border border-black p-1 font-bold bg-gray-50" colSpan={5}>
+                                        {category}
+                                    </td>
+                                </tr>
+                                {/* Items */}
+                                {items.map((item) => (
+                                    <tr key={item.id}>
+                                        <td className="border border-black p-2 text-center align-top">{rowCounter++}</td>
+                                        <td className="border border-black p-2 align-top">
+                                            <div className="font-bold text-xs mb-1">{item.itemName}</div>
+                                            <div className="text-[10px] text-black whitespace-pre-wrap leading-tight pl-2">
+                                                {item.description}
+                                            </div>
+                                        </td>
+                                        <td className="border border-black p-2 text-right align-top">{fmt(item.price)}</td>
+                                        <td className="border border-black p-2 text-center align-top">{item.qty}</td>
+                                        <td className="border border-black p-2 text-center align-top">{item.uom}</td>
+                                        <td className="border border-black p-2 text-right align-top font-semibold">{fmt(item.total)}</td>
+                                    </tr>
+                                ))}
+                            </React.Fragment>
+                        ))}
+                    </tbody>
+                </table>
+
+                {/* 4. Totals */}
+                <div className="flex justify-end mb-8 break-inside-avoid text-black">
+                    <div className="w-[40%]">
+                        <div className="flex justify-between border-b border-black py-1">
+                            <span className="font-semibold text-xs">Subtotal ({appSettings.currencySymbol}) :</span>
+                            <span className="font-medium">{fmt(subtotal)}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-black py-1 text-red-600">
+                            <span className="font-semibold text-xs">Special Discount ({appSettings.currencySymbol}) :</span>
+                            <span className="font-medium">(0.00)</span>
+                        </div>
+                        <div className="flex justify-between border-b-2 border-black py-1 text-sm font-bold mt-1">
+                            <span>TOTAL ({appSettings.currencySymbol}):</span>
+                            <span>{fmt(grandTotal)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 5. Footer Terms & Signature */}
+                <div className="break-inside-avoid text-black">
+                    {/* Terms */}
+                    <div className="text-xs mb-8">
+                        <h4 className="font-bold underline mb-2">TERMS & CONDITIONS:</h4>
+                        <ul className="list-disc list-outside ml-4 space-y-1 text-black">
+                            <li>Payment : 50% deposit, balance before delivery.</li>
+                            <li>Delivery : 10 - 14 weeks upon order confirmation and deposit paid.</li>
+                        </ul>
+                        <p className="mt-3 italic text-[10px] text-black">
+                            (1) No cancellation, suspension or variation of an accepted customer's order shall be valid unless agreed in writing by our company.
+                        </p>
+                    </div>
+
+                    {/* Closing & Signature */}
+                    <div className="flex justify-between items-end text-xs mt-8">
+                        {/* Banking / Company Info */}
+                        <div className="w-[50%]">
+                            <p className="mb-4 italic">Thank you for your business,</p>
+                            <div className="text-[10px] space-y-1">
+                                <p className="font-bold">{appSettings.companyName}</p>
+                                <p className="text-blue-600 underline">xxx@rexharge.net</p>
+                                <div className="mt-3 border-t border-gray-200 pt-2">
+                                    <p className="italic mb-1">All cheques should be crossed and made to :</p>
+                                    <p className="font-bold">{appSettings.companyName}</p>
+                                    <p>Bank Name: <span className="font-semibold">OCBC Bank</span></p>
+                                    <p>Bank Account: <span className="font-semibold">xxxxxx</span></p>
+                                </div>
                             </div>
-                            <div className="flex justify-between text-slate-600">
-                                <span>{t.tax} ({appSettings.taxRate}%)</span>
-                                <span>{appSettings.currencySymbol}{tax.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between text-xl font-bold text-slate-900 border-t border-slate-200 pt-3">
-                                <span>{t.grandTotal}</span>
-                                <span>{appSettings.currencySymbol}{grandTotal.toFixed(2)}</span>
+                        </div>
+
+                        {/* Signature Block */}
+                        <div className="w-[40%]">
+                            <p className="text-center font-bold italic text-black mb-12 text-[10px]">
+                                Sign and return to confirm your order.
+                            </p>
+                            <div className="border-t border-black pt-1">
+                                <div className="flex justify-between text-[10px] text-black uppercase font-bold mb-6">
+                                    <span>Company Stamp</span>
+                                    <span>Authorized Signature</span>
+                                </div>
+                                <div className="text-left space-y-2 font-semibold text-black">
+                                    <p>Name:</p>
+                                    <p>Mobile:</p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Page Footer */}
-                <div className="absolute bottom-12 left-12 right-12 text-center border-t border-slate-100 pt-4">
-                    <p className="text-xs text-slate-400">{t.generatedBy}</p>
-                </div>
               </div>
           </div>
       )}
