@@ -1,7 +1,8 @@
 
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Trash2, Search, ChevronLeft, ChevronRight, Filter, X } from 'lucide-react';
-import { useAppStore } from '../store';
+import { useAppStore, calculateDerivedFields } from '../store';
 import { AppLanguage, MasterItem } from '../types';
 import { TRANSLATIONS } from '../constants';
 
@@ -54,6 +55,20 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     rexRsp: 0,
     spMargin: 0.7
   });
+
+  // Calculate fields dynamically when modal inputs change
+  useEffect(() => {
+    if (isModalOpen) {
+       const derived = calculateDerivedFields(newItem);
+       if (
+           derived.rexScDdp !== newItem.rexScDdp || 
+           derived.rexSp !== newItem.rexSp || 
+           derived.rexRsp !== newItem.rexRsp
+       ) {
+          setNewItem(prev => ({ ...prev, ...derived }));
+       }
+    }
+  }, [newItem.rexScFob, newItem.forex, newItem.sst, newItem.opta, newItem.spMargin, isModalOpen]);
 
   // --- Derived Data ---
 
@@ -427,16 +442,19 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                         </div>
                      </div>
 
-                     <div className="grid grid-cols-2 gap-4 border-t border-gray-100 dark:border-slate-700 pt-4">
-                        {/* Note: In add mode, we allow manual entry, but the calculation will override if logic exists. 
-                            For simplicity, we let users enter manually here, but calculations happen on save/edit */}
-                        <div>
-                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.rexSp}</label>
-                             <input type="number" value={newItem.rexSp} onChange={(e) => setNewItem({...newItem, rexSp: parseFloat(e.target.value)})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                     <div className="grid grid-cols-3 gap-4 border-t border-gray-100 dark:border-slate-700 pt-4">
+                         {/* Read Only Calculated Fields */}
+                         <div>
+                             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{t.rexScDdp}</label>
+                             <input type="number" value={newItem.rexScDdp} readOnly className="w-full bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-500 dark:text-slate-400 cursor-not-allowed focus:outline-none" />
                         </div>
                         <div>
-                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1 font-bold text-primary-600">{t.rexRsp} (Price)</label>
-                             <input type="number" value={newItem.rexRsp} onChange={(e) => setNewItem({...newItem, rexRsp: parseFloat(e.target.value)})} className="w-full bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white font-bold" />
+                             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{t.rexSp}</label>
+                             <input type="number" value={newItem.rexSp} readOnly className="w-full bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-500 dark:text-slate-400 cursor-not-allowed focus:outline-none" />
+                        </div>
+                        <div>
+                             <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 font-bold">{t.rexRsp}</label>
+                             <input type="number" value={newItem.rexRsp} readOnly className="w-full bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-300 font-bold cursor-not-allowed focus:outline-none" />
                         </div>
                      </div>
                 </div>

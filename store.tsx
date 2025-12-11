@@ -35,13 +35,15 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 // Helper for robust calculation (Ceiling logic from excel)
-const calcCeiling = (val: number, significance: number) => {
+export const calcCeiling = (val: number, significance: number) => {
     if (significance === 0) return val;
-    return Math.ceil(val / significance) * significance;
+    // Fix floating point errors (e.g. 30000 * 1.08 = 32400.000000000004) by rounding slightly before ceiling
+    const sanitizedVal = Number(val.toFixed(6));
+    return Math.ceil(sanitizedVal / significance) * significance;
 };
 
 // Calculate derived fields
-const calculateDerivedFields = (item: Partial<MasterItem>): Partial<MasterItem> => {
+export const calculateDerivedFields = (item: Partial<MasterItem>): Partial<MasterItem> => {
     // Default values if missing
     const fob = item.rexScFob ?? 0;
     const forex = item.forex ?? 1;
@@ -55,6 +57,7 @@ const calculateDerivedFields = (item: Partial<MasterItem>): Partial<MasterItem> 
     const precisionSP = isHighValue ? 1 : 0.1;
 
     // Formula for DDP: CEILING((FOB * Forex * SST) / OPTA, precisionDDP)
+    // Note: The calcCeiling now handles floating point sanitation
     const ddp = opta !== 0 ? calcCeiling((fob * forex * sst) / opta, precisionDDP) : 0;
     
     // Formula for SP: CEILING(DDP / spMargin, precisionSP)
