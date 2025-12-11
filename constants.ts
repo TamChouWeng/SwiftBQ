@@ -1,10 +1,11 @@
 
-
 import { AppLanguage, Translations } from './types';
 
 export const TRANSLATIONS: Record<AppLanguage, Translations> = {
   [AppLanguage.ENGLISH]: {
     main: 'Dashboard',
+    welcomeSubtitle: 'Welcome back to your project management dashboard.',
+    welcomeTitle: 'Welcome to SwitftBQ Beta',
     masterList: 'Master List',
     bqBuilder: 'BQ Builder',
     quotationView: 'Quotation View',
@@ -15,8 +16,6 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     lightMode: 'Light Mode',
     selectLanguage: 'Select Language',
     version: 'Version',
-    welcomeTitle: 'Welcome to SwitftBQ',
-    welcomeSubtitle: 'Explore the future of sliding interfaces.',
     appearance: 'Appearance',
     general: 'General',
     system: 'System',
@@ -67,6 +66,8 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
   },
   [AppLanguage.MALAY]: {
     main: 'Papan Pemuka',
+    welcomeSubtitle: 'Selamat kembali ke papan pemuka pengurusan projek anda.',
+    welcomeTitle: 'Selamat datang ke SwitftBQ Beta',
     masterList: 'Senarai Induk',
     bqBuilder: 'Pembina BQ',
     quotationView: 'Paparan Sebut Harga',
@@ -77,8 +78,6 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     lightMode: 'Mod Cerah',
     selectLanguage: 'Pilih Bahasa',
     version: 'Versi',
-    welcomeTitle: 'Selamat Datang ke SwitftBQ',
-    welcomeSubtitle: 'Terokai masa depan antara muka gelongsor.',
     appearance: 'Penampilan',
     general: 'Umum',
     system: 'Sistem',
@@ -129,6 +128,8 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
   },
   [AppLanguage.CHINESE]: {
     main: '仪表板',
+    welcomeSubtitle: '欢迎回到您的项目管理仪表板。',
+    welcomeTitle: '欢迎使用 SwitftBQ Beta',
     masterList: '主清单',
     bqBuilder: 'BQ 构建器',
     quotationView: '报价视图',
@@ -139,8 +140,6 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     lightMode: '浅色模式',
     selectLanguage: '选择语言',
     version: '版本',
-    welcomeTitle: '欢迎来到 SwitftBQ',
-    welcomeSubtitle: '探索滑动界面的未来。',
     appearance: '外观',
     general: '常规',
     system: '系统',

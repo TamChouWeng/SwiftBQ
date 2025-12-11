@@ -72,6 +72,8 @@ export interface AppSettings {
 
 export interface Translations {
   main: string;
+  welcomeSubtitle: string;
+  welcomeTitle: string;
   masterList: string;
   bqBuilder: string;
   quotationView: string;
@@ -82,8 +84,6 @@ export interface Translations {
   lightMode: string;
   selectLanguage: string;
   version: string;
-  welcomeTitle: string;
-  welcomeSubtitle: string;
   appearance: string;
   general: string;
   system: string;
