@@ -1,7 +1,6 @@
 
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Plus, Trash2, Search, ChevronLeft, ChevronRight, Filter, X } from 'lucide-react';
+import { Plus, Trash2, Search, ChevronLeft, ChevronRight, Filter, X, Eye, LayoutTemplate, Check, EyeOff } from 'lucide-react';
 import { useAppStore, calculateDerivedFields } from '../store';
 import { AppLanguage, MasterItem } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -18,29 +17,63 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
   // --- Local State ---
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedType, setSelectedType] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Dropdown States
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [showColumnDropdown, setShowColumnDropdown] = useState(false);
+
+  // Advanced Filter State (Multi-select)
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+
+  // Column Visibility State
+  const [visibleColumns, setVisibleColumns] = useState({
+      colA: false, 
+      colB: false,
+      colC: false,
+      colD: false,
+      category: true,
+      description: true, // Type
+      itemName: true,
+      uom: true,
+      rexScFob: true,
+      forex: true,
+      sst: true,
+      opta: true,
+      rexScDdp: true,
+      rexSp: true,
+      rexRsp: true,
+      action: true
+  });
+
   // Column Widths State (for Resizing)
   const [colWidths, setColWidths] = useState<{ [key: string]: number }>({
+    colA: 100,
+    colB: 120,
+    colC: 120,
+    colD: 80,
     category: 180,
-    type: 220,
-    item: 280,
+    description: 220, // Type
+    itemName: 280,
     uom: 80,
-    fob: 100,
+    rexScFob: 100,
     forex: 80,
     sst: 60,
     opta: 80,
-    ddp: 100,
-    sp: 100,
-    rsp: 120, // This is technically "Price" in BQ view but shown as RSP here
+    rexScDdp: 100,
+    rexSp: 100,
+    rexRsp: 120,
     action: 60
   });
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newItem, setNewItem] = useState<Partial<MasterItem>>({
+    colA: '',
+    colB: '',
+    colC: '',
+    colD: '',
     category: '',
     description: '', // This maps to "Type" in the UI
     itemName: '',
@@ -73,36 +106,37 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
   // --- Derived Data ---
 
   // 1. Get Unique Categories
-  const categories = useMemo(() => {
-    // Separate "All" from the list to ensure it's always at the top
-    const cats = Array.from(new Set(masterData.map((item) => item.category))).sort();
-    return ['All', ...cats];
+  const uniqueCategories = useMemo(() => {
+    return Array.from(new Set(masterData.map((item) => item.category))).filter(Boolean).sort();
   }, [masterData]);
 
-  // 2. Get Unique Types (Descriptions) based on selected Category
-  const types = useMemo(() => {
+  // 2. Get Unique Types based on selected Categories (Cascade filter logic, usually helps user)
+  // Or show all if user wants to see all types. Since user said "view both", we show relevant types.
+  const uniqueTypes = useMemo(() => {
     let dataToFilter = masterData;
-    if (selectedCategory !== 'All') {
-        dataToFilter = masterData.filter(item => item.category === selectedCategory);
+    if (selectedCategories.length > 0) {
+        dataToFilter = masterData.filter(item => selectedCategories.includes(item.category));
     }
-    const typs = Array.from(new Set(dataToFilter.map((item) => item.description))).sort();
-    return ['All', ...typs];
-  }, [masterData, selectedCategory]);
+    return Array.from(new Set(dataToFilter.map((item) => item.description))).filter(Boolean).sort();
+  }, [masterData, selectedCategories]);
 
-  // 3. Filter Data based on Category, Type and Search
+  // 3. Filter Data
   const filteredData = useMemo(() => {
     return masterData.filter((item) => {
-      const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
-      const matchesType = selectedType === 'All' || item.description === selectedType;
+      const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(item.category);
+      const matchesType = selectedTypes.length === 0 || selectedTypes.includes(item.description);
       const matchesSearch =
         item.itemName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.category.toLowerCase().includes(searchQuery.toLowerCase());
+        item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.colA && item.colA.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.colB && item.colB.toLowerCase().includes(searchQuery.toLowerCase()));
+      
       return matchesCategory && matchesType && matchesSearch;
     });
-  }, [masterData, selectedCategory, selectedType, searchQuery]);
+  }, [masterData, selectedCategories, selectedTypes, searchQuery]);
 
-  // 4. Paginate the Filtered Data
+  // 4. Paginate
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -111,10 +145,9 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
 
   // --- Handlers ---
 
-  // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCategory, selectedType, searchQuery, itemsPerPage]);
+  }, [selectedCategories, selectedTypes, searchQuery, itemsPerPage]);
 
   const handleEdit = (id: string, field: keyof MasterItem, value: string | number) => {
     updateMasterItem(id, { [field]: value });
@@ -126,7 +159,28 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     }
   };
 
-  // --- Column Resizing Logic ---
+  const toggleColumn = (key: keyof typeof visibleColumns) => {
+      setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const toggleCategorySelection = (cat: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+    );
+  };
+
+  const toggleTypeSelection = (typ: string) => {
+    setSelectedTypes(prev => 
+      prev.includes(typ) ? prev.filter(t => t !== typ) : [...prev, typ]
+    );
+  };
+
+  const clearFilters = () => {
+    setSelectedCategories([]);
+    setSelectedTypes([]);
+  };
+
+  // --- Column Resizing ---
   const resizingRef = useRef<{ colKey: string; startX: number; startWidth: number } | null>(null);
 
   const startResize = (e: React.MouseEvent, colKey: string) => {
@@ -145,7 +199,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     if (!resizingRef.current) return;
     const { colKey, startX, startWidth } = resizingRef.current;
     const diff = e.pageX - startX;
-    const newWidth = Math.max(50, startWidth + diff); // Minimum width 50px
+    const newWidth = Math.max(50, startWidth + diff); 
     setColWidths((prev) => ({ ...prev, [colKey]: newWidth }));
   };
 
@@ -159,19 +213,10 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
   // --- Modal Logic ---
   const openModal = () => {
     setNewItem({
-        category: '',
-        description: '',
-        itemName: '',
-        price: 0,
-        uom: 'Unit',
-        rexScFob: 0,
-        forex: 1,
-        sst: 1,
-        opta: 0.97,
-        rexScDdp: 0,
-        rexSp: 0,
-        rexRsp: 0,
-        spMargin: 0.7
+        colA: '', colB: '', colC: '', colD: '',
+        category: '', description: '', itemName: '',
+        price: 0, uom: 'Unit', rexScFob: 0, forex: 1, sst: 1, opta: 0.97,
+        rexScDdp: 0, rexSp: 0, rexRsp: 0, spMargin: 0.7
     });
     setIsModalOpen(true);
   };
@@ -183,10 +228,14 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     }
     const itemToAdd: MasterItem = {
         id: Date.now().toString(),
+        colA: newItem.colA || '',
+        colB: newItem.colB || '',
+        colC: newItem.colC || '',
+        colD: newItem.colD || '',
         category: newItem.category!,
-        description: newItem.description || '', // Type
+        description: newItem.description || '', 
         itemName: newItem.itemName!,
-        price: Number(newItem.rexRsp) || 0, // In this model, price = RSP
+        price: Number(newItem.rexRsp) || 0,
         uom: newItem.uom || 'Unit',
         rexScFob: Number(newItem.rexScFob) || 0,
         forex: Number(newItem.forex) || 1,
@@ -200,10 +249,6 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     addMasterItem(itemToAdd);
     setIsModalOpen(false);
     
-    // Auto-switch filters to view the new item if practical
-    if (selectedCategory !== 'All' && selectedCategory !== itemToAdd.category) {
-        setSelectedCategory('All');
-    }
     // Jump to last page
     setTimeout(() => {
         const newTotalPages = Math.ceil((masterData.length + 1) / itemsPerPage);
@@ -211,11 +256,53 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     }, 100);
   };
 
-  // Data lists for auto-complete (exclude 'All')
-  const uniqueCategories = useMemo(() => Array.from(new Set(masterData.map(i => i.category))), [masterData]);
-  const uniqueTypes = useMemo(() => Array.from(new Set(masterData.map(i => i.description))), [masterData]);
+  // Data lists for auto-complete in modal
+  const allUniqueCategories = useMemo(() => Array.from(new Set(masterData.map(i => i.category))), [masterData]);
+  const allUniqueTypes = useMemo(() => Array.from(new Set(masterData.map(i => i.description))), [masterData]);
 
-  // Dynamic Padding for Title/Toolbar
+  // Table Width Calculation
+  const tableWidth = useMemo(() => {
+      let width = 0;
+      // Loop through all visibility keys that map to columns
+      if (visibleColumns.colA) width += colWidths.colA;
+      if (visibleColumns.colB) width += colWidths.colB;
+      if (visibleColumns.colC) width += colWidths.colC;
+      if (visibleColumns.colD) width += colWidths.colD;
+      if (visibleColumns.category) width += colWidths.category;
+      if (visibleColumns.description) width += colWidths.description;
+      if (visibleColumns.itemName) width += colWidths.itemName;
+      if (visibleColumns.uom) width += colWidths.uom;
+      if (visibleColumns.rexScFob) width += colWidths.rexScFob;
+      if (visibleColumns.forex) width += colWidths.forex;
+      if (visibleColumns.sst) width += colWidths.sst;
+      if (visibleColumns.opta) width += colWidths.opta;
+      if (visibleColumns.rexScDdp) width += colWidths.rexScDdp;
+      if (visibleColumns.rexSp) width += colWidths.rexSp;
+      if (visibleColumns.rexRsp) width += colWidths.rexRsp;
+      if (visibleColumns.action) width += colWidths.action;
+      return width;
+  }, [visibleColumns, colWidths]);
+
+  // Column Ordering Config (Unified List)
+  const columnOrder: { key: keyof typeof visibleColumns; label: string }[] = [
+      { key: 'colA', label: t.colA },
+      { key: 'colB', label: t.colB },
+      { key: 'colC', label: t.colC },
+      { key: 'colD', label: t.colD },
+      { key: 'category', label: t.category },
+      { key: 'description', label: t.typeColumn },
+      { key: 'itemName', label: t.item },
+      { key: 'uom', label: t.uom },
+      { key: 'rexScFob', label: t.rexScFob },
+      { key: 'forex', label: t.forex },
+      { key: 'sst', label: t.sst },
+      { key: 'opta', label: t.opta },
+      { key: 'rexScDdp', label: t.rexScDdp },
+      { key: 'rexSp', label: t.rexSp },
+      { key: 'rexRsp', label: t.rexRsp },
+      { key: 'action', label: t.actions },
+  ];
+
   const headerPadding = !isSidebarOpen ? 'pl-4 md:pl-24 pr-4' : 'px-4';
 
   return (
@@ -231,7 +318,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
 
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
           {/* Search */}
-          <div className="relative flex-1 min-w-[200px] xl:w-64">
+          <div className="relative flex-1 min-w-[200px] xl:w-56">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               type="text"
@@ -242,46 +329,108 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
             />
           </div>
 
-          {/* Category Filter */}
-          <div className="relative flex-1 min-w-[150px] xl:w-48">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                <Filter size={16} />
-            </div>
-            <select
-              value={selectedCategory}
-              onChange={(e) => { setSelectedCategory(e.target.value); setSelectedType('All'); }}
-              className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white appearance-none cursor-pointer truncate"
-            >
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
+          {/* Advanced Filter Button (Square) */}
+          <div className="relative">
+             <button
+                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-colors ${
+                    (selectedCategories.length > 0 || selectedTypes.length > 0)
+                    ? 'bg-primary-50 border-primary-500 text-primary-600 dark:bg-primary-900/20 dark:border-primary-400 dark:text-primary-400'
+                    : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                }`}
+                title="Filter Category & Type"
+             >
+                <Filter size={20} />
+             </button>
+
+             {/* Filter Popover - Side by Side View, Auto Width */}
+             {showFilterDropdown && (
+                 <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowFilterDropdown(false)} />
+                    <div className="absolute right-0 top-full mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 z-20 flex flex-col max-h-[500px] max-w-[90vw] w-auto">
+                        <div className="flex items-center justify-between p-3 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/50 shrink-0">
+                            <span className="font-semibold text-sm text-slate-900 dark:text-white whitespace-nowrap">Filter Data</span>
+                            {(selectedCategories.length > 0 || selectedTypes.length > 0) && (
+                                <button onClick={clearFilters} className="text-xs text-red-500 hover:text-red-600 font-medium ml-4 whitespace-nowrap">
+                                    Clear All
+                                </button>
+                            )}
+                        </div>
+                        
+                        <div className="flex flex-row overflow-hidden min-h-0">
+                             {/* Categories Column */}
+                             <div className="flex flex-col border-r border-gray-100 dark:border-slate-700 min-w-[200px] w-auto">
+                                 <div className="p-2 bg-gray-50/50 dark:bg-slate-800/50 font-medium text-xs text-slate-500 uppercase tracking-wider sticky top-0 whitespace-nowrap">Category</div>
+                                 <div className="overflow-y-auto p-2 space-y-1">
+                                     {uniqueCategories.map(cat => (
+                                         <label key={cat} className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded cursor-pointer group whitespace-nowrap">
+                                             <div className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${selectedCategories.includes(cat) ? 'bg-primary-500 border-primary-500 text-white' : 'border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 group-hover:border-primary-400'}`}>
+                                                 {selectedCategories.includes(cat) && <Check size={10} strokeWidth={3} />}
+                                             </div>
+                                             <span className={`text-sm ${selectedCategories.includes(cat) ? 'text-primary-600 dark:text-primary-400 font-medium' : 'text-slate-700 dark:text-slate-300'}`}>{cat}</span>
+                                             <input type="checkbox" className="hidden" checked={selectedCategories.includes(cat)} onChange={() => toggleCategorySelection(cat)} />
+                                         </label>
+                                     ))}
+                                 </div>
+                             </div>
+
+                             {/* Types Column */}
+                             <div className="flex flex-col min-w-[200px] w-auto">
+                                 <div className="p-2 bg-gray-50/50 dark:bg-slate-800/50 font-medium text-xs text-slate-500 uppercase tracking-wider sticky top-0 whitespace-nowrap">Type</div>
+                                 <div className="overflow-y-auto p-2 space-y-1">
+                                     {uniqueTypes.length > 0 ? uniqueTypes.map(typ => (
+                                         <label key={typ} className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded cursor-pointer group whitespace-nowrap">
+                                             <div className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${selectedTypes.includes(typ) ? 'bg-primary-500 border-primary-500 text-white' : 'border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 group-hover:border-primary-400'}`}>
+                                                 {selectedTypes.includes(typ) && <Check size={10} strokeWidth={3} />}
+                                             </div>
+                                             <span className={`text-sm ${selectedTypes.includes(typ) ? 'text-primary-600 dark:text-primary-400 font-medium' : 'text-slate-700 dark:text-slate-300'}`}>{typ}</span>
+                                             <input type="checkbox" className="hidden" checked={selectedTypes.includes(typ)} onChange={() => toggleTypeSelection(typ)} />
+                                         </label>
+                                     )) : (
+                                         <div className="p-4 text-center text-xs text-slate-400 italic whitespace-nowrap">No types available</div>
+                                     )}
+                                 </div>
+                             </div>
+                        </div>
+                    </div>
+                 </>
+             )}
           </div>
           
-          {/* Type Filter */}
-          <div className="relative flex-1 min-w-[150px] xl:w-48">
-             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                <Filter size={16} />
-            </div>
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white appearance-none cursor-pointer truncate"
-            >
-              {types.map((typ) => (
-                <option key={typ} value={typ}>
-                  {typ || '(No Type)'}
-                </option>
-              ))}
-            </select>
+          {/* Column Toggle Button (Square) */}
+          <div className="relative">
+               <button
+                  onClick={() => setShowColumnDropdown(!showColumnDropdown)}
+                  className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
+                  title={t.columns}
+               >
+                  <LayoutTemplate size={20} />
+               </button>
+               
+               {/* Dropdown Content - Single list, current sequence */}
+               {showColumnDropdown && (
+                   <>
+                       <div className="fixed inset-0 z-10" onClick={() => setShowColumnDropdown(false)} />
+                       <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 z-20 p-2 grid grid-cols-1 gap-1 max-h-[400px] overflow-y-auto">
+                           {columnOrder.map((col) => (
+                               <button 
+                                  key={col.key}
+                                  onClick={() => toggleColumn(col.key)} 
+                                  className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${visibleColumns[col.key] ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400' : 'text-slate-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
+                               >
+                                    <span className="truncate mr-2 font-medium">{col.label}</span>
+                                    {visibleColumns[col.key] ? <Eye size={16} /> : <EyeOff size={16} className="opacity-50" />}
+                               </button>
+                           ))}
+                       </div>
+                   </>
+               )}
           </div>
 
           {/* Add Button */}
           <button
             onClick={openModal}
-            className="flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition-colors shadow-lg shadow-primary-500/30 whitespace-nowrap"
+            className="flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition-colors shadow-lg shadow-primary-500/30 whitespace-nowrap h-10"
           >
             <Plus size={18} />
             <span>{t.addRow}</span>
@@ -289,63 +438,70 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
         </div>
       </div>
 
-      {/* Table Container - Expanded width (reduced margins) */}
+      {/* Table Container */}
       <div className="flex-1 bg-white dark:bg-slate-800 rounded-none md:rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden flex flex-col relative mx-0 md:mx-4">
         <div className="overflow-auto flex-1">
-          <table className="text-left border-collapse table-fixed" style={{ width: Object.values(colWidths).reduce((a: number, b: number) => a + b, 0) + 'px', minWidth: '100%' }}>
+          <table className="text-left border-collapse table-fixed" style={{ width: tableWidth + 'px', minWidth: '100%' }}>
             <thead className="sticky top-0 bg-gray-50 dark:bg-slate-700/90 backdrop-blur-sm z-10">
               <tr className="text-slate-600 dark:text-slate-300 text-sm border-b border-gray-100 dark:border-slate-700">
-                <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.category }}>{t.category}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'category')} /></th>
-                <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.type }}>{t.typeColumn}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'type')} /></th>
-                <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.item }}>{t.item}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'item')} /></th>
-                <th className="relative p-4 font-semibold text-center select-none" style={{ width: colWidths.uom }}>{t.uom}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'uom')} /></th>
-                
-                {/* New Columns N-T */}
-                <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.fob }}>{t.rexScFob}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'fob')} /></th>
-                <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.forex }}>{t.forex}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'forex')} /></th>
-                <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.sst }}>{t.sst}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'sst')} /></th>
-                <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.opta }}>{t.opta}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'opta')} /></th>
-                <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.ddp }}>{t.rexScDdp}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'ddp')} /></th>
-                <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.sp }}>{t.rexSp}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'sp')} /></th>
-                <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.rsp }}>{t.rexRsp}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'rsp')} /></th>
+                {visibleColumns.colA && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.colA }}>{t.colA}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'colA')} /></th>}
+                {visibleColumns.colB && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.colB }}>{t.colB}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'colB')} /></th>}
+                {visibleColumns.colC && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.colC }}>{t.colC}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'colC')} /></th>}
+                {visibleColumns.colD && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.colD }}>{t.colD}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'colD')} /></th>}
 
-                <th className="relative p-4 font-semibold text-center select-none" style={{ width: colWidths.action }}>{t.actions}</th>
+                {visibleColumns.category && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.category }}>{t.category}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'category')} /></th>}
+                {visibleColumns.description && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.description }}>{t.typeColumn}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'description')} /></th>}
+                {visibleColumns.itemName && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.itemName }}>{t.item}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'itemName')} /></th>}
+                {visibleColumns.uom && <th className="relative p-4 font-semibold text-center select-none" style={{ width: colWidths.uom }}>{t.uom}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'uom')} /></th>}
+                
+                {visibleColumns.rexScFob && <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.rexScFob }}>{t.rexScFob}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'rexScFob')} /></th>}
+                {visibleColumns.forex && <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.forex }}>{t.forex}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'forex')} /></th>}
+                {visibleColumns.sst && <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.sst }}>{t.sst}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'sst')} /></th>}
+                {visibleColumns.opta && <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.opta }}>{t.opta}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'opta')} /></th>}
+                {visibleColumns.rexScDdp && <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.rexScDdp }}>{t.rexScDdp}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'rexScDdp')} /></th>}
+                {visibleColumns.rexSp && <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.rexSp }}>{t.rexSp}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'rexSp')} /></th>}
+                {visibleColumns.rexRsp && <th className="relative p-4 font-semibold text-right select-none" style={{ width: colWidths.rexRsp }}>{t.rexRsp}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'rexRsp')} /></th>}
+
+                {visibleColumns.action && <th className="relative p-4 font-semibold text-center select-none" style={{ width: colWidths.action }}>{t.actions}</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
               {paginatedData.length > 0 ? (
                 paginatedData.map((item) => (
                   <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
-                    <td className="p-2"><input type="text" value={item.category} onChange={(e) => handleEdit(item.id, 'category', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>
-                    <td className="p-2"><input type="text" value={item.description} onChange={(e) => handleEdit(item.id, 'description', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>
-                    <td className="p-2"><input type="text" value={item.itemName} onChange={(e) => handleEdit(item.id, 'itemName', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>
-                    <td className="p-2"><input type="text" value={item.uom} onChange={(e) => handleEdit(item.id, 'uom', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-center text-slate-800 dark:text-slate-200 text-sm" /></td>
-                    
-                    {/* New Columns */}
-                    <td className="p-2"><input type="number" value={item.rexScFob} onChange={(e) => handleEdit(item.id, 'rexScFob', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>
-                    <td className="p-2"><input type="number" value={item.forex} onChange={(e) => handleEdit(item.id, 'forex', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>
-                    <td className="p-2"><input type="number" value={item.sst} onChange={(e) => handleEdit(item.id, 'sst', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>
-                    <td className="p-2"><input type="number" value={item.opta} onChange={(e) => handleEdit(item.id, 'opta', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>
-                    
-                    {/* Read-Only Calculated Fields */}
-                    <td className="p-2">
-                        <input type="number" value={item.rexScDdp} readOnly className="w-full bg-transparent p-2 rounded border-none text-right text-slate-500 dark:text-slate-400 text-sm font-medium cursor-not-allowed" />
-                    </td>
-                    <td className="p-2">
-                        <input type="number" value={item.rexSp} readOnly className="w-full bg-transparent p-2 rounded border-none text-right text-slate-500 dark:text-slate-400 text-sm font-medium cursor-not-allowed" />
-                    </td>
-                    <td className="p-2">
-                        <input type="number" value={item.rexRsp} readOnly className="w-full bg-transparent p-2 rounded border-none text-right text-slate-800 dark:text-white text-sm font-medium cursor-not-allowed" />
-                    </td>
+                    {visibleColumns.colA && <td className="p-2"><input type="text" value={item.colA} onChange={(e) => handleEdit(item.id, 'colA', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                    {visibleColumns.colB && <td className="p-2"><input type="text" value={item.colB} onChange={(e) => handleEdit(item.id, 'colB', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                    {visibleColumns.colC && <td className="p-2"><input type="text" value={item.colC} onChange={(e) => handleEdit(item.id, 'colC', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                    {visibleColumns.colD && <td className="p-2"><input type="text" value={item.colD} onChange={(e) => handleEdit(item.id, 'colD', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
 
-                    <td className="p-2 text-center">
+                    {visibleColumns.category && <td className="p-2"><input type="text" value={item.category} onChange={(e) => handleEdit(item.id, 'category', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                    {visibleColumns.description && <td className="p-2"><input type="text" value={item.description} onChange={(e) => handleEdit(item.id, 'description', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                    {visibleColumns.itemName && <td className="p-2"><input type="text" value={item.itemName} onChange={(e) => handleEdit(item.id, 'itemName', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                    {visibleColumns.uom && <td className="p-2"><input type="text" value={item.uom} onChange={(e) => handleEdit(item.id, 'uom', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-center text-slate-800 dark:text-slate-200 text-sm" /></td>}
+                    
+                    {visibleColumns.rexScFob && <td className="p-2"><input type="number" value={item.rexScFob} onChange={(e) => handleEdit(item.id, 'rexScFob', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
+                    {visibleColumns.forex && <td className="p-2"><input type="number" value={item.forex} onChange={(e) => handleEdit(item.id, 'forex', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
+                    {visibleColumns.sst && <td className="p-2"><input type="number" value={item.sst} onChange={(e) => handleEdit(item.id, 'sst', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
+                    {visibleColumns.opta && <td className="p-2"><input type="number" value={item.opta} onChange={(e) => handleEdit(item.id, 'opta', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
+                    
+                    {visibleColumns.rexScDdp && <td className="p-2">
+                        <input type="number" value={item.rexScDdp} readOnly className="w-full bg-transparent p-2 rounded border-none text-right text-slate-500 dark:text-slate-400 text-sm font-medium cursor-not-allowed" />
+                    </td>}
+                    {visibleColumns.rexSp && <td className="p-2">
+                        <input type="number" value={item.rexSp} readOnly className="w-full bg-transparent p-2 rounded border-none text-right text-slate-500 dark:text-slate-400 text-sm font-medium cursor-not-allowed" />
+                    </td>}
+                    {visibleColumns.rexRsp && <td className="p-2">
+                        <input type="number" value={item.rexRsp} readOnly className="w-full bg-transparent p-2 rounded border-none text-right text-slate-800 dark:text-white text-sm font-medium cursor-not-allowed" />
+                    </td>}
+
+                    {visibleColumns.action && <td className="p-2 text-center">
                       <button onClick={() => deleteMasterItem(item.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={16} /></button>
-                    </td>
+                    </td>}
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={12} className="p-12 text-center text-slate-400 dark:text-slate-500">
+                  <td colSpan={20} className="p-12 text-center text-slate-400 dark:text-slate-500">
                     No items found matching your criteria.
                   </td>
                 </tr>
@@ -394,18 +550,46 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                 </div>
                 
                 <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                     
+                     <div className="grid grid-cols-2 gap-4">
+                        {/* Col A */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.colA}</label>
+                            <input type="text" value={newItem.colA} onChange={(e) => setNewItem({...newItem, colA: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                        </div>
+                         {/* Col B */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.colB}</label>
+                            <input type="text" value={newItem.colB} onChange={(e) => setNewItem({...newItem, colB: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                        </div>
+                     </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        {/* Col C */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.colC}</label>
+                            <input type="text" value={newItem.colC} onChange={(e) => setNewItem({...newItem, colC: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                        </div>
+                         {/* Col D */}
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.colD}</label>
+                            <input type="text" value={newItem.colD} onChange={(e) => setNewItem({...newItem, colD: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                        </div>
+                     </div>
+
+                     <div className="border-t border-gray-100 dark:border-slate-700 pt-2"></div>
+
                      {/* Category */}
                      <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.category}</label>
                         <input list="category-options" value={newItem.category} onChange={(e) => setNewItem({...newItem, category: e.target.value})} placeholder="Select or type new category" className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
-                        <datalist id="category-options">{uniqueCategories.map(c => <option key={c} value={c} />)}</datalist>
+                        <datalist id="category-options">{allUniqueCategories.map(c => <option key={c} value={c} />)}</datalist>
                      </div>
 
                      {/* Type */}
                      <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.typeColumn}</label>
                         <input list="type-options" value={newItem.description} onChange={(e) => setNewItem({...newItem, description: e.target.value})} placeholder="Select or type new type" className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
-                        <datalist id="type-options">{uniqueTypes.map(t => <option key={t} value={t} />)}</datalist>
+                        <datalist id="type-options">{allUniqueTypes.map(t => <option key={t} value={t} />)}</datalist>
                      </div>
 
                      {/* Item Name */}

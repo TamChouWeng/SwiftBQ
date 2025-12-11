@@ -20,12 +20,18 @@ export enum ActiveTab {
 
 export interface MasterItem {
   id: string;
+  // New Columns A-D
+  colA: string; // Header: Qty (Often used for Brand in CSV)
+  colB: string; // Header: AX SKU
+  colC: string; // Header: MPN
+  colD: string; // Header: GROUP
+  
   category: string;
   itemName: string;
   description: string; // Type
   price: number; // Default Selling Price (RSP)
   uom: string;
-  // New columns N-T
+  // Columns N-T
   rexScFob: number;
   forex: number;
   sst: number;
@@ -120,6 +126,10 @@ export interface Translations {
   noData: string;
   generatedBy: string;
   // New Column Headers
+  colA: string;
+  colB: string;
+  colC: string;
+  colD: string;
   rexScFob: string;
   forex: string;
   sst: string;
@@ -154,6 +164,8 @@ export interface Translations {
   confirm: string;
   roleAdmin: string;
   roleUser: string;
+  // Column Visibility
+  columns: string;
 }
 
 export const LANGUAGES = [
