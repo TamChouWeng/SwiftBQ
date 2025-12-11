@@ -40,6 +40,8 @@ export interface Project {
   id: string;
   projectName: string;
   clientName: string;
+  clientContact: string;
+  clientAddress: string;
   date: string;
   validityPeriod: string;
   quoteId: string; // Keeping for reference
@@ -133,6 +135,12 @@ export interface Translations {
   rexGpPercent: string;
   createProject: string;
   searchProjects: string;
+  // New Project Fields
+  clientContact: string;
+  clientAddress: string;
+  editDetails: string;
+  updateProject: string;
+  projectDetails: string;
 }
 
 export const LANGUAGES = [

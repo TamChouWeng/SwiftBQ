@@ -216,6 +216,12 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         <p><span className="font-semibold text-slate-600">{t.quoteId}:</span> {activeProject?.quoteId}</p>
                         <p><span className="font-semibold text-slate-600">{t.date}:</span> {activeProject?.date}</p>
                         <p><span className="font-semibold text-slate-600">{t.clientName}:</span> {activeProject?.clientName}</p>
+                        {activeProject?.clientContact && (
+                            <p><span className="font-semibold text-slate-600">{t.clientContact}:</span> {activeProject.clientContact}</p>
+                        )}
+                         {activeProject?.clientAddress && (
+                            <p><span className="font-semibold text-slate-600">{t.clientAddress}:</span> <span className="block max-w-[200px] ml-auto whitespace-pre-wrap">{activeProject.clientAddress}</span></p>
+                        )}
                         <p><span className="font-semibold text-slate-600">{t.validityPeriod}:</span> {activeProject?.validityPeriod} Days</p>
                     </div>
                   </div>
