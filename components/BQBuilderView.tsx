@@ -261,10 +261,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 </div>
                 <button 
                     onClick={openCreateModal}
-                    className="flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-primary-500/30 transition-colors"
+                    className="w-10 h-10 flex items-center justify-center bg-primary-500 hover:bg-primary-600 text-white rounded-lg shadow-lg shadow-primary-500/30 transition-colors"
+                    title={t.addProject}
                 >
                     <FolderPlus size={20} />
-                    {t.addProject}
                 </button>
             </div>
 

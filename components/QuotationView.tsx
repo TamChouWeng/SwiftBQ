@@ -219,15 +219,13 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                   </div>
                 </div>
 
-                {/* Main Separator Line */}
-                <div className="w-full border-t-2 border-black mb-6"></div>
-
                 {/* 2. Bill To / Reference Section */}
                 <div className="flex justify-between gap-8 mb-6">
                     {/* Bill To */}
                     <div className="w-[55%]">
-                        <h3 className="font-bold text-xs uppercase mb-1">BILL / SHIP TO:</h3>
-                        <div className="w-full border-t border-black mb-3"></div>
+                        <div className="mb-3">
+                            <span className="font-bold text-xs uppercase border-b border-black pb-0.5">BILL / SHIP TO:</span>
+                        </div>
                         <table className="w-full text-xs text-black border-collapse">
                             <tbody>
                                 <tr>
@@ -248,8 +246,9 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
                     {/* Quote Reference */}
                     <div className="w-[40%]">
-                         <h3 className="font-bold text-xs uppercase mb-1">QUOTE REFERENCE:</h3>
-                         <div className="w-full border-t border-black mb-3"></div>
+                         <div className="mb-3">
+                            <span className="font-bold text-xs uppercase border-b border-black pb-0.5">QUOTE REFERENCE:</span>
+                         </div>
                          <table className="w-full text-xs text-black border-collapse">
                             <tbody>
                                 <tr>
