@@ -385,6 +385,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       rexScDdp: 0,
       rexSp: 0,
       rexRsp: 0,
+      isOptional: false,
     };
     setBqItems([...bqItems, newItem]);
   };
@@ -411,7 +412,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // --- Calculations ---
   const getProjectTotal = (projectId: string) => {
-    const projectItems = bqItems.filter(i => i.projectId === projectId);
+    const projectItems = bqItems.filter(i => i.projectId === projectId && !i.isOptional);
     const subtotal = projectItems.reduce((acc, item) => acc + item.total, 0);
     const tax = 0; // Tax rate removed
     const grandTotal = subtotal + tax;

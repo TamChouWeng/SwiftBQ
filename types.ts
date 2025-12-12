@@ -69,6 +69,9 @@ export interface BQItem {
   rexScDdp: number;
   rexSp: number;
   rexRsp: number;
+  
+  // New field
+  isOptional?: boolean;
 }
 
 export interface AppSettings {
@@ -162,6 +165,7 @@ export interface Translations {
   roleUser: string;
   // Column Visibility
   columns: string;
+  isOptional: string;
 }
 
 export const LANGUAGES = [

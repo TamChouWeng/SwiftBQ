@@ -1,4 +1,5 @@
 
+
 import React, { useMemo, useState } from 'react';
 import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, User } from 'lucide-react';
 import { useAppStore } from '../store';
@@ -28,8 +29,12 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
   const { subtotal, tax, grandTotal } = currentProjectId ? getProjectTotal(currentProjectId) : { subtotal: 0, tax: 0, grandTotal: 0 };
 
-  // Group items by category
-  const groupedItems = activeItems.reduce<Record<string, BQItem[]>>((acc, item) => {
+  // Separate Standard and Optional Items
+  const standardItems = useMemo(() => activeItems.filter(item => !item.isOptional), [activeItems]);
+  const optionalItems = useMemo(() => activeItems.filter(item => item.isOptional), [activeItems]);
+
+  // Group items by category (Standard)
+  const groupedItems = standardItems.reduce<Record<string, BQItem[]>>((acc, item) => {
     const cat = item.category || 'Uncategorized';
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(item);
@@ -224,7 +229,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     {/* Bill To */}
                     <div className="w-[55%]">
                         <div className="mb-3">
-                            <span className="font-bold text-xs uppercase border-b border-black pb-0.5">BILL / SHIP TO:</span>
+                            <span className="font-bold text-xs uppercase border-b border-black pb-0.5" style={{ width: 'fit-content', borderBottomStyle: 'solid', display: 'inline-block' }}>BILL / SHIP TO:</span>
                         </div>
                         <table className="w-full text-xs text-black border-collapse">
                             <tbody>
@@ -247,7 +252,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     {/* Quote Reference */}
                     <div className="w-[40%]">
                          <div className="mb-3">
-                            <span className="font-bold text-xs uppercase border-b border-black pb-0.5">QUOTE REFERENCE:</span>
+                            <span className="font-bold text-xs uppercase border-b border-black pb-0.5" style={{ width: 'fit-content', borderBottomStyle: 'solid', display: 'inline-block' }}>QUOTE REFERENCE:</span>
                          </div>
                          <table className="w-full text-xs text-black border-collapse">
                             <tbody>
@@ -290,6 +295,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             </tr>
                         </thead>
                         <tbody>
+                            {/* Standard Items */}
                             {Object.entries(groupedItems).map(([category, items]) => (
                                 <React.Fragment key={category}>
                                     {/* Category Header */}
@@ -300,7 +306,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                         </td>
                                     </tr>
                                     {/* Items */}
-                                    {items.map((item) => (
+                                    {(items as BQItem[]).map((item) => (
                                         <tr key={item.id}>
                                             <td className="border border-black p-2 text-center align-top">{rowCounter++}</td>
                                             <td className="border border-black p-2 align-top">
@@ -317,12 +323,14 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                     ))}
                                 </React.Fragment>
                             ))}
+                            
+                            {/* Empty Standard Items Filler if needed, but not required by prompt */}
                         </tbody>
                     </table>
                 </div>
 
-                {/* 4. Totals */}
-                <div className="flex justify-end mb-8 break-inside-avoid text-black">
+                {/* 4. Totals (Standard) */}
+                <div className="flex justify-end mb-6 break-inside-avoid text-black">
                     <div className="w-[40%]">
                         <div className="flex justify-between border-b border-black py-1">
                             <span className="font-semibold text-xs">Subtotal ({appSettings.currencySymbol}) :</span>
@@ -339,7 +347,35 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </div>
                 </div>
 
-                {/* 5. Footer Terms & Signature */}
+                {/* 5. Optional Items Section (if any) */}
+                {optionalItems.length > 0 && (
+                    <div className="mb-6 break-inside-avoid">
+                         <div className="border border-black border-b-0 bg-gray-100 p-1 text-center font-bold text-xs uppercase">
+                             OPTIONAL
+                         </div>
+                         <table className="w-full border-collapse border border-black text-xs text-black">
+                             <tbody>
+                                 {optionalItems.map((item) => (
+                                     <tr key={item.id}>
+                                         <td className="border border-black p-2 w-10 text-center align-top">{rowCounter++}</td>
+                                         <td className="border border-black p-2 align-top">
+                                             <div className="font-bold text-xs mb-1">{item.itemName}</div>
+                                             <div className="text-[10px] text-black whitespace-pre-wrap leading-tight pl-2">
+                                                 {item.description}
+                                             </div>
+                                         </td>
+                                         <td className="border border-black p-2 w-28 text-right align-top">{fmt(item.price)}</td>
+                                         <td className="border border-black p-2 w-12 text-center align-top">{item.qty}</td>
+                                         <td className="border border-black p-2 w-16 text-center align-top">{item.uom}</td>
+                                         <td className="border border-black p-2 w-28 text-right align-top font-semibold">{fmt(item.total)}</td>
+                                     </tr>
+                                 ))}
+                             </tbody>
+                         </table>
+                    </div>
+                )}
+
+                {/* 6. Footer Terms & Signature */}
                 <div className="mt-auto break-inside-avoid text-black">
                     {/* Terms */}
                     <div className="text-xs mb-8">

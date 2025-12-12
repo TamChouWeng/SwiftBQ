@@ -79,6 +79,7 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     roleAdmin: 'Admin',
     roleUser: 'User',
     columns: 'Columns',
+    isOptional: 'Optional',
   },
   [AppLanguage.MALAY]: {
     main: 'Papan Pemuka',
@@ -156,6 +157,7 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     roleAdmin: 'Pentadbir',
     roleUser: 'Pengguna',
     columns: 'Lajur',
+    isOptional: 'Pilihan',
   },
   [AppLanguage.CHINESE]: {
     main: '仪表板',
@@ -233,5 +235,6 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     roleAdmin: '管理员',
     roleUser: '用户',
     columns: '列',
+    isOptional: '可选',
   },
 };

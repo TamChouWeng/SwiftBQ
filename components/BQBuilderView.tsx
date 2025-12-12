@@ -1,6 +1,7 @@
 
+
 import React, { useMemo, useState, useRef } from 'react';
-import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Phone, Edit2, X, ArrowUpDown } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Phone, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff } from 'lucide-react';
 import { useAppStore } from '../store';
 import { AppLanguage, Project, BQItem } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -43,6 +44,24 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     validityPeriod: '30',
   });
 
+  // Column Visibility State
+  const [showColumnDropdown, setShowColumnDropdown] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState({
+      category: true,
+      item: true,
+      description: true,
+      uom: true,
+      price: true,
+      qty: true,
+      rexTsc: true,
+      rexTsp: true,
+      rexTrsp: true,
+      rexGp: true,
+      rexGpPercent: true,
+      isOptional: true,
+      action: true
+  });
+
   // --- Column Resizing State ---
   const [colWidths, setColWidths] = useState<{ [key: string]: number }>({
     category: 160,
@@ -56,6 +75,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     rexTrsp: 120,
     rexGp: 120,
     rexGpPercent: 80,
+    isOptional: 60,
     action: 60
   });
 
@@ -216,6 +236,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     }
   };
 
+  const toggleColumn = (key: keyof typeof visibleColumns) => {
+      setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   // Helper to safely format numbers
   const fmt = (n: number) => n?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00';
   const fmtPct = (n: number) => (n * 100)?.toFixed(1) + '%';
@@ -227,7 +251,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
      let tRexTrsp = 0;
      let tRexGp = 0;
      
-     activeItems.forEach(item => {
+     activeItems.filter(i => !i.isOptional).forEach(item => {
         const qty = item.qty || 0;
         const tsc = qty * (item.rexScDdp || 0);
         const trsp = qty * (item.price || 0); // Price is RSP
@@ -246,7 +270,30 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
   const contentPadding = !isSidebarOpen ? 'pl-4 md:pl-24 pr-4' : 'px-4';
 
-  const totalTableWidth = Object.values(colWidths).reduce((a, b) => a + b, 0);
+  // Calculate dynamic table width based on visible columns
+  const totalTableWidth = Object.keys(colWidths).reduce((acc, key) => {
+      if (visibleColumns[key as keyof typeof visibleColumns]) {
+          return acc + colWidths[key];
+      }
+      return acc;
+  }, 0);
+
+  // Column Ordering Config
+  const columnOrder: { key: keyof typeof visibleColumns; label: string }[] = [
+      { key: 'category', label: t.category },
+      { key: 'item', label: t.item },
+      { key: 'description', label: t.description },
+      { key: 'uom', label: t.uom },
+      { key: 'price', label: t.price },
+      { key: 'qty', label: t.qty },
+      { key: 'rexTsc', label: t.rexTsc },
+      { key: 'rexTsp', label: t.rexTsp },
+      { key: 'rexTrsp', label: t.rexTrsp },
+      { key: 'rexGp', label: t.rexGp },
+      { key: 'rexGpPercent', label: t.rexGpPercent },
+      { key: 'isOptional', label: t.isOptional },
+      { key: 'action', label: t.actions },
+  ];
 
   // --- Views ---
 
@@ -264,7 +311,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     className="w-10 h-10 flex items-center justify-center bg-primary-500 hover:bg-primary-600 text-white rounded-lg shadow-lg shadow-primary-500/30 transition-colors"
                     title={t.addProject}
                 >
-                    <FolderPlus size={20} />
+                    <Plus size={20} />
                 </button>
             </div>
 
@@ -441,32 +488,64 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
              </div>
         </div>
         
-        {/* Project Meta Card (Read-Only with Edit Button) */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 w-full xl:w-96 flex flex-col gap-3 relative group">
-             <div className="flex justify-between items-start">
-                <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                    <User size={16} className="text-primary-500"/>
-                    Client Details
-                </h3>
-                <button 
-                    onClick={openEditModal}
-                    className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 text-xs font-medium flex items-center gap-1 px-2 py-1 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+        <div className="flex gap-4 items-start w-full xl:w-auto">
+             {/* Project Meta Card (Read-Only with Edit Button) */}
+            <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 flex-1 xl:w-96 flex flex-col gap-3 relative group">
+                <div className="flex justify-between items-start">
+                    <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                        <User size={16} className="text-primary-500"/>
+                        Client Details
+                    </h3>
+                    <button 
+                        onClick={openEditModal}
+                        className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 text-xs font-medium flex items-center gap-1 px-2 py-1 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+                    >
+                        <Edit2 size={12} />
+                        {t.editDetails}
+                    </button>
+                </div>
+                
+                <div className="text-sm">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <p className="text-slate-900 dark:text-white font-medium text-lg">{activeProject?.clientName || 'N/A'}</p>
+                        {activeProject?.clientContact && (
+                            <p className="text-slate-500 dark:text-slate-400 flex items-center gap-1 text-sm">
+                                <Phone size={14} className="text-slate-400" /> {activeProject.clientContact}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Column Toggle Button (Square) */}
+            <div className="relative">
+                <button
+                    onClick={() => setShowColumnDropdown(!showColumnDropdown)}
+                    className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-colors mt-1"
+                    title={t.columns}
                 >
-                    <Edit2 size={12} />
-                    {t.editDetails}
+                    <LayoutTemplate size={20} />
                 </button>
-             </div>
-             
-             <div className="text-sm">
-                 <div className="flex flex-wrap items-center gap-3">
-                    <p className="text-slate-900 dark:text-white font-medium text-lg">{activeProject?.clientName || 'N/A'}</p>
-                    {activeProject?.clientContact && (
-                        <p className="text-slate-500 dark:text-slate-400 flex items-center gap-1 text-sm">
-                            <Phone size={14} className="text-slate-400" /> {activeProject.clientContact}
-                        </p>
-                    )}
-                 </div>
-             </div>
+                
+                {/* Dropdown Content */}
+                {showColumnDropdown && (
+                    <>
+                        <div className="fixed inset-0 z-10" onClick={() => setShowColumnDropdown(false)} />
+                        <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 z-20 p-2 grid grid-cols-1 gap-1 max-h-[400px] overflow-y-auto">
+                            {columnOrder.map((col) => (
+                                <button 
+                                    key={col.key}
+                                    onClick={() => toggleColumn(col.key)} 
+                                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${visibleColumns[col.key] ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400' : 'text-slate-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
+                                >
+                                        <span className="truncate mr-2 font-medium">{col.label}</span>
+                                        {visibleColumns[col.key] ? <Eye size={16} /> : <EyeOff size={16} className="opacity-50" />}
+                                </button>
+                            ))}
+                        </div>
+                    </>
+                )}
+            </div>
         </div>
       </div>
 
@@ -475,54 +554,59 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         <table className="text-left border-collapse table-fixed" style={{ width: totalTableWidth, minWidth: '100%' }}>
           <thead>
             <tr className="text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-              <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.category }}>
+              {visibleColumns.category && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.category }}>
                 {t.category}
                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'category')} />
-              </th>
-              <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.item }}>
+              </th>}
+              {visibleColumns.item && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.item }}>
                 {t.item}
                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'item')} />
-              </th>
-              <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.description }}>
+              </th>}
+              {visibleColumns.description && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.description }}>
                 {t.description}
                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'description')} />
-              </th>
-              <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.uom }}>
+              </th>}
+              {visibleColumns.uom && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.uom }}>
                 {t.uom}
                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'uom')} />
-              </th>
-              <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.price }}>
+              </th>}
+              {visibleColumns.price && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.price }}>
                 {t.price} (RSP)
                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'price')} />
-              </th>
-              <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.qty }}>
+              </th>}
+              {visibleColumns.qty && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.qty }}>
                 {t.qty}
                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'qty')} />
-              </th>
+              </th>}
               
               {/* Calculated Columns U-Y */}
-              <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTsc }}>
+              {visibleColumns.rexTsc && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTsc }}>
                 {t.rexTsc}
                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTsc')} />
-              </th>
-              <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTsp }}>
+              </th>}
+              {visibleColumns.rexTsp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTsp }}>
                 {t.rexTsp}
                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTsp')} />
-              </th>
-              <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTrsp }}>
+              </th>}
+              {visibleColumns.rexTrsp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTrsp }}>
                 {t.rexTrsp}
                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTrsp')} />
-              </th>
-              <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexGp }}>
+              </th>}
+              {visibleColumns.rexGp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexGp }}>
                 {t.rexGp}
                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexGp')} />
-              </th>
-              <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexGpPercent }}>
+              </th>}
+              {visibleColumns.rexGpPercent && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexGpPercent }}>
                 {t.rexGpPercent}
                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexGpPercent')} />
-              </th>
+              </th>}
+
+              {visibleColumns.isOptional && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.isOptional }}>
+                  Opt.
+                  <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'isOptional')} />
+              </th>}
               
-              <th className="relative p-4 select-none" style={{ width: colWidths.action }}></th>
+              {visibleColumns.action && <th className="relative p-4 select-none" style={{ width: colWidths.action }}></th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-slate-700 text-sm">
@@ -539,7 +623,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
               return (
                 <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors group">
-                  <td className="p-2 align-top">
+                  {visibleColumns.category && <td className="p-2 align-top">
                     <select
                       value={item.category}
                       onChange={(e) => handleCategoryChange(item.id, e.target.value)}
@@ -550,8 +634,8 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         <option key={cat} value={cat}>{cat}</option>
                       ))}
                     </select>
-                  </td>
-                  <td className="p-2 align-top">
+                  </td>}
+                  {visibleColumns.item && <td className="p-2 align-top">
                     <select
                       value={item.masterId || ''}
                       onChange={(e) => handleItemSelect(item.id, e.target.value)}
@@ -563,65 +647,75 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         <option key={m.id} value={m.id}>{m.itemName}</option>
                       ))}
                     </select>
-                  </td>
-                  <td className="p-2 align-top">
+                  </td>}
+                  {visibleColumns.description && <td className="p-2 align-top">
                     <textarea
                       value={item.description}
                       onChange={(e) => updateBQItem(item.id, 'description', e.target.value)}
                       rows={1}
                       className="w-full p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 bg-transparent text-xs focus:bg-white dark:focus:bg-slate-900 focus:outline-none resize-none dark:text-slate-200 font-normal"
                     />
-                  </td>
-                  <td className="p-2 align-top">
+                  </td>}
+                  {visibleColumns.uom && <td className="p-2 align-top">
                      <input
                       type="text"
                       value={item.uom}
                       onChange={(e) => updateBQItem(item.id, 'uom', e.target.value)}
                       className="w-full text-center bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-slate-200 font-normal"
                     />
-                  </td>
-                  <td className="p-2 align-top">
+                  </td>}
+                  {visibleColumns.price && <td className="p-2 align-top">
                     <input
                       type="number"
                       value={item.price}
                       onChange={(e) => updateBQItem(item.id, 'price', e.target.value)}
                       className="w-full text-right bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-slate-200 font-normal"
                     />
-                  </td>
-                  <td className="p-2 align-top">
+                  </td>}
+                  {visibleColumns.qty && <td className="p-2 align-top">
                     <input
                       type="number"
                       value={item.qty}
                       onChange={(e) => updateBQItem(item.id, 'qty', e.target.value)}
                       className="w-full text-center bg-gray-50 dark:bg-slate-700/50 rounded border border-gray-200 dark:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-white p-1 font-normal"
                     />
-                  </td>
+                  </td>}
 
                   {/* READ ONLY COLUMNS - Plain style */}
-                  <td className="p-2 align-top text-right text-slate-500 font-normal">
+                  {visibleColumns.rexTsc && <td className="p-2 align-top text-right text-slate-500 font-normal">
                      {fmt(rowRexTsc)}
-                  </td>
-                  <td className="p-2 align-top text-right text-slate-500 font-normal">
+                  </td>}
+                  {visibleColumns.rexTsp && <td className="p-2 align-top text-right text-slate-500 font-normal">
                      {fmt(rowRexTsp)}
-                  </td>
-                  <td className="p-2 align-top text-right text-slate-900 dark:text-white font-normal">
+                  </td>}
+                  {visibleColumns.rexTrsp && <td className="p-2 align-top text-right text-slate-900 dark:text-white font-normal">
                      {fmt(rowRexTrsp)}
-                  </td>
-                  <td className="p-2 align-top text-right text-slate-500 font-normal">
+                  </td>}
+                  {visibleColumns.rexGp && <td className="p-2 align-top text-right text-slate-500 font-normal">
                      {fmt(rowRexGp)}
-                  </td>
-                  <td className="p-2 align-top text-right text-slate-500 font-normal">
+                  </td>}
+                  {visibleColumns.rexGpPercent && <td className="p-2 align-top text-right text-slate-500 font-normal">
                      {fmtPct(rowRexGpPercent)}
-                  </td>
+                  </td>}
 
-                  <td className="p-2 align-top text-center">
+                  {/* Optional Checkbox */}
+                  {visibleColumns.isOptional && <td className="p-2 align-top text-center">
+                      <input 
+                         type="checkbox" 
+                         checked={!!item.isOptional} 
+                         onChange={(e) => updateBQItem(item.id, 'isOptional', e.target.checked)}
+                         className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
+                      />
+                  </td>}
+
+                  {visibleColumns.action && <td className="p-2 align-top text-center">
                     <button
                       onClick={() => removeBQItem(item.id)}
                       className="text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
                     >
                       <Trash2 size={18} />
                     </button>
-                  </td>
+                  </td>}
                 </tr>
               );
             })}
@@ -629,13 +723,14 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
           {/* TABLE FOOTER */}
           <tfoot>
              <tr className="bg-gray-100 dark:bg-slate-700 text-slate-800 dark:text-white font-bold text-xs border-t-2 border-gray-200 dark:border-slate-600">
-                <td colSpan={6} className="p-4 text-right">TOTALS</td>
-                <td className="p-4 text-right">{fmt(columnTotals.tRexTsc)}</td>
-                <td className="p-4 text-right">{fmt(columnTotals.tRexTsp)}</td>
-                <td className="p-4 text-right">{fmt(columnTotals.tRexTrsp)}</td>
-                <td className="p-4 text-right">{fmt(columnTotals.tRexGp)}</td>
-                <td className="p-4 text-right">{fmtPct(columnTotals.tRexGpPercent)}</td>
-                <td></td>
+                <td colSpan={Object.keys(visibleColumns).slice(0, 6).filter(k => visibleColumns[k as keyof typeof visibleColumns]).length} className="p-4 text-right">TOTALS (EXCL. OPT)</td>
+                {visibleColumns.rexTsc && <td className="p-4 text-right">{fmt(columnTotals.tRexTsc)}</td>}
+                {visibleColumns.rexTsp && <td className="p-4 text-right">{fmt(columnTotals.tRexTsp)}</td>}
+                {visibleColumns.rexTrsp && <td className="p-4 text-right">{fmt(columnTotals.tRexTrsp)}</td>}
+                {visibleColumns.rexGp && <td className="p-4 text-right">{fmt(columnTotals.tRexGp)}</td>}
+                {visibleColumns.rexGpPercent && <td className="p-4 text-right">{fmtPct(columnTotals.tRexGpPercent)}</td>}
+                {visibleColumns.isOptional && <td></td>}
+                {visibleColumns.action && <td></td>}
              </tr>
           </tfoot>
         </table>
