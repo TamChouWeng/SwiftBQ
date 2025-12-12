@@ -53,12 +53,20 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     if (!input) return;
 
     try {
+      // Temporarily remove shadow for cleaner capture and accurate dimensions
+      const originalShadow = input.style.boxShadow;
+      input.style.boxShadow = 'none';
+
       const canvas = await html2canvas(input, {
         scale: 2, // Higher resolution
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff'
       });
+
+      // Restore shadow
+      input.style.boxShadow = originalShadow;
+
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
         orientation: 'portrait',
@@ -75,8 +83,8 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
 
-      // Fixed: changed from >= 0 to > 0 to prevent extra blank page when content fits exactly
-      while (heightLeft > 0) {
+      // Check if there is significant content left (more than 1mm) to avoid blank pages due to rounding
+      while (heightLeft > 1) {
         position = heightLeft - imgHeight;
         pdf.addPage();
         pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
@@ -376,9 +384,9 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 )}
 
                 {/* 6. Footer Terms & Signature */}
-                <div className="mt-auto break-inside-avoid text-black">
+                <div className="mt-8 break-inside-avoid text-black">
                     {/* Terms */}
-                    <div className="text-xs mb-8">
+                    <div className="text-xs mb-6">
                         <h4 className="font-bold underline mb-2">TERMS & CONDITIONS:</h4>
                         <ul className="list-disc list-outside ml-4 space-y-1 text-black">
                             <li>Payment : 50% deposit, balance before delivery.</li>
@@ -389,34 +397,51 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         </p>
                     </div>
 
-                    {/* Closing & Signature */}
-                    <div className="flex justify-between items-end text-xs mt-6">
+                    {/* Closing Phrases Row - Aligned horizontally */}
+                    <div className="flex justify-between items-end text-xs italic">
+                        <div className="w-[50%]">
+                             <p>Thank you for your business,</p>
+                        </div>
+                        <div className="w-[40%] text-center font-bold text-[10px] not-italic">
+                             <p>Sign and return to confirm your order.</p>
+                        </div>
+                    </div>
+
+                    {/* Spacer for Signature (4-5 lines approx) */}
+                    <div className="h-24"></div>
+
+                    {/* Bottom Section: Banking & Signature Lines */}
+                    <div className="flex justify-between items-start text-xs">
                         {/* Banking / Company Info */}
                         <div className="w-[50%]">
-                            <p className="mb-4 italic">Thank you for your business,</p>
-                            <div className="text-[10px] space-y-1">
-                                <p className="font-bold text-xs">{appSettings.companyName}</p>
-                                <p className="text-blue-600 underline">xxx@rexharge.net</p>
-                                <div className="mt-3 border-t border-gray-200 pt-2">
-                                    <p className="italic mb-1">All cheques should be crossed and made to :</p>
-                                    <p className="font-bold">{appSettings.companyName}</p>
-                                    <p>Bank Name: <span className="font-semibold">OCBC Bank</span></p>
-                                    <p>Bank Account: <span className="font-semibold">xxxxxx</span></p>
+                            <div className="border-t border-black pt-1">
+                                <div className="text-[10px] space-y-1">
+                                    <p className="font-bold text-xs">{appSettings.companyName}</p>
+                                    <p className="text-blue-600 underline">xxx@rexharge.net</p>
+                                    <div className="mt-2">
+                                        <p className="italic mb-1">All cheques should be crossed and made to :</p>
+                                        <p className="font-bold">{appSettings.companyName}</p>
+                                        <p>Bank Name: <span className="font-semibold">OCBC Bank</span></p>
+                                        <p>Bank Account: <span className="font-semibold">xxxxxx</span></p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Signature Block */}
+                        {/* Signature Block Lines */}
                         <div className="w-[40%]">
-                            <p className="text-center font-bold italic text-black mb-10 text-[10px]">
-                                Sign and return to confirm your order.
-                            </p>
-                            <div className="border-t border-black pt-2">
-                                <div className="flex justify-between text-[10px] text-black uppercase font-bold mb-6">
-                                    <span>COMPANY STAMP</span>
-                                    <span>AUTHORIZED SIGNATURE</span>
+                            <div className="border-t border-black pt-1">
+                                <div className="flex justify-between text-[10px] text-black font-bold mb-8 items-start">
+                                    <div className="flex flex-col">
+                                        <span>Company Stamp</span>
+                                        <span className="font-normal italic text-[9px] text-gray-500">(if any)</span>
+                                    </div>
+                                    <div className="flex flex-col text-right">
+                                        <span>Authorized</span>
+                                        <span>Signature</span>
+                                    </div>
                                 </div>
-                                <div className="space-y-3 font-semibold text-black text-[10px]">
+                                <div className="space-y-3 font-bold text-black text-[10px]">
                                     <div className="flex items-end gap-2">
                                         <span className="w-12">Name:</span>
                                     </div>
