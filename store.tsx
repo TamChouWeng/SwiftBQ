@@ -316,11 +316,64 @@ const INITIAL_SETTINGS: AppSettings = {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [masterData, setMasterData] = useState<MasterItem[]>(INITIAL_MASTER_DATA);
-  const [projects, setProjects] = useState<Project[]>([]);
+  // --- Initialize State with LocalStorage Checks ---
+  
+  const [masterData, setMasterData] = useState<MasterItem[]>(() => {
+    try {
+        const saved = localStorage.getItem('swiftbq_masterData');
+        return saved ? JSON.parse(saved) : INITIAL_MASTER_DATA;
+    } catch (e) {
+        return INITIAL_MASTER_DATA;
+    }
+  });
+
+  const [projects, setProjects] = useState<Project[]>(() => {
+    try {
+        const saved = localStorage.getItem('swiftbq_projects');
+        return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+        return [];
+    }
+  });
+
+  const [bqItems, setBqItems] = useState<BQItem[]>(() => {
+    try {
+        const saved = localStorage.getItem('swiftbq_bqItems');
+        return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+        return [];
+    }
+  });
+
+  const [appSettings, setAppSettings] = useState<AppSettings>(() => {
+    try {
+        const saved = localStorage.getItem('swiftbq_appSettings');
+        return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
+    } catch (e) {
+        return INITIAL_SETTINGS;
+    }
+  });
+
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
-  const [bqItems, setBqItems] = useState<BQItem[]>([]);
-  const [appSettings, setAppSettings] = useState<AppSettings>(INITIAL_SETTINGS);
+
+  // --- Persistence Effects ---
+  
+  useEffect(() => {
+    localStorage.setItem('swiftbq_masterData', JSON.stringify(masterData));
+  }, [masterData]);
+
+  useEffect(() => {
+    localStorage.setItem('swiftbq_projects', JSON.stringify(projects));
+  }, [projects]);
+
+  useEffect(() => {
+    localStorage.setItem('swiftbq_bqItems', JSON.stringify(bqItems));
+  }, [bqItems]);
+
+  useEffect(() => {
+    localStorage.setItem('swiftbq_appSettings', JSON.stringify(appSettings));
+  }, [appSettings]);
+
 
   // --- Master Data Actions ---
   const addMasterItem = (item: MasterItem) => {
