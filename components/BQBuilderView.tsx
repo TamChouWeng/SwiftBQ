@@ -1,7 +1,7 @@
 
 
 import React, { useMemo, useState, useRef } from 'react';
-import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical, AlertTriangle } from 'lucide-react';
 import { useAppStore } from '../store';
 import { AppLanguage, Project, BQItem } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -49,6 +49,9 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     date: new Date().toISOString().split('T')[0],
     validityPeriod: '30',
   });
+
+  // Delete Confirmation State
+  const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
 
   // Filter State (Catalog)
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -431,7 +434,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                 <FileText size={24} />
                             </div>
                             <button 
-                                onClick={(e) => { e.stopPropagation(); deleteProject(project.id); }}
+                                onClick={(e) => { e.stopPropagation(); setDeleteConfirmationId(project.id); }}
                                 className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors z-10"
                             >
                                 <Trash2 size={18} />
@@ -467,6 +470,37 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             </div>
             
             {renderProjectModal()}
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmationId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-sm p-6 transform transition-all scale-100">
+                        <div className="flex flex-col items-center text-center mb-6">
+                            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 text-red-500 rounded-full flex items-center justify-center mb-4">
+                                <AlertTriangle size={24} />
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Delete Project?</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                                Are you sure you want to delete this project? This action cannot be undone.
+                            </p>
+                        </div>
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={() => setDeleteConfirmationId(null)} 
+                                className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={() => { deleteProject(deleteConfirmationId); setDeleteConfirmationId(null); }} 
+                                className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white font-medium rounded-xl shadow-lg shadow-red-500/30 transition-colors"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
   }

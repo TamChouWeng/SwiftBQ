@@ -1,5 +1,4 @@
 
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { MasterItem, BQItem, Project, AppSettings, BQViewMode } from './types';
 
@@ -500,8 +499,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateBQItem = (id: string, field: keyof BQItem, value: any) => {
-    setBqItems((prev) =>
-      prev.map((item) => {
+    setBqItems((prev) => {
+      // Logic Change: If Quantity becomes 0 or less, remove item from BQ
+      if (field === 'qty' && Number(value) <= 0) {
+        return prev.filter(item => item.id !== id);
+      }
+
+      return prev.map((item) => {
         if (item.id === id) {
           const updated = { ...item, [field]: value };
           // Recalculate total if price or qty changes
@@ -512,7 +516,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         return item;
       })
-    );
+    });
   };
   
   const reorderBQItems = (projectId: string, sourceIndex: number, destinationIndex: number) => {
