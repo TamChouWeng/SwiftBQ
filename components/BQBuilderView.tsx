@@ -1,7 +1,7 @@
 
 
 import React, { useMemo, useState, useRef } from 'react';
-import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Phone, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, ShoppingCart, GripVertical } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical } from 'lucide-react';
 import { useAppStore } from '../store';
 import { AppLanguage, Project, BQItem } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -13,7 +13,6 @@ interface Props {
 
 type SortKey = 'date' | 'validityPeriod';
 type SortDirection = 'asc' | 'desc';
-type ViewMode = 'catalog' | 'review';
 
 const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   const {
@@ -32,12 +31,13 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     reorderBQItems,
     getProjectTotal,
     appSettings,
+    bqViewMode,
+    setBqViewMode,
   } = useAppStore();
   
   const t = TRANSLATIONS[currentLanguage];
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection }>({ key: 'date', direction: 'desc' });
-  const [viewMode, setViewMode] = useState<ViewMode>('catalog');
   
   // Project Form State
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -73,7 +73,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
   // --- Column Resizing State ---
   const [colWidths, setColWidths] = useState<{ [key: string]: number }>({
-    dragHandle: 40, // New drag handle width
+    dragHandle: 40,
     category: 160,
     item: 200,
     description: 250,
@@ -255,11 +255,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = 'move';
-    // e.dataTransfer.setData('text/plain', index.toString()); // If needed
   };
 
   const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault(); // Necessary to allow dropping
+    e.preventDefault(); 
   };
 
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
@@ -301,6 +300,73 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
       { key: 'isOptional', label: t.isOptional },
       { key: 'action', label: t.actions },
   ];
+
+  // Reusable Project Modal Component
+  const renderProjectModal = () => {
+    if (!isProjectModalOpen) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
+                    <div className="p-6 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center">
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">{projectForm.id ? t.updateProject : t.createProject}</h3>
+                        <button onClick={() => setIsProjectModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                        <X size={24} />
+                        </button>
+                    </div>
+                    <div className="p-6 space-y-4 overflow-y-auto">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.projectName}</label>
+                            <input type="text" value={projectForm.projectName} onChange={(e) => setProjectForm({...projectForm, projectName: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" autoFocus />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.clientName}</label>
+                            <input type="text" value={projectForm.clientName} onChange={(e) => setProjectForm({...projectForm, clientName: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.clientContact}</label>
+                            <input type="text" value={projectForm.clientContact} onChange={(e) => setProjectForm({...projectForm, clientContact: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                        </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.clientAddress}</label>
+                            <textarea 
+                            rows={3} 
+                            value={projectForm.clientAddress} 
+                            onChange={(e) => setProjectForm({...projectForm, clientAddress: e.target.value})} 
+                            className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white resize-none"
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.date}</label>
+                            <input type="date" value={projectForm.date} onChange={(e) => setProjectForm({...projectForm, date: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.validityPeriod}</label>
+                            <div className="relative">
+                                <input 
+                                    type="number" 
+                                    value={projectForm.validityPeriod} 
+                                    onChange={(e) => setProjectForm({...projectForm, validityPeriod: e.target.value})} 
+                                    className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg pl-4 pr-12 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" 
+                                    placeholder="30"
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400">Days</span>
+                            </div>
+                        </div>
+                        </div>
+                    </div>
+                    <div className="p-6 bg-gray-50 dark:bg-slate-700/30 flex justify-end gap-3 shrink-0">
+                        <button onClick={() => setIsProjectModalOpen(false)} className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-lg transition-colors">Cancel</button>
+                        <button onClick={handleSaveProject} className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium shadow-lg shadow-primary-500/30 transition-colors">
+                        {projectForm.id ? t.updateProject : 'Create'}
+                        </button>
+                    </div>
+            </div>
+        </div>
+    );
+  };
 
   // --- Views ---
 
@@ -400,58 +466,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 )}
             </div>
             
-            {/* Project Modal */}
-            {isProjectModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
-                         <div className="p-6 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center">
-                             <h3 className="text-xl font-bold text-slate-900 dark:text-white">{projectForm.id ? t.updateProject : t.createProject}</h3>
-                             <button onClick={() => setIsProjectModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                                <X size={24} />
-                             </button>
-                         </div>
-                         <div className="p-6 space-y-4 overflow-y-auto">
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.projectName}</label>
-                                 <input type="text" value={projectForm.projectName} onChange={(e) => setProjectForm({...projectForm, projectName: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" autoFocus />
-                             </div>
-                             <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.clientName}</label>
-                                    <input type="text" value={projectForm.clientName} onChange={(e) => setProjectForm({...projectForm, clientName: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.clientContact}</label>
-                                    <input type="text" value={projectForm.clientContact} onChange={(e) => setProjectForm({...projectForm, clientContact: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
-                                </div>
-                             </div>
-                             <div>
-                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.clientAddress}</label>
-                                 <textarea rows={3} value={projectForm.clientAddress} onChange={(e) => setProjectForm({...projectForm, clientAddress: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white resize-none" />
-                             </div>
-                             <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.date}</label>
-                                    <input type="date" value={projectForm.date} onChange={(e) => setProjectForm({...projectForm, date: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.validityPeriod}</label>
-                                    <div className="relative">
-                                        <input type="number" value={projectForm.validityPeriod} onChange={(e) => setProjectForm({...projectForm, validityPeriod: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg pl-4 pr-12 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" placeholder="30" />
-                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400">Days</span>
-                                    </div>
-                                </div>
-                             </div>
-                         </div>
-                         <div className="p-6 bg-gray-50 dark:bg-slate-700/30 flex justify-end gap-3 shrink-0">
-                             <button onClick={() => setIsProjectModalOpen(false)} className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-lg transition-colors">Cancel</button>
-                             <button onClick={handleSaveProject} className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium shadow-lg shadow-primary-500/30 transition-colors">
-                                {projectForm.id ? t.updateProject : 'Create'}
-                             </button>
-                         </div>
-                    </div>
-                </div>
-            )}
+            {renderProjectModal()}
         </div>
     );
   }
@@ -489,7 +504,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         <div className="flex gap-2 items-center w-full xl:w-auto self-end xl:self-start">
              
              {/* Columns Button moved here */}
-             {viewMode === 'review' && (
+             {bqViewMode === 'review' && (
                  <div className="relative">
                     <button
                         onClick={() => setShowColumnDropdown(!showColumnDropdown)}
@@ -520,9 +535,9 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
              <div className="flex p-1 bg-gray-100 dark:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-600">
                 <button 
-                    onClick={() => setViewMode('catalog')}
+                    onClick={() => setBqViewMode('catalog')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                        viewMode === 'catalog' 
+                        bqViewMode === 'catalog' 
                         ? 'bg-white dark:bg-slate-800 text-primary-600 dark:text-primary-400 shadow-sm' 
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                     }`}
@@ -531,9 +546,9 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     Catalog
                 </button>
                 <button 
-                    onClick={() => setViewMode('review')}
+                    onClick={() => setBqViewMode('review')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                        viewMode === 'review' 
+                        bqViewMode === 'review' 
                         ? 'bg-white dark:bg-slate-800 text-primary-600 dark:text-primary-400 shadow-sm' 
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                     }`}
@@ -547,7 +562,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
              <button
                  onClick={() => {
                      addBQItem(activeProject!.id);
-                     setViewMode('review'); // Auto switch to review to edit the new custom item
+                     setBqViewMode('review'); // Auto switch to review to edit the new custom item
                  }}
                  className="w-10 h-10 flex items-center justify-center bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-gray-100 transition-colors shadow-sm ml-2"
                  title="Add Custom Item"
@@ -561,7 +576,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
       <div className="flex-1 overflow-hidden flex flex-col relative mx-0 md:mx-4">
         
         {/* === CATALOG VIEW === */}
-        {viewMode === 'catalog' && (
+        {bqViewMode === 'catalog' && (
             <div className="flex flex-col h-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
                 {/* Catalog Toolbar */}
                 <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex flex-col md:flex-row gap-4">
@@ -651,7 +666,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         )}
 
         {/* === REVIEW VIEW === */}
-        {viewMode === 'review' && (
+        {bqViewMode === 'review' && (
             <div className="flex flex-col h-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
                 <div className="flex-1 overflow-auto overflow-x-auto">
                     <table className="text-left border-collapse table-fixed" style={{ width: totalTableWidth, minWidth: '100%' }}>
@@ -855,69 +870,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
           </div>
       </div>
       
-      {/* Reused Modal for Project Create/Edit (Moved here to ensure it's on top if open) */}
-      {isProjectModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
-                        <div className="p-6 border-b border-gray-100 dark:border-slate-700 flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">{projectForm.id ? t.updateProject : t.createProject}</h3>
-                            <button onClick={() => setIsProjectModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                            <X size={24} />
-                            </button>
-                        </div>
-                        <div className="p-6 space-y-4 overflow-y-auto">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.projectName}</label>
-                                <input type="text" value={projectForm.projectName} onChange={(e) => setProjectForm({...projectForm, projectName: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" autoFocus />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.clientName}</label>
-                                <input type="text" value={projectForm.clientName} onChange={(e) => setProjectForm({...projectForm, clientName: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.clientContact}</label>
-                                <input type="text" value={projectForm.clientContact} onChange={(e) => setProjectForm({...projectForm, clientContact: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
-                            </div>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.clientAddress}</label>
-                                <textarea 
-                                rows={3} 
-                                value={projectForm.clientAddress} 
-                                onChange={(e) => setProjectForm({...projectForm, clientAddress: e.target.value})} 
-                                className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white resize-none"
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.date}</label>
-                                <input type="date" value={projectForm.date} onChange={(e) => setProjectForm({...projectForm, date: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.validityPeriod}</label>
-                                <div className="relative">
-                                    <input 
-                                        type="number" 
-                                        value={projectForm.validityPeriod} 
-                                        onChange={(e) => setProjectForm({...projectForm, validityPeriod: e.target.value})} 
-                                        className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg pl-4 pr-12 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" 
-                                        placeholder="30"
-                                    />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400">Days</span>
-                                </div>
-                            </div>
-                            </div>
-                        </div>
-                        <div className="p-6 bg-gray-50 dark:bg-slate-700/30 flex justify-end gap-3 shrink-0">
-                            <button onClick={() => setIsProjectModalOpen(false)} className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-lg transition-colors">Cancel</button>
-                            <button onClick={handleSaveProject} className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium shadow-lg shadow-primary-500/30 transition-colors">
-                            {projectForm.id ? t.updateProject : 'Create'}
-                            </button>
-                        </div>
-                </div>
-            </div>
-      )}
+      {renderProjectModal()}
     </div>
   );
 };

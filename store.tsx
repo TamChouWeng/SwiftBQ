@@ -1,7 +1,7 @@
 
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { MasterItem, BQItem, Project, AppSettings } from './types';
+import { MasterItem, BQItem, Project, AppSettings, BQViewMode } from './types';
 
 interface AppContextType {
   masterData: MasterItem[];
@@ -14,6 +14,8 @@ interface AppContextType {
   setBqItems: React.Dispatch<React.SetStateAction<BQItem[]>>;
   appSettings: AppSettings;
   setAppSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
+  bqViewMode: BQViewMode;
+  setBqViewMode: React.Dispatch<React.SetStateAction<BQViewMode>>;
   
   // Actions
   addMasterItem: (item: MasterItem) => void;
@@ -37,7 +39,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 // Helper for robust calculation (Ceiling logic from excel)
-export const calcCeiling = (val: number, significance: number) => {
+const calcCeiling = (val: number, significance: number) => {
     if (significance === 0) return val;
     // Fix floating point errors (e.g. 30000 * 1.08 = 32400.000000000004) by rounding slightly before ceiling
     const sanitizedVal = Number(val.toFixed(6));
@@ -357,6 +359,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [bqViewMode, setBqViewMode] = useState<BQViewMode>('catalog');
 
   // --- Persistence Effects ---
   
@@ -550,6 +553,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setBqItems,
         appSettings,
         setAppSettings,
+        bqViewMode,
+        setBqViewMode,
         addMasterItem,
         updateMasterItem,
         deleteMasterItem,

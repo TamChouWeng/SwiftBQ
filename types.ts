@@ -1,5 +1,7 @@
 
 
+
+
 export enum AppTheme {
   LIGHT = 'light',
   DARK = 'dark',
@@ -17,6 +19,8 @@ export enum ActiveTab {
   QUOTATION_VIEW = 'quotationView',
   SETTINGS = 'settings',
 }
+
+export type BQViewMode = 'catalog' | 'review';
 
 export interface MasterItem {
   id: string;
