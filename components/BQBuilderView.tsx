@@ -1,7 +1,7 @@
 
 
 import React, { useMemo, useState, useRef } from 'react';
-import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Phone, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Phone, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, ShoppingCart, GripVertical } from 'lucide-react';
 import { useAppStore } from '../store';
 import { AppLanguage, Project, BQItem } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -13,6 +13,7 @@ interface Props {
 
 type SortKey = 'date' | 'validityPeriod';
 type SortDirection = 'asc' | 'desc';
+type ViewMode = 'catalog' | 'review';
 
 const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   const {
@@ -25,8 +26,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     updateProject,
     deleteProject,
     addBQItem,
+    syncMasterToBQ,
     removeBQItem,
     updateBQItem,
+    reorderBQItems,
     getProjectTotal,
     appSettings,
   } = useAppStore();
@@ -34,6 +37,9 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   const t = TRANSLATIONS[currentLanguage];
   const [searchQuery, setSearchQuery] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection }>({ key: 'date', direction: 'desc' });
+  const [viewMode, setViewMode] = useState<ViewMode>('catalog');
+  
+  // Project Form State
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [projectForm, setProjectForm] = useState<Partial<Project>>({
     projectName: '',
@@ -44,6 +50,9 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     validityPeriod: '30',
   });
 
+  // Filter State (Catalog)
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  
   // Column Visibility State
   const [showColumnDropdown, setShowColumnDropdown] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState({
@@ -64,12 +73,13 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
   // --- Column Resizing State ---
   const [colWidths, setColWidths] = useState<{ [key: string]: number }>({
+    dragHandle: 40, // New drag handle width
     category: 160,
     item: 200,
     description: 250,
     uom: 80,
     price: 120,
-    qty: 80,
+    qty: 100,
     rexTsc: 120,
     rexTsp: 120,
     rexTrsp: 120,
@@ -79,11 +89,14 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     action: 60
   });
 
+  // Drag State for Review Table Rows
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
   const resizingRef = useRef<{ colKey: string; startX: number; startWidth: number } | null>(null);
 
   const startResize = (e: React.MouseEvent, colKey: string) => {
     e.preventDefault();
-    e.stopPropagation(); // Prevent sorting or other events if any
+    e.stopPropagation(); 
     resizingRef.current = {
       colKey,
       startX: e.pageX,
@@ -98,7 +111,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     if (!resizingRef.current) return;
     const { colKey, startX, startWidth } = resizingRef.current;
     const diff = e.pageX - startX;
-    const newWidth = Math.max(50, startWidth + diff); // Min width 50
+    const newWidth = Math.max(50, startWidth + diff); 
     setColWidths((prev) => ({ ...prev, [colKey]: newWidth }));
   };
 
@@ -118,8 +131,28 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     bqItems.filter(item => item.projectId === currentProjectId),
   [bqItems, currentProjectId]);
 
-  const { subtotal, tax, grandTotal } = currentProjectId ? getProjectTotal(currentProjectId) : { subtotal: 0, tax: 0, grandTotal: 0 };
+  const { grandTotal } = currentProjectId ? getProjectTotal(currentProjectId) : { grandTotal: 0 };
+  const totalItemsSelected = activeItems.reduce((acc, item) => acc + (item.qty || 0), 0);
 
+  // --- Catalog Data Processing ---
+  const categories = useMemo(() => {
+      const cats = Array.from(new Set(masterData.map((item) => item.category))).filter(Boolean).sort();
+      return ['All', ...cats];
+  }, [masterData]);
+
+  const filteredCatalog = useMemo(() => {
+      return masterData.filter(item => {
+          const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
+          const matchesSearch = 
+              item.itemName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+              item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              item.category.toLowerCase().includes(searchQuery.toLowerCase());
+          return matchesCategory && matchesSearch;
+      });
+  }, [masterData, selectedCategory, searchQuery]);
+
+
+  // --- Project List Processing ---
   const filteredProjects = useMemo(() => {
     const filtered = projects.filter(p => 
         p.projectName.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -131,7 +164,6 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         let valA: any = a[key];
         let valB: any = b[key];
 
-        // Handle numeric conversion for validityPeriod if stored as string
         if (key === 'validityPeriod') {
             valA = Number(valA);
             valB = Number(valB);
@@ -144,12 +176,21 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
   }, [projects, searchQuery, sortConfig]);
 
-  // Extract unique categories from Master Data
-  const categories = useMemo(() => {
-    return Array.from(new Set(masterData.map((item) => item.category)));
-  }, [masterData]);
-
   // --- Handlers ---
+
+  const handleCatalogQtyChange = (masterItemId: string, qty: string) => {
+      if (!activeProject) return;
+      const val = parseFloat(qty);
+      const masterItem = masterData.find(m => m.id === masterItemId);
+      if (masterItem) {
+          syncMasterToBQ(activeProject.id, masterItem, isNaN(val) ? 0 : val);
+      }
+  };
+
+  const getQtyForMasterItem = (masterId: string) => {
+      const item = activeItems.find(i => i.masterId === masterId);
+      return item ? item.qty : '';
+  };
 
   const openCreateModal = () => {
     setProjectForm({
@@ -181,7 +222,6 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     if (!projectForm.projectName) return;
 
     if (projectForm.id) {
-        // Update existing
         updateProject(projectForm.id, {
             projectName: projectForm.projectName,
             clientName: projectForm.clientName,
@@ -191,7 +231,6 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             validityPeriod: projectForm.validityPeriod,
         });
     } else {
-        // Create new
         const project: Project = {
             id: Date.now().toString(),
             projectName: projectForm.projectName!,
@@ -208,70 +247,38 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     setIsProjectModalOpen(false);
   };
 
-  const handleCategoryChange = (rowId: string, newCategory: string) => {
-    updateBQItem(rowId, 'category', newCategory);
-    // Reset item selection when category changes
-    updateBQItem(rowId, 'masterId', '');
-    updateBQItem(rowId, 'itemName', '');
-    updateBQItem(rowId, 'price', 0);
-    updateBQItem(rowId, 'description', '');
-    updateBQItem(rowId, 'uom', '');
-    updateBQItem(rowId, 'rexScDdp', 0);
-    updateBQItem(rowId, 'rexSp', 0);
-    updateBQItem(rowId, 'rexRsp', 0);
-  };
-
-  const handleItemSelect = (rowId: string, masterId: string) => {
-    const masterItem = masterData.find((m) => m.id === masterId);
-    if (masterItem) {
-      updateBQItem(rowId, 'masterId', masterId);
-      updateBQItem(rowId, 'itemName', masterItem.itemName);
-      updateBQItem(rowId, 'description', masterItem.description);
-      updateBQItem(rowId, 'price', masterItem.price); // REX RSP
-      updateBQItem(rowId, 'uom', masterItem.uom);
-      // Snapshot unit costs
-      updateBQItem(rowId, 'rexScDdp', masterItem.rexScDdp);
-      updateBQItem(rowId, 'rexSp', masterItem.rexSp);
-      updateBQItem(rowId, 'rexRsp', masterItem.rexRsp);
-    }
-  };
-
   const toggleColumn = (key: keyof typeof visibleColumns) => {
       setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }));
   };
+  
+  // Drag Handlers
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    // e.dataTransfer.setData('text/plain', index.toString()); // If needed
+  };
 
-  // Helper to safely format numbers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Necessary to allow dropping
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === dropIndex) return;
+    if (activeProject) {
+        reorderBQItems(activeProject.id, draggedIndex, dropIndex);
+    }
+    setDraggedIndex(null);
+  };
+
   const fmt = (n: number) => n?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00';
   const fmtPct = (n: number) => (n * 100)?.toFixed(1) + '%';
-
-  // Calculate totals for new columns
-  const columnTotals = useMemo(() => {
-     let tRexTsc = 0;
-     let tRexTsp = 0;
-     let tRexTrsp = 0;
-     let tRexGp = 0;
-     
-     activeItems.filter(i => !i.isOptional).forEach(item => {
-        const qty = item.qty || 0;
-        const tsc = qty * (item.rexScDdp || 0);
-        const trsp = qty * (item.price || 0); // Price is RSP
-        const tsp = qty * (item.rexSp || 0);
-
-        tRexTsc += tsc;
-        tRexTsp += tsp;
-        tRexTrsp += trsp;
-        tRexGp += (trsp - tsc);
-     });
-
-     const tRexGpPercent = tRexTrsp ? tRexGp / tRexTrsp : 0;
-     return { tRexTsc, tRexTsp, tRexTrsp, tRexGp, tRexGpPercent };
-
-  }, [activeItems]);
 
   const contentPadding = !isSidebarOpen ? 'pl-4 md:pl-24 pr-4' : 'px-4';
 
   // Calculate dynamic table width based on visible columns
   const totalTableWidth = Object.keys(colWidths).reduce((acc, key) => {
+      if (key === 'dragHandle') return acc + colWidths[key];
       if (visibleColumns[key as keyof typeof visibleColumns]) {
           return acc + colWidths[key];
       }
@@ -298,7 +305,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   // --- Views ---
 
   if (!currentProjectId) {
-    // === PROJECT LIST VIEW ===
+    // === PROJECT LIST VIEW (Unchanged) ===
     return (
         <div className={`space-y-6 animate-fade-in pb-20 transition-all duration-300 ${contentPadding}`}>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -315,7 +322,6 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 </button>
             </div>
 
-            {/* Search Bar & Sort */}
             <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -347,7 +353,6 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 </div>
             </div>
 
-            {/* Project Grid/List */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filteredProjects.map(project => (
                     <div 
@@ -387,8 +392,6 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         </div>
                     </div>
                 ))}
-
-                {/* Empty State */}
                 {filteredProjects.length === 0 && (
                     <div className="col-span-full flex flex-col items-center justify-center py-20 text-center text-slate-400 dark:text-slate-500">
                         <FolderPlus size={48} className="mb-4 opacity-50" />
@@ -397,7 +400,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 )}
             </div>
             
-            {/* Modal is rendered outside the conditional return in the shared logic below */}
+            {/* Project Modal */}
             {isProjectModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">
@@ -424,12 +427,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                              </div>
                              <div>
                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.clientAddress}</label>
-                                 <textarea 
-                                    rows={3} 
-                                    value={projectForm.clientAddress} 
-                                    onChange={(e) => setProjectForm({...projectForm, clientAddress: e.target.value})} 
-                                    className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white resize-none"
-                                 />
+                                 <textarea rows={3} value={projectForm.clientAddress} onChange={(e) => setProjectForm({...projectForm, clientAddress: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white resize-none" />
                              </div>
                              <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -439,13 +437,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.validityPeriod}</label>
                                     <div className="relative">
-                                        <input 
-                                            type="number" 
-                                            value={projectForm.validityPeriod} 
-                                            onChange={(e) => setProjectForm({...projectForm, validityPeriod: e.target.value})} 
-                                            className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg pl-4 pr-12 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" 
-                                            placeholder="30"
-                                        />
+                                        <input type="number" value={projectForm.validityPeriod} onChange={(e) => setProjectForm({...projectForm, validityPeriod: e.target.value})} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg pl-4 pr-12 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" placeholder="30" />
                                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-400">Days</span>
                                     </div>
                                 </div>
@@ -466,10 +458,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
   // === PROJECT BUILDER VIEW ===
   return (
-    <div className="space-y-6 animate-fade-in pb-24 relative">
+    <div className="space-y-6 animate-fade-in pb-24 relative flex flex-col h-[calc(100vh-3.5rem)]">
       
       {/* Header Bar */}
-      <div className={`transition-all duration-300 flex flex-col xl:flex-row xl:items-start justify-between gap-6 ${contentPadding}`}>
+      <div className={`transition-all duration-300 flex flex-col xl:flex-row xl:items-start justify-between gap-6 shrink-0 ${contentPadding}`}>
         <div className="flex items-start gap-4 flex-1">
              <button 
                 onClick={() => setCurrentProjectId(null)}
@@ -483,275 +475,387 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
                     <span className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">{activeProject?.quoteId}</span>
                     <span className="hidden sm:inline">•</span>
-                    <span className="flex items-center gap-1"><Calendar size={14}/> {activeProject?.date}</span>
+                    <button 
+                        onClick={openEditModal}
+                        className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-medium flex items-center gap-1 transition-colors"
+                    >
+                        <User size={14} /> {activeProject?.clientName || 'Add Client'} <Edit2 size={12} className="ml-0.5" />
+                    </button>
                 </div>
              </div>
         </div>
         
-        <div className="flex gap-4 items-start w-full xl:w-auto">
-             {/* Project Meta Card (Read-Only with Edit Button) */}
-            <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 flex-1 xl:w-96 flex flex-col gap-3 relative group">
-                <div className="flex justify-between items-start">
-                    <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                        <User size={16} className="text-primary-500"/>
-                        Client Details
-                    </h3>
-                    <button 
-                        onClick={openEditModal}
-                        className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 text-xs font-medium flex items-center gap-1 px-2 py-1 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
-                    >
-                        <Edit2 size={12} />
-                        {t.editDetails}
-                    </button>
-                </div>
-                
-                <div className="text-sm">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <p className="text-slate-900 dark:text-white font-medium text-lg">{activeProject?.clientName || 'N/A'}</p>
-                        {activeProject?.clientContact && (
-                            <p className="text-slate-500 dark:text-slate-400 flex items-center gap-1 text-sm">
-                                <Phone size={14} className="text-slate-400" /> {activeProject.clientContact}
-                            </p>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* Column Toggle Button (Square) */}
-            <div className="relative">
-                <button
-                    onClick={() => setShowColumnDropdown(!showColumnDropdown)}
-                    className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-colors mt-1"
-                    title={t.columns}
-                >
-                    <LayoutTemplate size={20} />
-                </button>
-                
-                {/* Dropdown Content */}
-                {showColumnDropdown && (
-                    <>
-                        <div className="fixed inset-0 z-10" onClick={() => setShowColumnDropdown(false)} />
-                        <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 z-20 p-2 grid grid-cols-1 gap-1 max-h-[400px] overflow-y-auto">
-                            {columnOrder.map((col) => (
-                                <button 
-                                    key={col.key}
-                                    onClick={() => toggleColumn(col.key)} 
-                                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${visibleColumns[col.key] ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400' : 'text-slate-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
-                                >
-                                        <span className="truncate mr-2 font-medium">{col.label}</span>
-                                        {visibleColumns[col.key] ? <Eye size={16} /> : <EyeOff size={16} className="opacity-50" />}
-                                </button>
-                            ))}
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
-      </div>
-
-      {/* Builder Table */}
-      <div className="bg-white dark:bg-slate-800 rounded-none md:rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden overflow-x-auto mx-0 md:mx-4">
-        <table className="text-left border-collapse table-fixed" style={{ width: totalTableWidth, minWidth: '100%' }}>
-          <thead>
-            <tr className="text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-              {visibleColumns.category && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.category }}>
-                {t.category}
-                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'category')} />
-              </th>}
-              {visibleColumns.item && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.item }}>
-                {t.item}
-                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'item')} />
-              </th>}
-              {visibleColumns.description && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.description }}>
-                {t.description}
-                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'description')} />
-              </th>}
-              {visibleColumns.uom && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.uom }}>
-                {t.uom}
-                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'uom')} />
-              </th>}
-              {visibleColumns.price && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.price }}>
-                {t.price} (RSP)
-                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'price')} />
-              </th>}
-              {visibleColumns.qty && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.qty }}>
-                {t.qty}
-                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'qty')} />
-              </th>}
-              
-              {/* Calculated Columns U-Y */}
-              {visibleColumns.rexTsc && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTsc }}>
-                {t.rexTsc}
-                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTsc')} />
-              </th>}
-              {visibleColumns.rexTsp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTsp }}>
-                {t.rexTsp}
-                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTsp')} />
-              </th>}
-              {visibleColumns.rexTrsp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTrsp }}>
-                {t.rexTrsp}
-                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTrsp')} />
-              </th>}
-              {visibleColumns.rexGp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexGp }}>
-                {t.rexGp}
-                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexGp')} />
-              </th>}
-              {visibleColumns.rexGpPercent && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexGpPercent }}>
-                {t.rexGpPercent}
-                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexGpPercent')} />
-              </th>}
-
-              {visibleColumns.isOptional && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.isOptional }}>
-                  Opt.
-                  <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'isOptional')} />
-              </th>}
-              
-              {visibleColumns.action && <th className="relative p-4 select-none" style={{ width: colWidths.action }}></th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-slate-700 text-sm">
-            {activeItems.map((item) => {
-              const availableItems = masterData.filter((m) => m.category === item.category);
-              
-              // Row Calculations
-              const qty = item.qty || 0;
-              const rowRexTsc = qty * (item.rexScDdp || 0); // U
-              const rowRexTsp = qty * (item.rexSp || 0);    // V
-              const rowRexTrsp = item.total;                // W (Price * Qty)
-              const rowRexGp = rowRexTrsp - rowRexTsc;      // X
-              const rowRexGpPercent = rowRexTrsp ? rowRexGp / rowRexTrsp : 0; // Y
-
-              return (
-                <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors group">
-                  {visibleColumns.category && <td className="p-2 align-top">
-                    <select
-                      value={item.category}
-                      onChange={(e) => handleCategoryChange(item.id, e.target.value)}
-                      className="w-full p-2 rounded border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs focus:border-primary-500 focus:outline-none dark:text-white font-normal"
-                    >
-                      <option value="">Select...</option>
-                      {categories.map((cat) => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  </td>}
-                  {visibleColumns.item && <td className="p-2 align-top">
-                    <select
-                      value={item.masterId || ''}
-                      onChange={(e) => handleItemSelect(item.id, e.target.value)}
-                      disabled={!item.category}
-                      className="w-full p-2 rounded border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs focus:border-primary-500 focus:outline-none disabled:opacity-50 dark:text-white font-normal"
-                    >
-                      <option value="">Select Item...</option>
-                      {availableItems.map((m) => (
-                        <option key={m.id} value={m.id}>{m.itemName}</option>
-                      ))}
-                    </select>
-                  </td>}
-                  {visibleColumns.description && <td className="p-2 align-top">
-                    <textarea
-                      value={item.description}
-                      onChange={(e) => updateBQItem(item.id, 'description', e.target.value)}
-                      rows={1}
-                      className="w-full p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 bg-transparent text-xs focus:bg-white dark:focus:bg-slate-900 focus:outline-none resize-none dark:text-slate-200 font-normal"
-                    />
-                  </td>}
-                  {visibleColumns.uom && <td className="p-2 align-top">
-                     <input
-                      type="text"
-                      value={item.uom}
-                      onChange={(e) => updateBQItem(item.id, 'uom', e.target.value)}
-                      className="w-full text-center bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-slate-200 font-normal"
-                    />
-                  </td>}
-                  {visibleColumns.price && <td className="p-2 align-top">
-                    <input
-                      type="number"
-                      value={item.price}
-                      onChange={(e) => updateBQItem(item.id, 'price', e.target.value)}
-                      className="w-full text-right bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-slate-200 font-normal"
-                    />
-                  </td>}
-                  {visibleColumns.qty && <td className="p-2 align-top">
-                    <input
-                      type="number"
-                      value={item.qty}
-                      onChange={(e) => updateBQItem(item.id, 'qty', e.target.value)}
-                      className="w-full text-center bg-gray-50 dark:bg-slate-700/50 rounded border border-gray-200 dark:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-white p-1 font-normal"
-                    />
-                  </td>}
-
-                  {/* READ ONLY COLUMNS - Plain style */}
-                  {visibleColumns.rexTsc && <td className="p-2 align-top text-right text-slate-500 font-normal">
-                     {fmt(rowRexTsc)}
-                  </td>}
-                  {visibleColumns.rexTsp && <td className="p-2 align-top text-right text-slate-500 font-normal">
-                     {fmt(rowRexTsp)}
-                  </td>}
-                  {visibleColumns.rexTrsp && <td className="p-2 align-top text-right text-slate-900 dark:text-white font-normal">
-                     {fmt(rowRexTrsp)}
-                  </td>}
-                  {visibleColumns.rexGp && <td className="p-2 align-top text-right text-slate-500 font-normal">
-                     {fmt(rowRexGp)}
-                  </td>}
-                  {visibleColumns.rexGpPercent && <td className="p-2 align-top text-right text-slate-500 font-normal">
-                     {fmtPct(rowRexGpPercent)}
-                  </td>}
-
-                  {/* Optional Checkbox */}
-                  {visibleColumns.isOptional && <td className="p-2 align-top text-center">
-                      <input 
-                         type="checkbox" 
-                         checked={!!item.isOptional} 
-                         onChange={(e) => updateBQItem(item.id, 'isOptional', e.target.checked)}
-                         className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                      />
-                  </td>}
-
-                  {visibleColumns.action && <td className="p-2 align-top text-center">
+        {/* Toggle View & Custom Item Actions */}
+        <div className="flex gap-2 items-center w-full xl:w-auto self-end xl:self-start">
+             
+             {/* Columns Button moved here */}
+             {viewMode === 'review' && (
+                 <div className="relative">
                     <button
-                      onClick={() => removeBQItem(item.id)}
-                      className="text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                        onClick={() => setShowColumnDropdown(!showColumnDropdown)}
+                        className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
+                        title={t.columns}
                     >
-                      <Trash2 size={18} />
+                        <LayoutTemplate size={20} />
                     </button>
-                  </td>}
-                </tr>
-              );
-            })}
-          </tbody>
-          {/* TABLE FOOTER */}
-          <tfoot>
-             <tr className="bg-gray-100 dark:bg-slate-700 text-slate-800 dark:text-white font-bold text-xs border-t-2 border-gray-200 dark:border-slate-600">
-                <td colSpan={Object.keys(visibleColumns).slice(0, 6).filter(k => visibleColumns[k as keyof typeof visibleColumns]).length} className="p-4 text-right">TOTALS (EXCL. OPT)</td>
-                {visibleColumns.rexTsc && <td className="p-4 text-right">{fmt(columnTotals.tRexTsc)}</td>}
-                {visibleColumns.rexTsp && <td className="p-4 text-right">{fmt(columnTotals.tRexTsp)}</td>}
-                {visibleColumns.rexTrsp && <td className="p-4 text-right">{fmt(columnTotals.tRexTrsp)}</td>}
-                {visibleColumns.rexGp && <td className="p-4 text-right">{fmt(columnTotals.tRexGp)}</td>}
-                {visibleColumns.rexGpPercent && <td className="p-4 text-right">{fmtPct(columnTotals.tRexGpPercent)}</td>}
-                {visibleColumns.isOptional && <td></td>}
-                {visibleColumns.action && <td></td>}
-             </tr>
-          </tfoot>
-        </table>
-        
-        <div className="p-4 border-t border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
-           <button
-             onClick={() => addBQItem(currentProjectId)}
-             className="flex items-center gap-2 text-primary-600 dark:text-primary-400 font-medium hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
-           >
-             <Plus size={18} />
-             {t.addRow}
-           </button>
+                    {showColumnDropdown && (
+                        <>
+                            <div className="fixed inset-0 z-10 cursor-default" onClick={() => setShowColumnDropdown(false)} />
+                            <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 z-20 p-2 grid grid-cols-1 gap-1 max-h-[300px] overflow-y-auto">
+                                {columnOrder.map((col) => (
+                                    <button 
+                                        key={col.key}
+                                        onClick={() => toggleColumn(col.key)} 
+                                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors ${visibleColumns[col.key] ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400' : 'text-slate-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
+                                    >
+                                            <span className="truncate mr-2 font-medium">{col.label}</span>
+                                            {visibleColumns[col.key] ? <Eye size={14} /> : <EyeOff size={14} className="opacity-50" />}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                 </div>
+             )}
+
+             <div className="flex p-1 bg-gray-100 dark:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-600">
+                <button 
+                    onClick={() => setViewMode('catalog')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                        viewMode === 'catalog' 
+                        ? 'bg-white dark:bg-slate-800 text-primary-600 dark:text-primary-400 shadow-sm' 
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                    }`}
+                >
+                    <Layers size={16} />
+                    Catalog
+                </button>
+                <button 
+                    onClick={() => setViewMode('review')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                        viewMode === 'review' 
+                        ? 'bg-white dark:bg-slate-800 text-primary-600 dark:text-primary-400 shadow-sm' 
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                    }`}
+                >
+                    <CheckSquare size={16} />
+                    Review ({activeItems.length})
+                </button>
+             </div>
+
+             {/* Add Custom Item Button - Square with Logo */}
+             <button
+                 onClick={() => {
+                     addBQItem(activeProject!.id);
+                     setViewMode('review'); // Auto switch to review to edit the new custom item
+                 }}
+                 className="w-10 h-10 flex items-center justify-center bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-gray-100 transition-colors shadow-sm ml-2"
+                 title="Add Custom Item"
+             >
+                 <Plus size={20} />
+             </button>
         </div>
       </div>
-      
-      {/* Disclaimer on values */}
-      <div className="text-right text-xs text-slate-400 dark:text-slate-500 px-4">
-          * Calculated values (REX TSC, TSP, GP) are based on current master data.
+
+      {/* --- View Content --- */}
+      <div className="flex-1 overflow-hidden flex flex-col relative mx-0 md:mx-4">
+        
+        {/* === CATALOG VIEW === */}
+        {viewMode === 'catalog' && (
+            <div className="flex flex-col h-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
+                {/* Catalog Toolbar */}
+                <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex flex-col md:flex-row gap-4">
+                     <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Search catalog..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white"
+                        />
+                     </div>
+                     <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
+                         {categories.map(cat => (
+                             <button
+                                key={cat}
+                                onClick={() => setSelectedCategory(cat)}
+                                className={`px-4 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${
+                                    selectedCategory === cat 
+                                    ? 'bg-primary-50 border-primary-200 text-primary-700 dark:bg-primary-900/30 dark:border-primary-800 dark:text-primary-300' 
+                                    : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700'
+                                }`}
+                             >
+                                 {cat}
+                             </button>
+                         ))}
+                     </div>
+                </div>
+
+                {/* Catalog Table */}
+                <div className="flex-1 overflow-y-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead className="sticky top-0 bg-gray-50 dark:bg-slate-700/90 backdrop-blur-sm z-10 shadow-sm">
+                            <tr className="text-slate-600 dark:text-slate-300 text-xs font-semibold">
+                                <th className="p-4 border-b border-gray-200 dark:border-slate-600 w-1/4">Item</th>
+                                <th className="p-4 border-b border-gray-200 dark:border-slate-600 w-1/3">Description</th>
+                                <th className="p-4 border-b border-gray-200 dark:border-slate-600 text-center">UOM</th>
+                                <th className="p-4 border-b border-gray-200 dark:border-slate-600 text-right">Price (RSP)</th>
+                                <th className="p-4 border-b border-gray-200 dark:border-slate-600 text-center w-32">Select Qty</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-slate-700 text-sm">
+                            {filteredCatalog.map(item => {
+                                const currentQty = getQtyForMasterItem(item.id);
+                                const isSelected = Number(currentQty) > 0;
+                                return (
+                                    <tr 
+                                        key={item.id} 
+                                        className={`transition-colors ${isSelected ? 'bg-primary-50/50 dark:bg-primary-900/10' : 'hover:bg-gray-50 dark:hover:bg-slate-700/30'}`}
+                                    >
+                                        <td className="p-4">
+                                            <div className="font-medium text-slate-900 dark:text-white">{item.itemName}</div>
+                                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">{item.category}</div>
+                                        </td>
+                                        <td className="p-4 text-slate-600 dark:text-slate-400 whitespace-pre-line">{item.description}</td>
+                                        <td className="p-4 text-center text-slate-500">{item.uom}</td>
+                                        <td className="p-4 text-right font-medium text-slate-900 dark:text-white">{fmt(item.rexRsp)}</td>
+                                        <td className="p-4 text-center">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                placeholder="0"
+                                                value={currentQty}
+                                                onChange={(e) => handleCatalogQtyChange(item.id, e.target.value)}
+                                                className={`w-20 text-center rounded-lg border focus:ring-2 focus:outline-none p-2 transition-all ${
+                                                    isSelected 
+                                                    ? 'border-primary-500 ring-2 ring-primary-100 dark:ring-primary-900/30 bg-white dark:bg-slate-800 font-bold text-primary-600' 
+                                                    : 'border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:border-primary-500'
+                                                }`}
+                                            />
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {filteredCatalog.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="p-12 text-center text-slate-400 italic">
+                                        No items found in catalog.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        )}
+
+        {/* === REVIEW VIEW === */}
+        {viewMode === 'review' && (
+            <div className="flex flex-col h-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
+                <div className="flex-1 overflow-auto overflow-x-auto">
+                    <table className="text-left border-collapse table-fixed" style={{ width: totalTableWidth, minWidth: '100%' }}>
+                    <thead>
+                        <tr className="text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800">
+                        {/* Drag Handle Column */}
+                        <th className="p-4 w-10 sticky left-0 z-20 bg-gray-50/50 dark:bg-slate-800" style={{ width: colWidths.dragHandle }}></th>
+                        
+                        {visibleColumns.category && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.category }}>
+                            {t.category}
+                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'category')} />
+                        </th>}
+                        {visibleColumns.item && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.item }}>
+                            {t.item}
+                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'item')} />
+                        </th>}
+                        {visibleColumns.description && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.description }}>
+                            {t.description}
+                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'description')} />
+                        </th>}
+                        {visibleColumns.uom && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.uom }}>
+                            {t.uom}
+                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'uom')} />
+                        </th>}
+                        {visibleColumns.price && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.price }}>
+                            {t.price} (RSP)
+                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'price')} />
+                        </th>}
+                        {visibleColumns.qty && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.qty }}>
+                            {t.qty}
+                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'qty')} />
+                        </th>}
+                        
+                        {/* Calculated Columns */}
+                        {visibleColumns.rexTsc && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTsc }}>
+                            {t.rexTsc}
+                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTsc')} />
+                        </th>}
+                        {visibleColumns.rexTsp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTsp }}>
+                            {t.rexTsp}
+                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTsp')} />
+                        </th>}
+                        {visibleColumns.rexTrsp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTrsp }}>
+                            {t.rexTrsp}
+                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTrsp')} />
+                        </th>}
+                        {visibleColumns.rexGp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexGp }}>
+                            {t.rexGp}
+                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexGp')} />
+                        </th>}
+                        {visibleColumns.rexGpPercent && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexGpPercent }}>
+                            {t.rexGpPercent}
+                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexGpPercent')} />
+                        </th>}
+
+                        {visibleColumns.isOptional && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.isOptional }}>
+                            Opt.
+                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'isOptional')} />
+                        </th>}
+                        
+                        {visibleColumns.action && <th className="relative p-4 select-none" style={{ width: colWidths.action }}>
+                            
+                        </th>}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-slate-700 text-sm">
+                        {activeItems.map((item, index) => {
+                        const qty = item.qty || 0;
+                        const rowRexTsc = qty * (item.rexScDdp || 0); 
+                        const rowRexTsp = qty * (item.rexSp || 0);   
+                        const rowRexTrsp = item.total;               
+                        const rowRexGp = rowRexTrsp - rowRexTsc;      
+                        const rowRexGpPercent = rowRexTrsp ? rowRexGp / rowRexTrsp : 0; 
+                        
+                        const isDragging = draggedIndex === index;
+
+                        return (
+                            <tr 
+                                key={item.id} 
+                                className={`transition-colors group ${isDragging ? 'opacity-50 bg-primary-50 dark:bg-primary-900/20' : 'hover:bg-gray-50 dark:hover:bg-slate-700/30'}`}
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, index)}
+                                onDragOver={handleDragOver}
+                                onDrop={(e) => handleDrop(e, index)}
+                            >
+                            <td className="p-2 align-middle text-center sticky left-0 bg-white dark:bg-slate-800 z-10 cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                <GripVertical size={16} />
+                            </td>
+
+                            {visibleColumns.category && <td className="p-2 align-top">
+                                <input
+                                type="text"
+                                value={item.category}
+                                onChange={(e) => updateBQItem(item.id, 'category', e.target.value)}
+                                className="w-full bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-slate-200 font-normal text-xs"
+                                placeholder="Category"
+                                />
+                            </td>}
+                            {visibleColumns.item && <td className="p-2 align-top">
+                                <input
+                                type="text"
+                                value={item.itemName}
+                                onChange={(e) => updateBQItem(item.id, 'itemName', e.target.value)}
+                                className="w-full bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-white font-medium text-sm"
+                                placeholder="Item Name"
+                                />
+                            </td>}
+                            {visibleColumns.description && <td className="p-2 align-top">
+                                <textarea
+                                value={item.description}
+                                onChange={(e) => updateBQItem(item.id, 'description', e.target.value)}
+                                rows={1}
+                                className="w-full bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-slate-400 font-normal text-xs resize-none"
+                                placeholder="Description"
+                                />
+                            </td>}
+                            {visibleColumns.uom && <td className="p-2 align-top">
+                                <input
+                                type="text"
+                                value={item.uom}
+                                onChange={(e) => updateBQItem(item.id, 'uom', e.target.value)}
+                                className="w-full text-center bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-slate-400 font-normal text-xs"
+                                />
+                            </td>}
+                            {visibleColumns.price && <td className="p-2 align-top">
+                                <input
+                                type="number"
+                                value={item.price}
+                                onChange={(e) => updateBQItem(item.id, 'price', e.target.value)}
+                                className="w-full text-right bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-slate-200 font-normal text-sm"
+                                />
+                            </td>}
+                            {visibleColumns.qty && <td className="p-2 align-top">
+                                <input
+                                type="number"
+                                value={item.qty}
+                                onChange={(e) => updateBQItem(item.id, 'qty', e.target.value)}
+                                className="w-full text-center bg-gray-50 dark:bg-slate-700/50 rounded border border-gray-200 dark:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-white p-1 font-bold text-sm"
+                                />
+                            </td>}
+
+                            {/* READ ONLY COLUMNS */}
+                            {visibleColumns.rexTsc && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexTsc)}</td>}
+                            {visibleColumns.rexTsp && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexTsp)}</td>}
+                            {visibleColumns.rexTrsp && <td className="p-2 align-top text-right text-slate-900 dark:text-white font-medium text-sm">{fmt(rowRexTrsp)}</td>}
+                            {visibleColumns.rexGp && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexGp)}</td>}
+                            {visibleColumns.rexGpPercent && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmtPct(rowRexGpPercent)}</td>}
+
+                            {visibleColumns.isOptional && <td className="p-2 align-top text-center">
+                                <input 
+                                    type="checkbox" 
+                                    checked={!!item.isOptional} 
+                                    onChange={(e) => updateBQItem(item.id, 'isOptional', e.target.checked)}
+                                    className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
+                                />
+                            </td>}
+
+                            {visibleColumns.action && <td className="p-2 align-top text-center">
+                                <button
+                                onClick={() => removeBQItem(item.id)}
+                                className="text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                >
+                                <Trash2 size={16} />
+                                </button>
+                            </td>}
+                            </tr>
+                        );
+                        })}
+                        {activeItems.length === 0 && (
+                            <tr>
+                                <td colSpan={20} className="p-12 text-center text-slate-400">
+                                    No items selected. Go to Catalog to add items.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                    </table>
+                </div>
+            </div>
+        )}
+
       </div>
       
-      {/* Reused Modal for Create/Edit */}
+      {/* Sticky Footer for Total */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-30 transition-all duration-300" 
+           style={{ left: isSidebarOpen ? (window.innerWidth >= 768 ? '18rem' : '0') : '0' }}>
+          <div className="max-w-screen-2xl mx-auto px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-6 text-sm text-slate-500 dark:text-slate-400">
+                  <span>Selected Items: <b className="text-slate-900 dark:text-white">{totalItemsSelected}</b></span>
+                  <span className="hidden sm:inline">|</span>
+                  <span className="hidden sm:inline">Project ID: {activeProject?.quoteId}</span>
+              </div>
+              <div className="flex items-center gap-4">
+                  <div className="text-right">
+                      <p className="text-xs text-slate-500 uppercase font-semibold">Grand Total</p>
+                      <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">
+                          {appSettings.currencySymbol} {fmt(grandTotal)}
+                      </p>
+                  </div>
+              </div>
+          </div>
+      </div>
+      
+      {/* Reused Modal for Project Create/Edit (Moved here to ensure it's on top if open) */}
       {isProjectModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                 <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in flex flex-col max-h-[90vh]">

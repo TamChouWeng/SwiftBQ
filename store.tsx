@@ -25,8 +25,10 @@ interface AppContextType {
   deleteProject: (id: string) => void;
 
   addBQItem: (projectId: string) => void;
+  syncMasterToBQ: (projectId: string, masterItem: MasterItem, qty: number) => void;
   removeBQItem: (id: string) => void;
   updateBQItem: (id: string, field: keyof BQItem, value: any) => void;
+  reorderBQItems: (projectId: string, sourceIndex: number, destinationIndex: number) => void;
   
   // Computations
   getProjectTotal: (projectId: string) => { subtotal: number; tax: number; grandTotal: number };
@@ -442,6 +444,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setBqItems([...bqItems, newItem]);
   };
+  
+  const syncMasterToBQ = (projectId: string, masterItem: MasterItem, qty: number) => {
+      setBqItems(prev => {
+          const existingIndex = prev.findIndex(item => item.projectId === projectId && item.masterId === masterItem.id);
+          
+          if (qty <= 0) {
+              // Remove if exists
+              if (existingIndex > -1) {
+                  return prev.filter((_, index) => index !== existingIndex);
+              }
+              return prev; // Nothing to do
+          }
+
+          if (existingIndex > -1) {
+              // Update existing
+              const newItems = [...prev];
+              const currentItem = newItems[existingIndex];
+              const updatedTotal = currentItem.price * qty;
+              
+              newItems[existingIndex] = {
+                  ...currentItem,
+                  qty: qty,
+                  total: updatedTotal
+              };
+              return newItems;
+          } else {
+              // Add new
+              const newItem: BQItem = {
+                  id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                  projectId,
+                  masterId: masterItem.id,
+                  category: masterItem.category,
+                  itemName: masterItem.itemName,
+                  description: masterItem.description,
+                  price: masterItem.rexRsp, 
+                  qty: qty,
+                  uom: masterItem.uom,
+                  total: masterItem.rexRsp * qty,
+                  rexScDdp: masterItem.rexScDdp,
+                  rexSp: masterItem.rexSp,
+                  rexRsp: masterItem.rexRsp,
+                  isOptional: false,
+              };
+              return [...prev, newItem];
+          }
+      });
+  };
 
   const removeBQItem = (id: string) => {
     setBqItems(bqItems.filter((item) => item.id !== id));
@@ -461,6 +510,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return item;
       })
     );
+  };
+  
+  const reorderBQItems = (projectId: string, sourceIndex: number, destinationIndex: number) => {
+    setBqItems((prev) => {
+      // 1. Separate items for this project and others
+      const projectItems = prev.filter((item) => item.projectId === projectId);
+      const otherItems = prev.filter((item) => item.projectId !== projectId);
+
+      // 2. Reorder project items
+      const newProjectItems = [...projectItems];
+      const [movedItem] = newProjectItems.splice(sourceIndex, 1);
+      newProjectItems.splice(destinationIndex, 0, movedItem);
+
+      // 3. Combine back. 
+      return [...otherItems, ...newProjectItems];
+    });
   };
 
   // --- Calculations ---
@@ -492,8 +557,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateProject,
         deleteProject,
         addBQItem,
+        syncMasterToBQ,
         removeBQItem,
         updateBQItem,
+        reorderBQItems,
         getProjectTotal,
       }}
     >
