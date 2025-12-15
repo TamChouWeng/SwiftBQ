@@ -1,5 +1,3 @@
-
-
 import { AppLanguage, Translations } from './types';
 
 export const TRANSLATIONS: Record<AppLanguage, Translations> = {

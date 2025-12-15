@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import { Settings, X, ChevronLeft, List, Hammer, FileText } from 'lucide-react';
 import { ActiveTab, AppLanguage } from '../types';

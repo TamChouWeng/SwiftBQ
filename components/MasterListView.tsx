@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Trash2, Search, ChevronLeft, ChevronRight, Filter, X, Eye, LayoutTemplate, Check, EyeOff } from 'lucide-react';
 import { useAppStore, calculateDerivedFields } from '../store';

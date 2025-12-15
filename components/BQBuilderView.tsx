@@ -1,6 +1,3 @@
-
-
-
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical, AlertTriangle, Copy, ChevronDown } from 'lucide-react';
 import { useAppStore } from '../store';
