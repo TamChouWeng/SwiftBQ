@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical, AlertTriangle, Copy, ChevronDown } from 'lucide-react';
 import { useAppStore } from '../store';
@@ -150,7 +151,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   };
 
   const { grandTotal } = currentProjectId && currentVersionId ? getProjectTotal(currentProjectId, currentVersionId) : { grandTotal: 0 };
-  const totalItemsSelected = activeItems.reduce((acc, item) => acc + (item.qty || 0), 0);
+  const totalItemsSelected = activeItems.reduce((acc, item) => acc + (Number(item.qty) || 0), 0);
 
   // --- Bottom Bar Calculations ---
   const totalTSC = useMemo(() => activeItems.reduce((sum, item) => sum + (item.qty * (item.rexScDdp || 0)), 0), [activeItems]);
@@ -1041,8 +1042,6 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
               {/* Left Group */}
               <div className="flex flex-wrap items-center justify-center xl:justify-start gap-4 text-sm text-slate-500 dark:text-slate-400 w-full xl:w-auto">
                   <span>Selected Items: <b className="text-slate-900 dark:text-white">{totalItemsSelected}</b></span>
-                  <span className="hidden sm:inline opacity-50">|</span>
-                  <span className="hidden sm:inline">Project ID: {activeProject?.quoteId}</span>
               </div>
 
               {/* Center Group - Internal Metrics */}

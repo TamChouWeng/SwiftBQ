@@ -624,17 +624,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateBQItem = (id: string, field: keyof BQItem, value: any) => {
     setBqItems((prev) => {
+      // Force number type for numeric fields to prevent string concatenation bugs
+      let processedValue = value;
+      if (field === 'qty' || field === 'price') {
+         processedValue = Number(value);
+      }
+
       // Logic Change: If Quantity becomes 0 or less, remove item from BQ
-      if (field === 'qty' && Number(value) <= 0) {
+      if (field === 'qty' && processedValue <= 0) {
         return prev.filter(item => item.id !== id);
       }
 
       return prev.map((item) => {
         if (item.id === id) {
-          const updated = { ...item, [field]: value };
+          const updated = { ...item, [field]: processedValue };
           // Recalculate total if price or qty changes
           if (field === 'price' || field === 'qty') {
-            updated.total = (field === 'price' ? Number(value) : item.price) * (field === 'qty' ? Number(value) : item.qty);
+             // Use processedValue for the field being updated, and existing item value for the other
+             const p = field === 'price' ? processedValue : item.price;
+             const q = field === 'qty' ? processedValue : item.qty;
+             updated.total = p * q;
           }
           return updated;
         }
