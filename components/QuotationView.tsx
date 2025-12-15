@@ -1,5 +1,4 @@
 
-
 import React, { useMemo, useState } from 'react';
 import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, User } from 'lucide-react';
 import { useAppStore } from '../store';
@@ -17,6 +16,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   const { bqItems, currentProjectId, setCurrentProjectId, projects, getProjectTotal, appSettings } = useAppStore();
   const t = TRANSLATIONS[currentLanguage];
   const [searchQuery, setSearchQuery] = useState('');
+  const [logoError, setLogoError] = useState(false);
 
   // Get current project details
   const activeProject = useMemo(() => 
@@ -60,6 +60,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
       const canvas = await html2canvas(input, {
         scale: 2, // Higher resolution
         useCORS: true,
+        allowTaint: true,
         logging: false,
         backgroundColor: '#ffffff'
       });
@@ -222,6 +223,20 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 <div className="flex justify-between items-end mb-4">
                   {/* Left: Company Details */}
                   <div className="w-[60%] pb-2">
+                     <img 
+                        src="logo.jpg" 
+                        alt="Company Logo" 
+                        className={`h-16 w-auto mb-3 object-contain ${logoError ? 'hidden' : 'block'}`}
+                        onError={(e) => {
+                            console.warn("Logo failed to load at path:", e.currentTarget.src);
+                            setLogoError(true);
+                        }}
+                     />
+                     {logoError && (
+                        <div className="h-16 mb-3 flex items-center justify-center text-[10px] text-red-500 italic border border-red-200 bg-red-50 px-2 rounded w-48">
+                            Logo not found. (Expected: public/logo.jpg)
+                        </div>
+                     )}
                      <h2 className="font-bold text-xl text-red-600 mb-2">{appSettings.companyName}</h2>
                      <p className="whitespace-pre-line text-xs leading-normal">{appSettings.companyAddress}</p>
                   </div>
