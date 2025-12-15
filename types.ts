@@ -1,7 +1,3 @@
-
-
-
-
 export enum AppTheme {
   LIGHT = 'light',
   DARK = 'dark',
@@ -82,6 +78,7 @@ export interface AppSettings {
   companyName: string;
   companyAddress: string;
   currencySymbol: string;
+  companyLogo: string; // Added Base64 logo string
   // Profile Info
   profileName: string;
   profileContact: string;

@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { Moon, Sun, Globe, Info, Check, Building, User, ShieldCheck } from 'lucide-react';
 import { AppLanguage, AppTheme, LANGUAGES } from '../types';
@@ -33,6 +31,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSettingChange = (field: keyof typeof appSettings, value: string | number) => {
       setAppSettings({ ...appSettings, [field]: value });
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        handleSettingChange('companyLogo', reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleProfileSave = () => {
@@ -154,6 +163,23 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                         rows={2}
                         className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none resize-none"
                     />
+                </div>
+                <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Company Logo</label>
+                    <div className="flex items-center gap-4">
+                        {appSettings.companyLogo && (
+                            <div className="w-16 h-16 border border-gray-200 dark:border-slate-600 rounded-lg overflow-hidden bg-white">
+                                <img src={appSettings.companyLogo} alt="Logo Preview" className="w-full h-full object-contain" />
+                            </div>
+                        )}
+                        <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={handleLogoUpload}
+                            className="block w-full text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-slate-700 dark:file:text-slate-200"
+                        />
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">Upload an image file (PNG/JPG) to be displayed on your quotations.</p>
                 </div>
             </div>
          </div>

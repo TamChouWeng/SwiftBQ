@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, User } from 'lucide-react';
 import { useAppStore } from '../store';
@@ -60,7 +59,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
       const canvas = await html2canvas(input, {
         scale: 2, // Higher resolution
         useCORS: true,
-        allowTaint: true,
+        // allowTaint: true, // REMOVED: Taint prevents toDataURL from working if remote images fail CORS
         logging: false,
         backgroundColor: '#ffffff'
       });
@@ -224,17 +223,19 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                   {/* Left: Company Details */}
                   <div className="w-[60%] pb-2">
                      <img 
-                        src="logo.jpg" 
+                        src={appSettings.companyLogo || "/logo.jpg"} 
                         alt="Company Logo" 
                         className={`h-16 w-auto mb-3 object-contain ${logoError ? 'hidden' : 'block'}`}
                         onError={(e) => {
-                            console.warn("Logo failed to load at path:", e.currentTarget.src);
-                            setLogoError(true);
+                            if (!appSettings.companyLogo) {
+                                console.warn("Logo failed to load at path:", e.currentTarget.src);
+                                setLogoError(true);
+                            }
                         }}
                      />
-                     {logoError && (
+                     {logoError && !appSettings.companyLogo && (
                         <div className="h-16 mb-3 flex items-center justify-center text-[10px] text-red-500 italic border border-red-200 bg-red-50 px-2 rounded w-48">
-                            Logo not found. (Expected: public/logo.jpg)
+                            Logo not found. Upload in Settings.
                         </div>
                      )}
                      <h2 className="font-bold text-xl text-red-600 mb-2">{appSettings.companyName}</h2>

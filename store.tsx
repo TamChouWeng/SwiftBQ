@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { MasterItem, BQItem, Project, AppSettings, BQViewMode } from './types';
 
@@ -313,6 +312,7 @@ const INITIAL_SETTINGS: AppSettings = {
   companyName: 'Recharge Xolutions Sdn Bhd (0295251X)',
   companyAddress: 'L3-023, Level 3, MyTOWN Shopping Centre, \n6,Jalan Cochrane, Seksyen 90,\n55100 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur',
   currencySymbol: 'RM',
+  companyLogo: '',
   profileName: 'Teoh Chi Yang',
   profileContact: '+6012 528 0665',
   profileRole: 'Admin',
