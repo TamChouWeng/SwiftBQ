@@ -1,3 +1,4 @@
+
 export enum AppTheme {
   LIGHT = 'light',
   DARK = 'dark',
@@ -43,6 +44,12 @@ export interface MasterItem {
   spMargin?: number;
 }
 
+export interface ProjectVersion {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
 export interface Project {
   id: string;
   projectName: string;
@@ -52,11 +59,13 @@ export interface Project {
   date: string;
   validityPeriod: string;
   quoteId: string; // Keeping for reference
+  versions: ProjectVersion[]; // New: List of versions
 }
 
 export interface BQItem {
   id: string;
   projectId: string; // Linked project
+  versionId: string; // New: Linked version
   masterId?: string;
   category: string;
   itemName: string;

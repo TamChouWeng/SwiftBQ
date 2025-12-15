@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { MasterItem, BQItem, Project, AppSettings, BQViewMode } from './types';
 
@@ -6,8 +7,14 @@ interface AppContextType {
   setMasterData: React.Dispatch<React.SetStateAction<MasterItem[]>>;
   projects: Project[];
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
+  
   currentProjectId: string | null;
   setCurrentProjectId: React.Dispatch<React.SetStateAction<string | null>>;
+  
+  // Versioning
+  currentVersionId: string | null;
+  setCurrentVersionId: React.Dispatch<React.SetStateAction<string | null>>;
+  
   bqItems: BQItem[];
   setBqItems: React.Dispatch<React.SetStateAction<BQItem[]>>;
   appSettings: AppSettings;
@@ -23,15 +30,20 @@ interface AppContextType {
   addProject: (project: Project) => void;
   updateProject: (id: string, updates: Partial<Project>) => void;
   deleteProject: (id: string) => void;
+  
+  // Version Actions
+  createVersion: (projectId: string, sourceVersionId: string, newVersionName: string) => void;
+  updateVersionName: (projectId: string, versionId: string, name: string) => void;
+  deleteVersion: (projectId: string, versionId: string) => void;
 
-  addBQItem: (projectId: string) => void;
-  syncMasterToBQ: (projectId: string, masterItem: MasterItem, qty: number) => void;
+  addBQItem: (projectId: string, versionId: string) => void;
+  syncMasterToBQ: (projectId: string, versionId: string, masterItem: MasterItem, qty: number) => void;
   removeBQItem: (id: string) => void;
   updateBQItem: (id: string, field: keyof BQItem, value: any) => void;
-  reorderBQItems: (projectId: string, sourceIndex: number, destinationIndex: number) => void;
+  reorderBQItems: (projectId: string, versionId: string, sourceIndex: number, destinationIndex: number) => void;
   
   // Computations
-  getProjectTotal: (projectId: string) => { subtotal: number; tax: number; grandTotal: number };
+  getProjectTotal: (projectId: string, versionId: string) => { subtotal: number; tax: number; grandTotal: number };
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -318,6 +330,21 @@ const INITIAL_SETTINGS: AppSettings = {
   profileRole: 'Admin',
 };
 
+// Migration helpers
+const migrateProjects = (projects: any[]): Project[] => {
+  return projects.map(p => ({
+    ...p,
+    versions: p.versions || [{ id: 'v1', name: 'version-1', createdAt: new Date().toISOString() }]
+  }));
+};
+
+const migrateItems = (items: any[]): BQItem[] => {
+  return items.map(i => ({
+    ...i,
+    versionId: i.versionId || 'v1'
+  }));
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // --- Initialize State with LocalStorage Checks ---
   
@@ -333,7 +360,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [projects, setProjects] = useState<Project[]>(() => {
     try {
         const saved = localStorage.getItem('swiftbq_projects');
-        return saved ? JSON.parse(saved) : [];
+        return saved ? migrateProjects(JSON.parse(saved)) : [];
     } catch (e) {
         return [];
     }
@@ -342,7 +369,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [bqItems, setBqItems] = useState<BQItem[]>(() => {
     try {
         const saved = localStorage.getItem('swiftbq_bqItems');
-        return saved ? JSON.parse(saved) : [];
+        return saved ? migrateItems(JSON.parse(saved)) : [];
     } catch (e) {
         return [];
     }
@@ -358,6 +385,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [currentVersionId, setCurrentVersionId] = useState<string | null>(null);
   const [bqViewMode, setBqViewMode] = useState<BQViewMode>('catalog');
 
   // --- Persistence Effects ---
@@ -413,7 +441,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // --- Project Actions ---
   const addProject = (project: Project) => {
-    setProjects(prev => [...prev, project]);
+    // Ensure new project has a default version
+    const newProject = {
+        ...project,
+        versions: [{ id: 'v1', name: 'version-1', createdAt: new Date().toISOString() }]
+    };
+    setProjects(prev => [...prev, newProject]);
+    setCurrentProjectId(newProject.id);
+    setCurrentVersionId('v1');
   };
 
   const updateProject = (id: string, updates: Partial<Project>) => {
@@ -424,14 +459,102 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setProjects(prev => prev.filter(p => p.id !== id));
     // Also delete linked BQ Items
     setBqItems(prev => prev.filter(item => item.projectId !== id));
-    if (currentProjectId === id) setCurrentProjectId(null);
+    if (currentProjectId === id) {
+        setCurrentProjectId(null);
+        setCurrentVersionId(null);
+    }
+  };
+
+  // --- Version Actions ---
+
+  const createVersion = (projectId: string, sourceVersionId: string, newVersionName: string) => {
+    const newVersionId = Date.now().toString(); // Simple ID generation
+    
+    // 1. Add new version to project
+    setProjects(prev => prev.map(p => {
+        if (p.id === projectId) {
+            return {
+                ...p,
+                versions: [...p.versions, { id: newVersionId, name: newVersionName, createdAt: new Date().toISOString() }]
+            };
+        }
+        return p;
+    }));
+
+    // 2. Duplicate BQ items from source version
+    const sourceItems = bqItems.filter(item => item.projectId === projectId && item.versionId === sourceVersionId);
+    const newItems = sourceItems.map(item => ({
+        ...item,
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 5), // Generate new ID for each item
+        versionId: newVersionId
+    }));
+    
+    setBqItems(prev => [...prev, ...newItems]);
+    setCurrentVersionId(newVersionId);
+  };
+
+  const updateVersionName = (projectId: string, versionId: string, name: string) => {
+      setProjects(prev => prev.map(p => {
+          if (p.id === projectId) {
+              return {
+                  ...p,
+                  versions: p.versions.map(v => v.id === versionId ? { ...v, name } : v)
+              };
+          }
+          return p;
+      }));
+  };
+
+  const deleteVersion = (projectId: string, versionId: string) => {
+    // 1. Remove version from project
+    setProjects(prev => prev.map(p => {
+        if (p.id === projectId) {
+            return {
+                ...p,
+                versions: p.versions.filter(v => v.id !== versionId)
+            };
+        }
+        return p;
+    }));
+
+    // 2. Remove BQ items for this version
+    setBqItems(prev => prev.filter(item => !(item.projectId === projectId && item.versionId === versionId)));
+
+    // 3. Handle current selection switch
+    if (currentProjectId === projectId && currentVersionId === versionId) {
+         // Find the project from current state logic in effect, 
+         // since we are inside a state update batch, we look at the projects state
+         // But here we'll use a functional update safe logic if possible or just assume state integrity
+         const project = projects.find(p => p.id === projectId);
+         if (project) {
+             const remaining = project.versions.filter(v => v.id !== versionId);
+             if (remaining.length > 0) {
+                 // Switch to the first available version
+                 setCurrentVersionId(remaining[0].id);
+             } else {
+                 // If no versions left, create a default one to avoid broken state
+                 const newDefaultId = Date.now().toString();
+                 setProjects(prev => prev.map(p => {
+                    if (p.id === projectId) {
+                        return {
+                            ...p,
+                            versions: [{ id: newDefaultId, name: 'version-1', createdAt: new Date().toISOString() }]
+                        };
+                    }
+                    return p;
+                }));
+                setCurrentVersionId(newDefaultId);
+             }
+         }
+    }
   };
 
   // --- BQ Items Actions ---
-  const addBQItem = (projectId: string) => {
+  const addBQItem = (projectId: string, versionId: string) => {
     const newItem: BQItem = {
       id: Date.now().toString(),
       projectId: projectId,
+      versionId: versionId,
       category: '',
       itemName: '',
       description: '',
@@ -447,9 +570,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBqItems([...bqItems, newItem]);
   };
   
-  const syncMasterToBQ = (projectId: string, masterItem: MasterItem, qty: number) => {
+  const syncMasterToBQ = (projectId: string, versionId: string, masterItem: MasterItem, qty: number) => {
       setBqItems(prev => {
-          const existingIndex = prev.findIndex(item => item.projectId === projectId && item.masterId === masterItem.id);
+          const existingIndex = prev.findIndex(item => item.projectId === projectId && item.versionId === versionId && item.masterId === masterItem.id);
           
           if (qty <= 0) {
               // Remove if exists
@@ -476,6 +599,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const newItem: BQItem = {
                   id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
                   projectId,
+                  versionId,
                   masterId: masterItem.id,
                   category: masterItem.category,
                   itemName: masterItem.itemName,
@@ -519,14 +643,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
   
-  const reorderBQItems = (projectId: string, sourceIndex: number, destinationIndex: number) => {
+  const reorderBQItems = (projectId: string, versionId: string, sourceIndex: number, destinationIndex: number) => {
     setBqItems((prev) => {
-      // 1. Separate items for this project and others
-      const projectItems = prev.filter((item) => item.projectId === projectId);
-      const otherItems = prev.filter((item) => item.projectId !== projectId);
+      // 1. Separate items for this project/version and others
+      const projectVersionItems = prev.filter((item) => item.projectId === projectId && item.versionId === versionId);
+      const otherItems = prev.filter((item) => !(item.projectId === projectId && item.versionId === versionId));
 
       // 2. Reorder project items
-      const newProjectItems = [...projectItems];
+      const newProjectItems = [...projectVersionItems];
       const [movedItem] = newProjectItems.splice(sourceIndex, 1);
       newProjectItems.splice(destinationIndex, 0, movedItem);
 
@@ -536,8 +660,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // --- Calculations ---
-  const getProjectTotal = (projectId: string) => {
-    const projectItems = bqItems.filter(i => i.projectId === projectId && !i.isOptional);
+  const getProjectTotal = (projectId: string, versionId: string) => {
+    const projectItems = bqItems.filter(i => i.projectId === projectId && i.versionId === versionId && !i.isOptional);
     const subtotal = projectItems.reduce((acc, item) => acc + item.total, 0);
     const tax = 0; // Tax rate removed
     const grandTotal = subtotal + tax;
@@ -553,6 +677,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setProjects,
         currentProjectId,
         setCurrentProjectId,
+        currentVersionId,
+        setCurrentVersionId,
         bqItems,
         setBqItems,
         appSettings,
@@ -565,6 +691,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addProject,
         updateProject,
         deleteProject,
+        createVersion,
+        updateVersionName,
+        deleteVersion,
         addBQItem,
         syncMasterToBQ,
         removeBQItem,

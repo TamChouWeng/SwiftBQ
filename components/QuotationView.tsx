@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, User } from 'lucide-react';
+
+import React, { useMemo, useState, useEffect } from 'react';
+import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, User, ChevronDown } from 'lucide-react';
 import { useAppStore } from '../store';
 import { AppLanguage, BQItem } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -16,17 +17,27 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   const t = TRANSLATIONS[currentLanguage];
   const [searchQuery, setSearchQuery] = useState('');
   const [logoError, setLogoError] = useState(false);
+  
+  // Local state for selecting version in Quotation View
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
 
   // Get current project details
   const activeProject = useMemo(() => 
     projects.find(p => p.id === currentProjectId), 
   [projects, currentProjectId]);
 
-  const activeItems = useMemo(() => 
-    bqItems.filter(item => item.projectId === currentProjectId),
-  [bqItems, currentProjectId]);
+  // Set default version when project loads
+  useEffect(() => {
+    if (activeProject && !selectedVersionId && activeProject.versions.length > 0) {
+        setSelectedVersionId(activeProject.versions[0].id);
+    }
+  }, [activeProject, selectedVersionId]);
 
-  const { subtotal, tax, grandTotal } = currentProjectId ? getProjectTotal(currentProjectId) : { subtotal: 0, tax: 0, grandTotal: 0 };
+  const activeItems = useMemo(() => 
+    bqItems.filter(item => item.projectId === currentProjectId && item.versionId === selectedVersionId),
+  [bqItems, currentProjectId, selectedVersionId]);
+
+  const { subtotal, tax, grandTotal } = currentProjectId && selectedVersionId ? getProjectTotal(currentProjectId, selectedVersionId) : { subtotal: 0, tax: 0, grandTotal: 0 };
 
   // Separate Standard and Optional Items
   const standardItems = useMemo(() => activeItems.filter(item => !item.isOptional), [activeItems]);
@@ -179,17 +190,39 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     <div className="animate-fade-in space-y-6 pb-12">
       {/* Title Header */}
       <div className={`transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${contentPadding}`}>
-        <div className="flex items-start gap-4">
-            <button 
-                onClick={() => setCurrentProjectId(null)}
-                className="mt-1 p-2 rounded-lg border border-gray-200 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
-                title="Back to Projects"
-             >
-                <ArrowLeft size={20} />
-             </button>
-            <div>
-                <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-1">{t.quotationView}</h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Project: {activeProject?.projectName}</p>
+        <div className="flex flex-col gap-4">
+            <div className="flex items-start gap-4">
+                <button 
+                    onClick={() => {
+                        setCurrentProjectId(null);
+                        setSelectedVersionId(null);
+                    }}
+                    className="mt-1 p-2 rounded-lg border border-gray-200 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
+                    title="Back to Projects"
+                >
+                    <ArrowLeft size={20} />
+                </button>
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-1">{t.quotationView}</h1>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Project: {activeProject?.projectName}</p>
+                </div>
+            </div>
+            
+            {/* Version Selection in Quote View */}
+            <div className="pl-14">
+                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block uppercase">Select Version to Export</label>
+                <div className="relative inline-block">
+                     <select
+                        value={selectedVersionId || ''}
+                        onChange={(e) => setSelectedVersionId(e.target.value)}
+                        className="bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm rounded-lg pl-3 pr-8 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none appearance-none font-medium min-w-[160px]"
+                     >
+                         {activeProject?.versions.map(v => (
+                             <option key={v.id} value={v.id}>{v.name}</option>
+                         ))}
+                     </select>
+                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                </div>
             </div>
         </div>
         
@@ -209,6 +242,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 <FileText size={48} className="text-slate-400" />
             </div>
             <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-300">{t.noData}</h2>
+            <p className="text-sm text-slate-500 mt-2">Ensure the selected version has items.</p>
           </div>
       ) : (
           /* PDF Container - A4 Size Simulation */
