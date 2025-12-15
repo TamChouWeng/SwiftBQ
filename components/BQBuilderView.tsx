@@ -371,6 +371,72 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     );
   };
 
+  // Reusable Table Header for both Catalog and Review
+  const renderTableHeader = () => (
+      <thead>
+        <tr className="text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800">
+            {/* Drag Handle Column / Spacer */}
+            <th className="p-4 w-10 sticky left-0 z-20 bg-gray-50/50 dark:bg-slate-800" style={{ width: colWidths.dragHandle }}></th>
+            
+            {visibleColumns.category && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.category }}>
+                {t.category}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'category')} />
+            </th>}
+            {visibleColumns.item && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.item }}>
+                {t.item}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'item')} />
+            </th>}
+            {visibleColumns.description && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.description }}>
+                {t.description}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'description')} />
+            </th>}
+            {visibleColumns.uom && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.uom }}>
+                {t.uom}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'uom')} />
+            </th>}
+            {visibleColumns.price && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.price }}>
+                {t.price} (RSP)
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'price')} />
+            </th>}
+            {visibleColumns.qty && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.qty }}>
+                {t.qty}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'qty')} />
+            </th>}
+            
+            {/* Calculated Columns */}
+            {visibleColumns.rexTsc && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTsc }}>
+                {t.rexTsc}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTsc')} />
+            </th>}
+            {visibleColumns.rexTsp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTsp }}>
+                {t.rexTsp}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTsp')} />
+            </th>}
+            {visibleColumns.rexTrsp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTrsp }}>
+                {t.rexTrsp}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTrsp')} />
+            </th>}
+            {visibleColumns.rexGp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexGp }}>
+                {t.rexGp}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexGp')} />
+            </th>}
+            {visibleColumns.rexGpPercent && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexGpPercent }}>
+                {t.rexGpPercent}
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexGpPercent')} />
+            </th>}
+
+            {visibleColumns.isOptional && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.isOptional }}>
+                Opt.
+                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'isOptional')} />
+            </th>}
+            
+            {visibleColumns.action && <th className="relative p-4 select-none" style={{ width: colWidths.action }}>
+                
+            </th>}
+        </tr>
+      </thead>
+  );
+
   // --- Views ---
 
   if (!currentProjectId) {
@@ -537,35 +603,33 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         {/* Toggle View & Custom Item Actions */}
         <div className="flex gap-2 items-center w-full xl:w-auto self-end xl:self-start">
              
-             {/* Columns Button moved here */}
-             {bqViewMode === 'review' && (
-                 <div className="relative">
-                    <button
-                        onClick={() => setShowColumnDropdown(!showColumnDropdown)}
-                        className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
-                        title={t.columns}
-                    >
-                        <LayoutTemplate size={20} />
-                    </button>
-                    {showColumnDropdown && (
-                        <>
-                            <div className="fixed inset-0 z-10 cursor-default" onClick={() => setShowColumnDropdown(false)} />
-                            <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 z-20 p-2 grid grid-cols-1 gap-1 max-h-[300px] overflow-y-auto">
-                                {columnOrder.map((col) => (
-                                    <button 
-                                        key={col.key}
-                                        onClick={() => toggleColumn(col.key)} 
-                                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors ${visibleColumns[col.key] ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400' : 'text-slate-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
-                                    >
-                                            <span className="truncate mr-2 font-medium">{col.label}</span>
-                                            {visibleColumns[col.key] ? <Eye size={14} /> : <EyeOff size={14} className="opacity-50" />}
-                                    </button>
-                                ))}
-                            </div>
-                        </>
-                    )}
-                 </div>
-             )}
+             {/* Columns Button - Shared for both views */}
+             <div className="relative">
+                <button
+                    onClick={() => setShowColumnDropdown(!showColumnDropdown)}
+                    className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
+                    title={t.columns}
+                >
+                    <LayoutTemplate size={20} />
+                </button>
+                {showColumnDropdown && (
+                    <>
+                        <div className="fixed inset-0 z-10 cursor-default" onClick={() => setShowColumnDropdown(false)} />
+                        <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 z-20 p-2 grid grid-cols-1 gap-1 max-h-[300px] overflow-y-auto">
+                            {columnOrder.map((col) => (
+                                <button 
+                                    key={col.key}
+                                    onClick={() => toggleColumn(col.key)} 
+                                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors ${visibleColumns[col.key] ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400' : 'text-slate-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
+                                >
+                                        <span className="truncate mr-2 font-medium">{col.label}</span>
+                                        {visibleColumns[col.key] ? <Eye size={14} /> : <EyeOff size={14} className="opacity-50" />}
+                                </button>
+                            ))}
+                        </div>
+                    </>
+                )}
+             </div>
 
              <div className="flex p-1 bg-gray-100 dark:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-600">
                 <button 
@@ -642,53 +706,80 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 </div>
 
                 {/* Catalog Table */}
-                <div className="flex-1 overflow-y-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead className="sticky top-0 bg-gray-50 dark:bg-slate-700/90 backdrop-blur-sm z-10 shadow-sm">
-                            <tr className="text-slate-600 dark:text-slate-300 text-xs font-semibold">
-                                <th className="p-4 border-b border-gray-200 dark:border-slate-600 w-1/4">Item</th>
-                                <th className="p-4 border-b border-gray-200 dark:border-slate-600 w-1/3">Description</th>
-                                <th className="p-4 border-b border-gray-200 dark:border-slate-600 text-center">UOM</th>
-                                <th className="p-4 border-b border-gray-200 dark:border-slate-600 text-right">Price (RSP)</th>
-                                <th className="p-4 border-b border-gray-200 dark:border-slate-600 text-center w-32">Select Qty</th>
-                            </tr>
-                        </thead>
+                <div className="flex-1 overflow-auto overflow-x-auto">
+                    <table className="text-left border-collapse table-fixed" style={{ width: totalTableWidth, minWidth: '100%' }}>
+                        {renderTableHeader()}
                         <tbody className="divide-y divide-gray-100 dark:divide-slate-700 text-sm">
                             {filteredCatalog.map(item => {
                                 const currentQty = getQtyForMasterItem(item.id);
                                 const isSelected = Number(currentQty) > 0;
+                                // Calculations for display in Catalog (Simulating BQ logic for reference)
+                                const qtyVal = Number(currentQty) || 0;
+                                const rowRexTsc = qtyVal * (item.rexScDdp || 0); 
+                                const rowRexTsp = qtyVal * (item.rexSp || 0);   
+                                const rowRexTrsp = qtyVal * (item.rexRsp || 0);               
+                                const rowRexGp = rowRexTrsp - rowRexTsc;      
+                                const rowRexGpPercent = rowRexTrsp ? rowRexGp / rowRexTrsp : 0; 
+
                                 return (
                                     <tr 
                                         key={item.id} 
-                                        className={`transition-colors ${isSelected ? 'bg-primary-50/50 dark:bg-primary-900/10' : 'hover:bg-gray-50 dark:hover:bg-slate-700/30'}`}
+                                        className="transition-colors hover:bg-gray-50 dark:hover:bg-slate-700/30"
                                     >
-                                        <td className="p-4">
-                                            <div className="font-medium text-slate-900 dark:text-white">{item.itemName}</div>
-                                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">{item.category}</div>
+                                        <td className="p-2 align-middle text-center sticky left-0 bg-white dark:bg-slate-800 z-10 text-slate-300">
+                                            {/* Spacer for drag handle column alignment */}
                                         </td>
-                                        <td className="p-4 text-slate-600 dark:text-slate-400 whitespace-pre-line">{item.description}</td>
-                                        <td className="p-4 text-center text-slate-500">{item.uom}</td>
-                                        <td className="p-4 text-right font-medium text-slate-900 dark:text-white">{fmt(item.rexRsp)}</td>
-                                        <td className="p-4 text-center">
+
+                                        {visibleColumns.category && <td className="p-2 align-top">
+                                            <div className="truncate text-xs font-normal text-slate-700 dark:text-slate-200">{item.category}</div>
+                                        </td>}
+                                        {visibleColumns.item && <td className="p-2 align-top">
+                                            <div className="font-medium text-sm text-slate-900 dark:text-white truncate">{item.itemName}</div>
+                                        </td>}
+                                        {visibleColumns.description && <td className="p-2 align-top">
+                                            <div className="text-xs font-normal text-slate-500 dark:text-slate-400 truncate">{item.description}</div>
+                                        </td>}
+                                        {visibleColumns.uom && <td className="p-2 align-top text-center">
+                                             <div className="text-xs font-normal text-slate-500 dark:text-slate-400">{item.uom}</div>
+                                        </td>}
+                                        {visibleColumns.price && <td className="p-2 align-top text-right">
+                                             <div className="text-sm font-normal text-slate-900 dark:text-slate-200">{fmt(item.rexRsp)}</div>
+                                        </td>}
+                                        {visibleColumns.qty && <td className="p-2 align-top">
                                             <input
                                                 type="number"
                                                 min="0"
                                                 placeholder="0"
                                                 value={currentQty}
                                                 onChange={(e) => handleCatalogQtyChange(item.id, e.target.value)}
-                                                className={`w-20 text-center rounded-lg border focus:ring-2 focus:outline-none p-2 transition-all ${
+                                                className={`w-full text-center rounded-lg border focus:ring-2 focus:outline-none p-1 transition-all text-sm font-bold ${
                                                     isSelected 
-                                                    ? 'border-primary-500 ring-2 ring-primary-100 dark:ring-primary-900/30 bg-white dark:bg-slate-800 font-bold text-primary-600' 
+                                                    ? 'border-primary-500 ring-2 ring-primary-100 dark:ring-primary-900/30 bg-white dark:bg-slate-800 text-primary-600' 
                                                     : 'border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:border-primary-500'
                                                 }`}
                                             />
-                                        </td>
+                                        </td>}
+
+                                        {/* READ ONLY CALCULATED COLUMNS */}
+                                        {visibleColumns.rexTsc && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexTsc)}</td>}
+                                        {visibleColumns.rexTsp && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexTsp)}</td>}
+                                        {visibleColumns.rexTrsp && <td className="p-2 align-top text-right text-slate-900 dark:text-white font-medium text-sm">{fmt(rowRexTrsp)}</td>}
+                                        {visibleColumns.rexGp && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexGp)}</td>}
+                                        {visibleColumns.rexGpPercent && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmtPct(rowRexGpPercent)}</td>}
+
+                                        {visibleColumns.isOptional && <td className="p-2 align-top text-center">
+                                            <div className="w-4 h-4 border border-gray-200 rounded mx-auto bg-gray-50 dark:bg-slate-700 dark:border-slate-600"></div>
+                                        </td>}
+
+                                        {visibleColumns.action && <td className="p-2 align-top text-center">
+                                            {/* No action for Master List Item row */}
+                                        </td>}
                                     </tr>
                                 );
                             })}
                             {filteredCatalog.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="p-12 text-center text-slate-400 italic">
+                                    <td colSpan={20} className="p-12 text-center text-slate-400 italic">
                                         No items found in catalog.
                                     </td>
                                 </tr>
@@ -704,68 +795,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             <div className="flex flex-col h-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
                 <div className="flex-1 overflow-auto overflow-x-auto">
                     <table className="text-left border-collapse table-fixed" style={{ width: totalTableWidth, minWidth: '100%' }}>
-                    <thead>
-                        <tr className="text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800">
-                        {/* Drag Handle Column */}
-                        <th className="p-4 w-10 sticky left-0 z-20 bg-gray-50/50 dark:bg-slate-800" style={{ width: colWidths.dragHandle }}></th>
-                        
-                        {visibleColumns.category && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.category }}>
-                            {t.category}
-                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'category')} />
-                        </th>}
-                        {visibleColumns.item && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.item }}>
-                            {t.item}
-                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'item')} />
-                        </th>}
-                        {visibleColumns.description && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.description }}>
-                            {t.description}
-                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'description')} />
-                        </th>}
-                        {visibleColumns.uom && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.uom }}>
-                            {t.uom}
-                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'uom')} />
-                        </th>}
-                        {visibleColumns.price && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.price }}>
-                            {t.price} (RSP)
-                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'price')} />
-                        </th>}
-                        {visibleColumns.qty && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.qty }}>
-                            {t.qty}
-                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'qty')} />
-                        </th>}
-                        
-                        {/* Calculated Columns */}
-                        {visibleColumns.rexTsc && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTsc }}>
-                            {t.rexTsc}
-                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTsc')} />
-                        </th>}
-                        {visibleColumns.rexTsp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTsp }}>
-                            {t.rexTsp}
-                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTsp')} />
-                        </th>}
-                        {visibleColumns.rexTrsp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexTrsp }}>
-                            {t.rexTrsp}
-                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexTrsp')} />
-                        </th>}
-                        {visibleColumns.rexGp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexGp }}>
-                            {t.rexGp}
-                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexGp')} />
-                        </th>}
-                        {visibleColumns.rexGpPercent && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexGpPercent }}>
-                            {t.rexGpPercent}
-                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexGpPercent')} />
-                        </th>}
-
-                        {visibleColumns.isOptional && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.isOptional }}>
-                            Opt.
-                            <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'isOptional')} />
-                        </th>}
-                        
-                        {visibleColumns.action && <th className="relative p-4 select-none" style={{ width: colWidths.action }}>
-                            
-                        </th>}
-                        </tr>
-                    </thead>
+                    {renderTableHeader()}
                     <tbody className="divide-y divide-gray-100 dark:divide-slate-700 text-sm">
                         {activeItems.map((item, index) => {
                         const qty = item.qty || 0;
