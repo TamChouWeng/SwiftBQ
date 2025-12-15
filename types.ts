@@ -60,6 +60,7 @@ export interface Project {
   validityPeriod: string;
   quoteId: string; // Keeping for reference
   versions: ProjectVersion[]; // New: List of versions
+  discount?: number; // Special Discount
 }
 
 export interface BQItem {
@@ -95,9 +96,6 @@ export interface AppSettings {
 }
 
 export interface Translations {
-  main: string;
-  welcomeSubtitle: string;
-  welcomeTitle: string;
   masterList: string;
   bqBuilder: string;
   quotationView: string;
@@ -133,7 +131,6 @@ export interface Translations {
   currencySymbol: string;
   exportPDF: string;
   noData: string;
-  generatedBy: string;
   // New Column Headers
   colA: string;
   colB: string;

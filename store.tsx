@@ -43,7 +43,7 @@ interface AppContextType {
   reorderBQItems: (projectId: string, versionId: string, sourceIndex: number, destinationIndex: number) => void;
   
   // Computations
-  getProjectTotal: (projectId: string, versionId: string) => { subtotal: number; tax: number; grandTotal: number };
+  getProjectTotal: (projectId: string, versionId: string) => { subtotal: number; tax: number; grandTotal: number; discount: number };
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -334,7 +334,8 @@ const INITIAL_SETTINGS: AppSettings = {
 const migrateProjects = (projects: any[]): Project[] => {
   return projects.map(p => ({
     ...p,
-    versions: p.versions || [{ id: 'v1', name: 'version-1', createdAt: new Date().toISOString() }]
+    versions: p.versions || [{ id: 'v1', name: 'version-1', createdAt: new Date().toISOString() }],
+    discount: p.discount || 0 // Default discount to 0
   }));
 };
 
@@ -670,11 +671,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // --- Calculations ---
   const getProjectTotal = (projectId: string, versionId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    const discount = project?.discount || 0;
     const projectItems = bqItems.filter(i => i.projectId === projectId && i.versionId === versionId && !i.isOptional);
     const subtotal = projectItems.reduce((acc, item) => acc + item.total, 0);
     const tax = 0; // Tax rate removed
-    const grandTotal = subtotal + tax;
-    return { subtotal, tax, grandTotal };
+    const grandTotal = subtotal + tax - discount;
+    return { subtotal, tax, grandTotal, discount };
   };
 
   return (

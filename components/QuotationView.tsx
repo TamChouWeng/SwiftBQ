@@ -13,7 +13,7 @@ interface Props {
 }
 
 const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
-  const { bqItems, currentProjectId, setCurrentProjectId, projects, getProjectTotal, appSettings } = useAppStore();
+  const { bqItems, currentProjectId, setCurrentProjectId, projects, updateProject, getProjectTotal, appSettings } = useAppStore();
   const t = TRANSLATIONS[currentLanguage];
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -36,7 +36,10 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     bqItems.filter(item => item.projectId === currentProjectId && item.versionId === selectedVersionId),
   [bqItems, currentProjectId, selectedVersionId]);
 
-  const { subtotal, tax, grandTotal } = currentProjectId && selectedVersionId ? getProjectTotal(currentProjectId, selectedVersionId) : { subtotal: 0, tax: 0, grandTotal: 0 };
+  // Calculate totals including discount
+  const { subtotal, grandTotal, discount } = currentProjectId && selectedVersionId 
+      ? getProjectTotal(currentProjectId, selectedVersionId) 
+      : { subtotal: 0, grandTotal: 0, discount: 0 };
 
   // Separate Standard and Optional Items
   const standardItems = useMemo(() => activeItems.filter(item => !item.isOptional), [activeItems]);
@@ -56,6 +59,13 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         p.clientName.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [projects, searchQuery]);
+
+  const handleDiscountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (activeProject) {
+          const val = parseFloat(e.target.value);
+          updateProject(activeProject.id, { discount: isNaN(val) ? 0 : val });
+      }
+  };
 
   const handleExportPDF = async () => {
     const input = document.getElementById('quotation-content');
@@ -188,7 +198,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   return (
     <div className="animate-fade-in space-y-6 pb-12">
       {/* Title Header */}
-      <div className={`transition-all duration-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${contentPadding}`}>
+      <div className={`transition-all duration-300 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 ${contentPadding}`}>
         <div className="flex flex-col gap-4">
             <div className="flex items-start gap-4">
                 <button 
@@ -206,10 +216,27 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     <p className="text-sm text-slate-500 dark:text-slate-400">Project: {activeProject?.projectName}</p>
                 </div>
             </div>
-            
-            {/* Version Selection in Quote View */}
-            <div className="pl-14">
-                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block uppercase">Select Version to Export</label>
+        </div>
+        
+        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-4 w-full xl:w-auto">
+            {/* Discount Input */}
+             <div className="flex flex-col items-end sm:items-start">
+                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 uppercase">Special Discount</label>
+                <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">{appSettings.currencySymbol}</span>
+                    <input 
+                        type="number" 
+                        value={activeProject?.discount || ''} 
+                        onChange={handleDiscountChange}
+                        placeholder="0.00"
+                        className="w-32 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm rounded-lg pl-10 pr-3 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none font-medium text-right"
+                    />
+                </div>
+            </div>
+
+            {/* Version Selection */}
+            <div className="flex flex-col items-end sm:items-start">
+                <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 uppercase">Select Version to Export</label>
                 <div className="relative inline-block">
                      <select
                         value={selectedVersionId || ''}
@@ -223,16 +250,16 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                 </div>
             </div>
+
+            {/* Square Export Button */}
+            <button
+            onClick={handleExportPDF}
+            className="w-10 h-10 flex items-center justify-center bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg shadow-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors mt-4 sm:mt-0"
+            title={t.exportPDF}
+            >
+            <Download size={20} />
+            </button>
         </div>
-        
-        {/* Square Export Button */}
-        <button
-          onClick={handleExportPDF}
-          className="w-10 h-10 flex items-center justify-center bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg shadow-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
-          title={t.exportPDF}
-        >
-          <Download size={20} />
-        </button>
       </div>
 
       {activeItems.length === 0 ? (
@@ -387,10 +414,15 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             <span className="font-semibold text-xs">Subtotal ({appSettings.currencySymbol}) :</span>
                             <span className="font-medium">{fmt(subtotal)}</span>
                         </div>
-                        <div className="flex justify-between border-b border-black py-1 text-red-600">
-                            <span className="font-semibold text-xs">Special Discount ({appSettings.currencySymbol}) :</span>
-                            <span className="font-medium">(0.00)</span>
-                        </div>
+                        
+                        {/* Conditional Special Discount */}
+                        {discount > 0 && (
+                            <div className="flex justify-between border-b border-black py-1 text-green-600 font-bold">
+                                <span className="text-xs uppercase">Special Discount ({appSettings.currencySymbol}) :</span>
+                                <span className="">({fmt(discount)})</span>
+                            </div>
+                        )}
+
                         <div className="flex justify-between border-b-2 border-black py-1 text-sm font-bold mt-1">
                             <span>TOTAL ({appSettings.currencySymbol}):</span>
                             <span>{fmt(grandTotal)}</span>
