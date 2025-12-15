@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, User, ChevronDown } from 'lucide-react';
 import { useAppStore } from '../store';
@@ -15,7 +16,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   const { bqItems, currentProjectId, setCurrentProjectId, projects, getProjectTotal, appSettings } = useAppStore();
   const t = TRANSLATIONS[currentLanguage];
   const [searchQuery, setSearchQuery] = useState('');
-  const [logoError, setLogoError] = useState(false);
   
   // Local state for selecting version in Quotation View
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
@@ -255,21 +255,15 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 <div className="flex justify-between items-end mb-4">
                   {/* Left: Company Details */}
                   <div className="w-[60%] pb-2">
-                     <img 
-                        src={appSettings.companyLogo || "/logo.jpg"} 
-                        alt="Company Logo" 
-                        className={`h-16 w-auto mb-3 object-contain ${logoError ? 'hidden' : 'block'}`}
-                        onError={(e) => {
-                            if (!appSettings.companyLogo) {
-                                console.warn("Logo failed to load at path:", e.currentTarget.src);
-                                setLogoError(true);
-                            }
-                        }}
-                     />
-                     {logoError && !appSettings.companyLogo && (
-                        <div className="h-16 mb-3 flex items-center justify-center text-[10px] text-red-500 italic border border-red-200 bg-red-50 px-2 rounded w-48">
-                            Logo not found. Upload in Settings.
-                        </div>
+                     {appSettings.companyLogo && (
+                         <img 
+                            src={appSettings.companyLogo} 
+                            alt="Company Logo" 
+                            className="h-16 w-auto mb-3 object-contain"
+                            onError={(e) => {
+                                e.currentTarget.style.display = 'none'; // Hide if broken
+                            }}
+                         />
                      )}
                      <h2 className="font-bold text-xl text-red-600 mb-2">{appSettings.companyName}</h2>
                      <p className="whitespace-pre-line text-xs leading-normal">{appSettings.companyAddress}</p>

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Moon, Sun, Globe, Info, Check, Building, User, ShieldCheck } from 'lucide-react';
+
+import React, { useState, useRef } from 'react';
+import { Moon, Sun, Globe, Info, Check, Building, User, ShieldCheck, Trash2, Upload } from 'lucide-react';
 import { AppLanguage, AppTheme, LANGUAGES } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { useAppStore } from '../store';
@@ -21,6 +22,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const t = TRANSLATIONS[currentLanguage];
   const { appSettings, setAppSettings } = useAppStore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Local state for profile form to defer updates until confirmation
   const [profileForm, setProfileForm] = useState({
@@ -42,6 +44,13 @@ const SettingsView: React.FC<SettingsViewProps> = ({
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleRemoveLogo = () => {
+      handleSettingChange('companyLogo', '');
+      if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+      }
   };
 
   const handleProfileSave = () => {
@@ -165,21 +174,49 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                     />
                 </div>
                 <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Company Logo</label>
-                    <div className="flex items-center gap-4">
-                        {appSettings.companyLogo && (
-                            <div className="w-16 h-16 border border-gray-200 dark:border-slate-600 rounded-lg overflow-hidden bg-white">
-                                <img src={appSettings.companyLogo} alt="Logo Preview" className="w-full h-full object-contain" />
+                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Company Logo</label>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                        <div className="relative group">
+                             {appSettings.companyLogo ? (
+                                <div className="w-20 h-20 border border-gray-200 dark:border-slate-600 rounded-lg overflow-hidden bg-white flex items-center justify-center relative">
+                                    <img src={appSettings.companyLogo} alt="Logo Preview" className="max-w-full max-h-full object-contain" />
+                                </div>
+                             ) : (
+                                <div className="w-20 h-20 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg flex items-center justify-center text-slate-400 bg-gray-50 dark:bg-slate-700/30">
+                                    <span className="text-xs">No Logo</span>
+                                </div>
+                             )}
+                        </div>
+                        
+                        <div className="flex-1 space-y-2">
+                            <div className="flex gap-2">
+                                <label className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors text-sm font-medium text-slate-700 dark:text-slate-300">
+                                    <Upload size={16} />
+                                    Choose Image
+                                    <input 
+                                        ref={fileInputRef}
+                                        type="file" 
+                                        accept="image/*"
+                                        onChange={handleLogoUpload}
+                                        className="hidden"
+                                    />
+                                </label>
+                                {appSettings.companyLogo && (
+                                    <button 
+                                        onClick={handleRemoveLogo}
+                                        className="flex items-center justify-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors text-sm font-medium"
+                                    >
+                                        <Trash2 size={16} />
+                                        Remove
+                                    </button>
+                                )}
                             </div>
-                        )}
-                        <input 
-                            type="file" 
-                            accept="image/*"
-                            onChange={handleLogoUpload}
-                            className="block w-full text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-slate-700 dark:file:text-slate-200"
-                        />
+                            <p className="text-xs text-slate-400">
+                                Recommended: PNG or JPG. Transparent background works best. 
+                                <br/>If no logo is uploaded, the logo section will be hidden in quotations.
+                            </p>
+                        </div>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">Upload an image file (PNG/JPG) to be displayed on your quotations.</p>
                 </div>
             </div>
          </div>
