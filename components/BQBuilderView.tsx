@@ -347,6 +347,8 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
   // Calculate dynamic table width based on visible columns
   const totalTableWidth = Object.keys(colWidths).reduce((acc, key) => {
+      if (bqViewMode === 'catalog' && (key === 'dragHandle' || key === 'isOptional')) return acc;
+      
       if (key === 'dragHandle') return acc + colWidths[key];
       if (visibleColumns[key as keyof typeof visibleColumns]) {
           return acc + colWidths[key];
@@ -445,15 +447,13 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 onDrop={isReview ? (e) => handleDrop(e, index) : undefined}
             >
                 {/* Drag Handle / Spacer */}
-                <td className="p-2 align-middle text-center sticky left-0 bg-white dark:bg-slate-800 z-10 border-r border-gray-100 dark:border-slate-700/50" style={{ width: colWidths.dragHandle }}>
-                     {isReview ? (
-                         <div className="cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                             <GripVertical size={16} className="mx-auto" />
-                         </div>
-                     ) : (
-                         <div className="w-4"></div>
-                     )}
-                </td>
+                {isReview && (
+                  <td className="p-2 align-middle text-center sticky left-0 bg-white dark:bg-slate-800 z-10 border-r border-gray-100 dark:border-slate-700/50" style={{ width: colWidths.dragHandle }}>
+                      <div className="cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                          <GripVertical size={16} className="mx-auto" />
+                      </div>
+                  </td>
+                )}
 
                 {/* Category */}
                 {visibleColumns.category && <td className="p-2 align-top">
@@ -557,17 +557,13 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 {visibleColumns.rexGpPercent && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmtPct(rowRexGpPercent)}</td>}
                 
                 {/* Optional */}
-                {visibleColumns.isOptional && <td className="p-2 align-top text-center">
-                    {isReview ? (
-                         <input 
-                            type="checkbox" 
-                            checked={isOptional} 
-                            onChange={(e) => updateBQItem(itemId, 'isOptional', e.target.checked)}
-                            className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
-                        />
-                    ) : (
-                        <div className="w-4 h-4 border border-gray-200 rounded mx-auto bg-gray-50 dark:bg-slate-700 dark:border-slate-600 opacity-50"></div>
-                    )}
+                {visibleColumns.isOptional && isReview && <td className="p-2 align-top text-center">
+                    <input 
+                      type="checkbox" 
+                      checked={isOptional} 
+                      onChange={(e) => updateBQItem(itemId, 'isOptional', e.target.checked)}
+                      className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500 cursor-pointer"
+                    />
                 </td>}
 
                 {/* Action */}
@@ -658,7 +654,9 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
       <thead>
         <tr className="text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800">
             {/* Drag Handle Column / Spacer */}
-            <th className="p-4 w-10 sticky left-0 z-20 bg-gray-50/50 dark:bg-slate-800 border-r border-gray-100 dark:border-slate-700/50" style={{ width: colWidths.dragHandle }}></th>
+            {bqViewMode === 'review' && (
+              <th className="p-4 w-10 sticky left-0 z-20 bg-gray-50/50 dark:bg-slate-800 border-r border-gray-100 dark:border-slate-700/50" style={{ width: colWidths.dragHandle }}></th>
+            )}
             
             {visibleColumns.category && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.category }}>
                 {t.category}
@@ -707,7 +705,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexGpPercent')} />
             </th>}
 
-            {visibleColumns.isOptional && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.isOptional }}>
+            {visibleColumns.isOptional && bqViewMode === 'review' && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.isOptional }}>
                 Opt.
                 <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'isOptional')} />
             </th>}
