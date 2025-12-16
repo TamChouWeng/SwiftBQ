@@ -150,9 +150,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     let currentBatch: RenderRow[] = [];
     
     // Heuristic: Page 1 has header, so fewer items. Subsequent pages have more space?
-    // For simplicity and consistency in layout, we keep it uniform, 
-    // but we can be smarter.
-    // Let's stick to a safe limit.
     const LIMIT = ITEMS_PER_PAGE_DEFAULT;
 
     allRows.forEach((row, index) => {
@@ -227,6 +224,27 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 div.style.minHeight = 'auto';
                 div.textContent = originalTextareas[idx].value;
                 cta.parentNode?.replaceChild(div, cta);
+            });
+
+            // --- STYLING FIXES FOR PDF ---
+            // Html2Canvas often clips text in tables with border-collapse.
+            // We inject explicit spacing to correct this in the export.
+            
+            const tableHeaders = clone.querySelectorAll('th');
+            tableHeaders.forEach(th => {
+                th.style.paddingTop = '10px';
+                th.style.paddingBottom = '10px';
+                th.style.verticalAlign = 'middle';
+                // Prevent background color from clipping border
+                th.style.backgroundClip = 'padding-box';
+            });
+
+            const tableCells = clone.querySelectorAll('td');
+            tableCells.forEach(td => {
+                 // Ensure padding is sufficient for text
+                 td.style.paddingTop = '8px';
+                 td.style.paddingBottom = '8px';
+                 td.style.verticalAlign = 'top';
             });
 
             document.body.appendChild(clone);
@@ -550,17 +568,17 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             </>
                         )}
                         
-                        {/* 3. Items Table - Removed flex-1 to fix spacing */}
+                        {/* 3. Items Table */}
                         <div className="mb-6">
                             <table className="w-full border-collapse border border-black text-xs text-black">
                                 <thead>
                                     <tr className="bg-gray-100">
-                                        <th className="border border-black p-2 w-10 text-center font-bold">NO</th>
-                                        <th className="border border-black p-2 text-left font-bold">DESCRIPTION</th>
-                                        <th className="border border-black p-2 w-28 text-right font-bold">Unit Price ({appSettings.currencySymbol})</th>
-                                        <th className="border border-black p-2 w-12 text-center font-bold">QTY</th>
-                                        <th className="border border-black p-2 w-16 text-center font-bold">UOM</th>
-                                        <th className="border border-black p-2 w-28 text-right font-bold">Total Price ({appSettings.currencySymbol})</th>
+                                        <th className="border border-black py-3 px-2 w-10 text-center font-bold">NO</th>
+                                        <th className="border border-black py-3 px-2 text-left font-bold">DESCRIPTION</th>
+                                        <th className="border border-black py-3 px-2 w-28 text-right font-bold">Unit Price ({appSettings.currencySymbol})</th>
+                                        <th className="border border-black py-3 px-2 w-12 text-center font-bold">QTY</th>
+                                        <th className="border border-black py-3 px-2 w-16 text-center font-bold">UOM</th>
+                                        <th className="border border-black py-3 px-2 w-28 text-right font-bold">Total Price ({appSettings.currencySymbol})</th>
                                     </tr>
                                 </thead>
                                 <tbody>
