@@ -3,7 +3,7 @@ import { AppLanguage, Translations } from './types';
 
 export const TRANSLATIONS: Record<AppLanguage, Translations> = {
   [AppLanguage.ENGLISH]: {
-    masterList: 'Master List',
+    masterList: 'Main',
     bqBuilder: 'BQ Builder',
     quotationView: 'Quotation View',
     settings: 'Settings',
@@ -77,7 +77,7 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     isOptional: 'Optional',
   },
   [AppLanguage.MALAY]: {
-    masterList: 'Senarai Induk',
+    masterList: 'Utama',
     bqBuilder: 'Pembina BQ',
     quotationView: 'Paparan Sebut Harga',
     settings: 'Tetapan',
@@ -151,7 +151,7 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     isOptional: 'Pilihan',
   },
   [AppLanguage.CHINESE]: {
-    masterList: '主清单',
+    masterList: '主要',
     bqBuilder: 'BQ 构建器',
     quotationView: '报价视图',
     settings: '设置',

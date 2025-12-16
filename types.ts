@@ -71,6 +71,7 @@ export interface BQItem {
   category: string;
   itemName: string;
   description: string;
+  quotationDescription?: string; // New: Specific description for quotation view
   price: number; // This is REX RSP
   qty: number;
   uom: string;

@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, User, ChevronDown } from 'lucide-react';
+import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, User, ChevronDown, Save, RotateCcw, Check } from 'lucide-react';
 import { useAppStore } from '../store';
 import { AppLanguage, BQItem } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -13,7 +13,20 @@ interface Props {
 }
 
 const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
-  const { bqItems, currentProjectId, setCurrentProjectId, projects, updateProject, getProjectTotal, appSettings } = useAppStore();
+  const { 
+      bqItems, 
+      currentProjectId, 
+      setCurrentProjectId, 
+      projects, 
+      updateProject, 
+      getProjectTotal, 
+      appSettings,
+      quotationEdits,
+      setQuotationEdit,
+      commitQuotationEdits,
+      discardQuotationEdits,
+      hasUnsavedChanges
+  } = useAppStore();
   const t = TRANSLATIONS[currentLanguage];
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -68,6 +81,20 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   };
 
   const handleExportPDF = async () => {
+    if (hasUnsavedChanges) {
+        // Simple alert for user to save first
+        const confirmSave = window.confirm("You have unsaved changes to the description. Do you want to save them before exporting?");
+        if (confirmSave) {
+            commitQuotationEdits();
+        } else {
+            // If they cancel the save, we ask if they want to export anyway (discard changes effectively for the export view?)
+            // Actually, HTML2Canvas captures the *rendered* view. 
+            // If we don't save, the rendered view *still shows* the edits (because they are in local state).
+            // But good practice is to save.
+            // Let's just proceed if they say No/Cancel to saving, essentially exporting what they see.
+        }
+    }
+
     const input = document.getElementById('quotation-content');
     if (!input) return;
 
@@ -75,13 +102,19 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
       // Temporarily remove shadow for cleaner capture and accurate dimensions
       const originalShadow = input.style.boxShadow;
       input.style.boxShadow = 'none';
+      
+      // Force text areas to be fully visible if scrolling (though auto-height should handle it)
+      // Since we are using <textarea>, html2canvas might have issues rendering text inside if not handled.
+      // However, modern html2canvas handles value reasonably well.
+      // Best practice: Ensure resize is disabled and overflow visible during capture.
 
       const canvas = await html2canvas(input, {
         scale: 2, // Higher resolution
         useCORS: true,
-        // allowTaint: true, // REMOVED: Taint prevents toDataURL from working if remote images fail CORS
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        height: input.scrollHeight, // Capture full height
+        windowHeight: input.scrollHeight
       });
 
       // Restore shadow
@@ -103,7 +136,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
 
-      // Check if there is significant content left (more than 1mm) to avoid blank pages due to rounding
       while (heightLeft > 1) {
         position = heightLeft - imgHeight;
         pdf.addPage();
@@ -122,6 +154,12 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
   // Helper for currency format
   const fmt = (n: number) => n?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00';
+
+  // Helper to adjust textarea height automatically
+  const adjustTextareaHeight = (element: HTMLTextAreaElement) => {
+      element.style.height = 'auto';
+      element.style.height = element.scrollHeight + 'px';
+  };
 
   if (!currentProjectId) {
       return (
@@ -196,15 +234,23 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
   // === DETAIL VIEW ===
   return (
-    <div className="animate-fade-in space-y-6 pb-12">
+    <div className="animate-fade-in space-y-6 pb-12 flex flex-col h-[calc(100vh-3.5rem)]">
       {/* Title Header */}
-      <div className={`transition-all duration-300 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 ${contentPadding}`}>
+      <div className={`transition-all duration-300 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 shrink-0 ${contentPadding}`}>
         <div className="flex flex-col gap-4">
             <div className="flex items-start gap-4">
                 <button 
                     onClick={() => {
-                        setCurrentProjectId(null);
-                        setSelectedVersionId(null);
+                         if (hasUnsavedChanges) {
+                             if(window.confirm("You have unsaved changes. Discard them?")) {
+                                 discardQuotationEdits();
+                                 setCurrentProjectId(null);
+                                 setSelectedVersionId(null);
+                             }
+                         } else {
+                             setCurrentProjectId(null);
+                             setSelectedVersionId(null);
+                         }
                     }}
                     className="mt-1 p-2 rounded-lg border border-gray-200 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
                     title="Back to Projects"
@@ -240,7 +286,13 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 <div className="relative inline-block">
                      <select
                         value={selectedVersionId || ''}
-                        onChange={(e) => setSelectedVersionId(e.target.value)}
+                        onChange={(e) => {
+                             if (hasUnsavedChanges) {
+                                 if(!window.confirm("Changing version will discard unsaved changes. Continue?")) return;
+                                 discardQuotationEdits();
+                             }
+                             setSelectedVersionId(e.target.value);
+                        }}
                         className="bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm rounded-lg pl-3 pr-8 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none appearance-none font-medium min-w-[160px]"
                      >
                          {activeProject?.versions.map(v => (
@@ -251,19 +303,49 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 </div>
             </div>
 
-            {/* Square Export Button */}
-            <button
-            onClick={handleExportPDF}
-            className="w-10 h-10 flex items-center justify-center bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg shadow-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors mt-4 sm:mt-0"
-            title={t.exportPDF}
-            >
-            <Download size={20} />
-            </button>
+            <div className="flex gap-2 mt-4 sm:mt-0">
+                {/* Undo Button */}
+                <button
+                    onClick={discardQuotationEdits}
+                    disabled={!hasUnsavedChanges}
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg shadow-sm transition-colors border ${
+                        hasUnsavedChanges 
+                        ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-gray-200 dark:border-slate-600 hover:bg-gray-50'
+                        : 'bg-gray-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 border-transparent cursor-not-allowed'
+                    }`}
+                    title="Undo Changes"
+                >
+                    <RotateCcw size={20} />
+                </button>
+
+                {/* Save Button */}
+                <button
+                    onClick={commitQuotationEdits}
+                    disabled={!hasUnsavedChanges}
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg shadow-sm transition-colors border ${
+                         hasUnsavedChanges
+                         ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800 hover:bg-green-100'
+                         : 'bg-gray-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 border-transparent cursor-not-allowed'
+                    }`}
+                    title="Save Changes"
+                >
+                    <Save size={20} />
+                </button>
+
+                {/* Export Button */}
+                <button
+                onClick={handleExportPDF}
+                className="w-10 h-10 flex items-center justify-center bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg shadow-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+                title={t.exportPDF}
+                >
+                <Download size={20} />
+                </button>
+            </div>
         </div>
       </div>
 
       {activeItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
+          <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in flex-1">
             <div className="bg-gray-100 dark:bg-slate-800 p-6 rounded-full mb-4">
                 <FileText size={48} className="text-slate-400" />
             </div>
@@ -271,11 +353,11 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             <p className="text-sm text-slate-500 mt-2">Ensure the selected version has items.</p>
           </div>
       ) : (
-          /* PDF Container - A4 Size Simulation */
-          <div className="overflow-auto w-full px-4 flex justify-center bg-gray-100 dark:bg-slate-900 py-8">
+          /* A4 Container Simulation */
+          <div className="flex-1 overflow-auto bg-gray-200 dark:bg-slate-950 p-8 flex justify-center">
               <div
                 id="quotation-content"
-                className="bg-white text-black p-[10mm] w-[210mm] min-h-[297mm] shadow-2xl relative font-sans flex flex-col"
+                className="bg-white text-black p-[10mm] w-[210mm] min-h-[297mm] shadow-2xl relative font-sans flex flex-col shrink-0 transition-transform duration-200 ease-in-out"
                 style={{ fontSize: '10pt', lineHeight: '1.3' }}
               >
                 {/* 1. Header Section */}
@@ -384,25 +466,35 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                         </td>
                                     </tr>
                                     {/* Items */}
-                                    {(items as BQItem[]).map((item) => (
+                                    {(items as BQItem[]).map((item) => {
+                                        // Prioritize Local Edits -> Saved Edit -> Original Description
+                                        const displayDescription = quotationEdits[item.id] ?? item.quotationDescription ?? item.description;
+                                        
+                                        return (
                                         <tr key={item.id}>
                                             <td className="border border-black p-2 text-center align-top">{rowCounter++}</td>
                                             <td className="border border-black p-2 align-top">
                                                 <div className="font-bold text-xs mb-1">{item.itemName}</div>
-                                                <div className="text-[10px] text-black whitespace-pre-wrap leading-tight pl-2">
-                                                    {item.description}
-                                                </div>
+                                                <textarea
+                                                    value={displayDescription}
+                                                    onChange={(e) => {
+                                                        setQuotationEdit(item.id, e.target.value);
+                                                        adjustTextareaHeight(e.target);
+                                                    }}
+                                                    className="w-full bg-transparent border-none p-0 text-[10px] text-black whitespace-pre-wrap leading-tight focus:ring-0 resize-none overflow-hidden"
+                                                    style={{ minHeight: '1.2em' }}
+                                                    rows={1}
+                                                    onFocus={(e) => adjustTextareaHeight(e.target)}
+                                                />
                                             </td>
                                             <td className="border border-black p-2 text-right align-top">{fmt(item.price)}</td>
                                             <td className="border border-black p-2 text-center align-top">{item.qty}</td>
                                             <td className="border border-black p-2 text-center align-top">{item.uom}</td>
                                             <td className="border border-black p-2 text-right align-top font-semibold">{fmt(item.total)}</td>
                                         </tr>
-                                    ))}
+                                    )})}
                                 </React.Fragment>
                             ))}
-                            
-                            {/* Empty Standard Items Filler if needed, but not required by prompt */}
                         </tbody>
                     </table>
                 </div>
@@ -438,21 +530,31 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                          </div>
                          <table className="w-full border-collapse border border-black text-xs text-black">
                              <tbody>
-                                 {optionalItems.map((item) => (
+                                 {optionalItems.map((item) => {
+                                      const displayDescription = quotationEdits[item.id] ?? item.quotationDescription ?? item.description;
+                                     return (
                                      <tr key={item.id}>
                                          <td className="border border-black p-2 w-10 text-center align-top">{rowCounter++}</td>
                                          <td className="border border-black p-2 align-top">
                                              <div className="font-bold text-xs mb-1">{item.itemName}</div>
-                                             <div className="text-[10px] text-black whitespace-pre-wrap leading-tight pl-2">
-                                                 {item.description}
-                                             </div>
+                                             <textarea
+                                                    value={displayDescription}
+                                                    onChange={(e) => {
+                                                        setQuotationEdit(item.id, e.target.value);
+                                                        adjustTextareaHeight(e.target);
+                                                    }}
+                                                    className="w-full bg-transparent border-none p-0 text-[10px] text-black whitespace-pre-wrap leading-tight focus:ring-0 resize-none overflow-hidden"
+                                                    style={{ minHeight: '1.2em' }}
+                                                    rows={1}
+                                                    onFocus={(e) => adjustTextareaHeight(e.target)}
+                                                />
                                          </td>
                                          <td className="border border-black p-2 w-28 text-right align-top">{fmt(item.price)}</td>
                                          <td className="border border-black p-2 w-12 text-center align-top">{item.qty}</td>
                                          <td className="border border-black p-2 w-16 text-center align-top">{item.uom}</td>
                                          <td className="border border-black p-2 w-28 text-right align-top font-semibold">{fmt(item.total)}</td>
                                      </tr>
-                                 ))}
+                                 )})}
                              </tbody>
                          </table>
                     </div>

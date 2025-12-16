@@ -1,5 +1,4 @@
-
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { MasterItem, BQItem, Project, AppSettings, BQViewMode } from './types';
 
 interface AppContextType {
@@ -44,6 +43,13 @@ interface AppContextType {
   
   // Computations
   getProjectTotal: (projectId: string, versionId: string) => { subtotal: number; tax: number; grandTotal: number; discount: number };
+
+  // Quotation Edit Mode
+  quotationEdits: Record<string, string>;
+  setQuotationEdit: (id: string, value: string) => void;
+  commitQuotationEdits: () => void;
+  discardQuotationEdits: () => void;
+  hasUnsavedChanges: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -147,7 +153,8 @@ const INITIAL_MASTER_DATA: MasterItem[] = [
   createItem('105', 'SIEMENS', '', 'CPC50CC-M', '50', 'EV CHARGER', 'B BRAND EV CHARGER', '55 KW DC CHARGER', 'Unit', 30000.00, 1, 1.08, 1.000, 0.7), 
   createItem('106', 'SIEMENS', '', 'CPC50CC-M', '50', 'EV CHARGER', 'B BRAND EV CHARGER', '240KW DC CHARGER', 'Unit', 60000.00, 1, 1.08, 1.000, 0.7),
   createItem('107', 'SIEMENS', '', 'CPC50CC-M', '50', 'EV CHARGER', 'B BRAND EV CHARGER', '480KW DC CHARGER', 'Unit', 100000.00, 1, 1.08, 1.000, 0.7),
-
+  
+  
   // --- NON-ARMOURED CABLE ---
   createItem('201', 'MEGA/SOUTHERN', '', '', '', 'NON-ARMOURED CABLE', 'PVC OR PVC/PVC', '1C X 6MM PVC CABLE (RED)', 'Meter', 5, 1, 1, 0.965, 0.7),
   createItem('202', 'MEGA/SOUTHERN', '', '', '', 'NON-ARMOURED CABLE', 'PVC OR PVC/PVC', '1C X 6MM PVC CABLE (YELLOW)', 'Meter', 5, 1, 1, 0.965, 0.7),
@@ -318,6 +325,7 @@ const INITIAL_MASTER_DATA: MasterItem[] = [
   
   createItem('690', '', '2209978', 'DP-34-024D', '', 'EV DISTRIBUTION BOARD', 'EFOC', 'EARTH FAULT & OVERCURRENT RELAY IDMT (DP-34-024D), DC18-72V', 'Unit', 0, 1, 1, 0.965, 0.7),
   createItem('691', 'DELAB', '2209978', 'DP-31', '', 'EV DISTRIBUTION BOARD', 'EFOC', 'EARTH FAULT RELAY IDMT DP-31', 'Unit', 0, 1, 1, 0.965, 0.7),
+
 ];
 
 const INITIAL_SETTINGS: AppSettings = {
@@ -342,7 +350,8 @@ const migrateProjects = (projects: any[]): Project[] => {
 const migrateItems = (items: any[]): BQItem[] => {
   return items.map(i => ({
     ...i,
-    versionId: i.versionId || 'v1'
+    versionId: i.versionId || 'v1',
+    quotationDescription: i.quotationDescription // Migrate existing field if present
   }));
 };
 
@@ -388,6 +397,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [currentVersionId, setCurrentVersionId] = useState<string | null>(null);
   const [bqViewMode, setBqViewMode] = useState<BQViewMode>('catalog');
+
+  // Staged Edits for Quotation View
+  const [quotationEdits, setQuotationEdits] = useState<Record<string, string>>({});
+  const hasUnsavedChanges = useMemo(() => Object.keys(quotationEdits).length > 0, [quotationEdits]);
+
 
   // --- Persistence Effects ---
   
@@ -680,6 +694,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { subtotal, tax, grandTotal, discount };
   };
 
+  // --- Quotation Edits Logic ---
+  const setQuotationEdit = (id: string, value: string) => {
+      setQuotationEdits(prev => ({ ...prev, [id]: value }));
+  };
+
+  const commitQuotationEdits = () => {
+      if (Object.keys(quotationEdits).length === 0) return;
+      
+      setBqItems(prev => prev.map(item => {
+          if (quotationEdits[item.id] !== undefined) {
+              return { ...item, quotationDescription: quotationEdits[item.id] };
+          }
+          return item;
+      }));
+      setQuotationEdits({});
+  };
+
+  const discardQuotationEdits = () => {
+      setQuotationEdits({});
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -712,6 +747,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateBQItem,
         reorderBQItems,
         getProjectTotal,
+        quotationEdits,
+        setQuotationEdit,
+        commitQuotationEdits,
+        discardQuotationEdits,
+        hasUnsavedChanges,
       }}
     >
       {children}

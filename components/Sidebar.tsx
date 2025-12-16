@@ -1,5 +1,6 @@
-import React from 'react';
-import { Settings, X, ChevronLeft, List, Hammer, FileText } from 'lucide-react';
+
+import React, { useState } from 'react';
+import { Settings, X, ChevronLeft, List, Hammer, FileText, AlertCircle } from 'lucide-react';
 import { ActiveTab, AppLanguage } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { useAppStore } from '../store';
@@ -20,14 +21,40 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentLanguage,
 }) => {
   const t = TRANSLATIONS[currentLanguage];
-  const { appSettings } = useAppStore();
+  const { appSettings, hasUnsavedChanges, commitQuotationEdits, discardQuotationEdits } = useAppStore();
+  
+  // Navigation Guard State
+  const [pendingTab, setPendingTab] = useState<ActiveTab | null>(null);
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
 
   const handleTabClick = (tab: ActiveTab) => {
+    if (tab === activeTab) return;
+
+    if (hasUnsavedChanges) {
+        setPendingTab(tab);
+        setShowUnsavedModal(true);
+    } else {
+        performNavigation(tab);
+    }
+  };
+
+  const performNavigation = (tab: ActiveTab) => {
     setActiveTab(tab);
-    // On mobile, auto-close sidebar when clicking a link
     if (window.innerWidth < 768) {
       setIsOpen(false);
     }
+  };
+
+  const handleSaveAndContinue = () => {
+      commitQuotationEdits();
+      setShowUnsavedModal(false);
+      if (pendingTab) performNavigation(pendingTab);
+  };
+
+  const handleDiscardAndContinue = () => {
+      discardQuotationEdits();
+      setShowUnsavedModal(false);
+      if (pendingTab) performNavigation(pendingTab);
   };
 
   const menuItems = [
@@ -114,6 +141,43 @@ const Sidebar: React.FC<SidebarProps> = ({
            </div>
         </div>
       </aside>
+
+      {/* Unsaved Changes Modal */}
+      {showUnsavedModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6 transform transition-all scale-100 border border-gray-100 dark:border-slate-700">
+                 <div className="flex flex-col items-center text-center mb-6">
+                    <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/20 text-amber-500 rounded-full flex items-center justify-center mb-4">
+                        <AlertCircle size={24} />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Unsaved Changes</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                        You have unsaved changes in your quotation description. Do you want to save them before leaving?
+                    </p>
+                 </div>
+                 <div className="flex flex-col gap-2">
+                     <button 
+                        onClick={handleSaveAndContinue}
+                        className="w-full px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl shadow-lg shadow-primary-500/30 transition-colors"
+                     >
+                        Save & Continue
+                     </button>
+                     <button 
+                        onClick={handleDiscardAndContinue}
+                        className="w-full px-4 py-2.5 bg-gray-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
+                     >
+                        Discard Changes
+                     </button>
+                     <button 
+                        onClick={() => setShowUnsavedModal(false)}
+                        className="w-full px-4 py-2.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-sm font-medium transition-colors"
+                     >
+                        Cancel
+                     </button>
+                 </div>
+             </div>
+          </div>
+      )}
     </>
   );
 };
