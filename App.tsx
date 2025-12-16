@@ -7,7 +7,6 @@ import MasterListView from './components/MasterListView';
 import BQBuilderView from './components/BQBuilderView';
 import QuotationView from './components/QuotationView';
 import { AppTheme, AppLanguage, ActiveTab } from './types';
-import { TRANSLATIONS } from './constants';
 import { AppProvider } from './store';
 
 const AppContent: React.FC = () => {

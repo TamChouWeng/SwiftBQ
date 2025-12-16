@@ -1,5 +1,6 @@
+
 import React, { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, User, ChevronDown, Save, RotateCcw, Check } from 'lucide-react';
+import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, User, ChevronDown, Save, RotateCcw } from 'lucide-react';
 import { useAppStore } from '../store';
 import { AppLanguage, BQItem } from '../types';
 import { TRANSLATIONS } from '../constants';
