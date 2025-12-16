@@ -86,39 +86,67 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         const confirmSave = window.confirm("You have unsaved changes to the description. Do you want to save them before exporting?");
         if (confirmSave) {
             commitQuotationEdits();
-        } else {
-            // If they cancel the save, we ask if they want to export anyway (discard changes effectively for the export view?)
-            // Actually, HTML2Canvas captures the *rendered* view. 
-            // If we don't save, the rendered view *still shows* the edits (because they are in local state).
-            // But good practice is to save.
-            // Let's just proceed if they say No/Cancel to saving, essentially exporting what they see.
         }
+        // Proceed regardless of save choice to avoid blocking export
     }
 
     const input = document.getElementById('quotation-content');
     if (!input) return;
 
     try {
-      // Temporarily remove shadow for cleaner capture and accurate dimensions
-      const originalShadow = input.style.boxShadow;
-      input.style.boxShadow = 'none';
+      // Create a clone of the element to modify for capture without affecting the UI
+      const clone = input.cloneNode(true) as HTMLElement;
       
-      // Force text areas to be fully visible if scrolling (though auto-height should handle it)
-      // Since we are using <textarea>, html2canvas might have issues rendering text inside if not handled.
-      // However, modern html2canvas handles value reasonably well.
-      // Best practice: Ensure resize is disabled and overflow visible during capture.
+      // Remove shadow from clone for cleaner capture
+      clone.style.boxShadow = 'none';
+      
+      // Position clone off-screen but visible to the renderer
+      // We must append it to the body so html2canvas can render it
+      clone.style.position = 'absolute';
+      clone.style.left = '-9999px';
+      clone.style.top = '0';
+      // Lock width to ensure layout consistency
+      clone.style.width = `${input.offsetWidth}px`;
+      
+      document.body.appendChild(clone);
 
-      const canvas = await html2canvas(input, {
+      // FIX: Replace Textareas with Divs
+      // html2canvas often fails to render textareas with proper line breaks/wrapping.
+      // We iterate through the original textareas to get the current value, 
+      // then replace the corresponding node in the clone with a styled div.
+      const originalTextareas = input.querySelectorAll('textarea');
+      const cloneTextareas = clone.querySelectorAll('textarea');
+
+      cloneTextareas.forEach((cloneTa, index) => {
+          const originalTa = originalTextareas[index];
+          const div = document.createElement('div');
+          
+          // Copy styling classes to maintain appearance
+          div.className = originalTa.className;
+          
+          // Force specific styles for text rendering
+          div.style.whiteSpace = 'pre-wrap'; // Preserves newlines
+          div.style.wordBreak = 'break-word'; // Prevents overflow
+          div.style.minHeight = originalTa.style.minHeight;
+          
+          // Copy the text content
+          div.textContent = originalTa.value;
+          
+          // Replace the textarea in the clone
+          cloneTa.parentNode?.replaceChild(div, cloneTa);
+      });
+
+      const canvas = await html2canvas(clone, {
         scale: 2, // Higher resolution
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
-        height: input.scrollHeight, // Capture full height
-        windowHeight: input.scrollHeight
+        height: clone.scrollHeight, // Capture full height of clone
+        windowHeight: clone.scrollHeight
       });
 
-      // Restore shadow
-      input.style.boxShadow = originalShadow;
+      // Remove the clone from DOM
+      document.body.removeChild(clone);
 
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
