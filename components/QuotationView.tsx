@@ -710,7 +710,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                         </div>
                                     </div>
                                 </div>
-                            </>
+                            </div>
                         )}
                         
                       </div>
