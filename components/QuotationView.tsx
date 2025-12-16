@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, User, ChevronDown, Save, RotateCcw, Check } from 'lucide-react';
 import { useAppStore } from '../store';
 import { AppLanguage, BQItem } from '../types';
@@ -20,6 +20,45 @@ type RenderRow =
  | { type: 'item'; data: BQItem }
  | { type: 'category'; label: string }
  | { type: 'section_header'; label: string };
+
+// Helper Component for Auto-Resizing Textarea
+const AutoResizeTextarea = ({ 
+    value, 
+    onChange, 
+    className, 
+    style,
+    placeholder
+}: { 
+    value: string, 
+    onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void, 
+    className?: string, 
+    style?: React.CSSProperties,
+    placeholder?: string
+}) => {
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    useLayoutEffect(() => {
+        if (textareaRef.current) {
+            // Reset height to auto to correctly calculate scrollHeight for shrinking content
+            textareaRef.current.style.height = 'auto';
+            const scrollHeight = textareaRef.current.scrollHeight;
+            // Add a small buffer (e.g., 2px) to prevent clipping of descenders
+            textareaRef.current.style.height = (scrollHeight + 2) + 'px';
+        }
+    }, [value]);
+
+    return (
+        <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={onChange}
+            className={className}
+            style={{ ...style, resize: 'none', overflow: 'hidden' }}
+            rows={1}
+            placeholder={placeholder}
+        />
+    );
+};
 
 const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   const { 
@@ -183,7 +222,9 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 div.className = cta.className;
                 div.style.whiteSpace = 'pre-wrap';
                 div.style.wordBreak = 'break-word';
-                div.style.minHeight = originalTextareas[idx].style.minHeight || 'auto';
+                // IMPORTANT: Force auto height for clone to ensure text isn't clipped in PDF
+                div.style.height = 'auto';
+                div.style.minHeight = 'auto';
                 div.textContent = originalTextareas[idx].value;
                 cta.parentNode?.replaceChild(div, cta);
             });
@@ -218,12 +259,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
   // Helper for currency format
   const fmt = (n: number) => n?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00';
-
-  // Helper to adjust textarea height automatically
-  const adjustTextareaHeight = (element: HTMLTextAreaElement) => {
-      element.style.height = 'auto';
-      element.style.height = element.scrollHeight + 'px';
-  };
 
   // Global row counter for pagination
   let globalRowCounter = 1;
@@ -515,8 +550,8 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             </>
                         )}
                         
-                        {/* 3. Items Table */}
-                        <div className="mb-6 flex-1">
+                        {/* 3. Items Table - Removed flex-1 to fix spacing */}
+                        <div className="mb-6">
                             <table className="w-full border-collapse border border-black text-xs text-black">
                                 <thead>
                                     <tr className="bg-gray-100">
@@ -556,16 +591,10 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                                     <td className="border border-black p-2 text-center align-top">{globalRowCounter++}</td>
                                                     <td className="border border-black p-2 align-top">
                                                         <div className="font-bold text-xs mb-1">{item.itemName}</div>
-                                                        <textarea
+                                                        <AutoResizeTextarea
                                                             value={displayDescription}
-                                                            onChange={(e) => {
-                                                                setQuotationEdit(item.id, e.target.value);
-                                                                adjustTextareaHeight(e.target);
-                                                            }}
-                                                            className="w-full bg-transparent border-none p-0 text-[10px] text-black whitespace-pre-wrap leading-tight focus:ring-0 resize-none overflow-hidden"
-                                                            style={{ minHeight: '1.2em' }}
-                                                            rows={1}
-                                                            onFocus={(e) => adjustTextareaHeight(e.target)}
+                                                            onChange={(e) => setQuotationEdit(item.id, e.target.value)}
+                                                            className="w-full bg-transparent border-none p-0 text-[10px] text-black whitespace-pre-wrap leading-tight focus:ring-0"
                                                         />
                                                     </td>
                                                     <td className="border border-black p-2 text-right align-top">{fmt(item.price)}</td>
@@ -583,7 +612,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
                         {/* 4. Footer Section (Last Page Only) */}
                         {isLastPage && (
-                            <div className="mt-auto">
+                            <div className="mt-4">
                                 {/* Totals */}
                                 <div className="flex justify-end mb-6 text-black">
                                     <div className="w-[40%]">
