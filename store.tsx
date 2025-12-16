@@ -50,7 +50,17 @@ interface AppContextType {
   setQuotationEdit: (id: string, value: string) => void;
   commitQuotationEdits: () => void;
   discardQuotationEdits: () => void;
+
+  // Master List Edit Mode (Transactional)
+  masterListEdits: Record<string, Partial<MasterItem>>;
+  setMasterListEdit: (id: string, field: keyof MasterItem, value: any) => void;
+  commitMasterListEdits: () => void;
+  discardMasterListEdits: () => void;
+
+  // Global Unsaved State
   hasUnsavedChanges: boolean;
+  saveAllChanges: () => void;
+  discardAllChanges: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -154,8 +164,7 @@ const INITIAL_MASTER_DATA: MasterItem[] = [
   createItem('105', 'SIEMENS', '', 'CPC50CC-M', '50', 'EV CHARGER', 'B BRAND EV CHARGER', '55 KW DC CHARGER', 'Unit', 30000.00, 1, 1.08, 1.000, 0.7), 
   createItem('106', 'SIEMENS', '', 'CPC50CC-M', '50', 'EV CHARGER', 'B BRAND EV CHARGER', '240KW DC CHARGER', 'Unit', 60000.00, 1, 1.08, 1.000, 0.7),
   createItem('107', 'SIEMENS', '', 'CPC50CC-M', '50', 'EV CHARGER', 'B BRAND EV CHARGER', '480KW DC CHARGER', 'Unit', 100000.00, 1, 1.08, 1.000, 0.7),
-  
-  
+
   // --- NON-ARMOURED CABLE ---
   createItem('201', 'MEGA/SOUTHERN', '', '', '', 'NON-ARMOURED CABLE', 'PVC OR PVC/PVC', '1C X 6MM PVC CABLE (RED)', 'Meter', 5, 1, 1, 0.965, 0.7),
   createItem('202', 'MEGA/SOUTHERN', '', '', '', 'NON-ARMOURED CABLE', 'PVC OR PVC/PVC', '1C X 6MM PVC CABLE (YELLOW)', 'Meter', 5, 1, 1, 0.965, 0.7),
@@ -326,7 +335,6 @@ const INITIAL_MASTER_DATA: MasterItem[] = [
   
   createItem('690', '', '2209978', 'DP-34-024D', '', 'EV DISTRIBUTION BOARD', 'EFOC', 'EARTH FAULT & OVERCURRENT RELAY IDMT (DP-34-024D), DC18-72V', 'Unit', 0, 1, 1, 0.965, 0.7),
   createItem('691', 'DELAB', '2209978', 'DP-31', '', 'EV DISTRIBUTION BOARD', 'EFOC', 'EARTH FAULT RELAY IDMT DP-31', 'Unit', 0, 1, 1, 0.965, 0.7),
-
 ];
 
 const INITIAL_SETTINGS: AppSettings = {
@@ -404,7 +412,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Staged Edits for Quotation View
   const [quotationEdits, setQuotationEdits] = useState<Record<string, string>>({});
-  const hasUnsavedChanges = useMemo(() => Object.keys(quotationEdits).length > 0, [quotationEdits]);
+  
+  // Staged Edits for Master List View
+  const [masterListEdits, setMasterListEdits] = useState<Record<string, Partial<MasterItem>>>({});
+
+  // Global Unsaved Changes Flag
+  const hasUnsavedChanges = useMemo(() => 
+    Object.keys(quotationEdits).length > 0 || Object.keys(masterListEdits).length > 0, 
+  [quotationEdits, masterListEdits]);
 
 
   // --- Persistence Effects ---
@@ -456,7 +471,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteMasterItem = (id: string) => {
     setMasterData(masterData.filter((item) => item.id !== id));
+    // Also remove from pending edits if deleted
+    if (masterListEdits[id]) {
+        const newEdits = { ...masterListEdits };
+        delete newEdits[id];
+        setMasterListEdits(newEdits);
+    }
   };
+
+  // --- Master List Transactional Logic ---
+  const setMasterListEdit = (id: string, field: keyof MasterItem, value: any) => {
+      setMasterListEdits(prev => {
+          const currentItem = masterData.find(i => i.id === id);
+          if (!currentItem) return prev;
+
+          const existingEdits = prev[id] || {};
+          // Merge to calculate derived
+          const mergedForCalc = { ...currentItem, ...existingEdits, [field]: value };
+          
+          let derivedUpdates = {};
+          if (['rexScFob', 'forex', 'sst', 'opta', 'spMargin'].includes(field as string)) {
+              derivedUpdates = calculateDerivedFields(mergedForCalc);
+          }
+
+          return {
+              ...prev,
+              [id]: { ...existingEdits, [field]: value, ...derivedUpdates }
+          };
+      });
+  };
+
+  const commitMasterListEdits = () => {
+      if (Object.keys(masterListEdits).length === 0) return;
+      setMasterData(prev => prev.map(item => {
+          if (masterListEdits[item.id]) {
+              return { ...item, ...masterListEdits[item.id] };
+          }
+          return item;
+      }));
+      setMasterListEdits({});
+  };
+
+  const discardMasterListEdits = () => {
+      setMasterListEdits({});
+  };
+
 
   // --- Project Actions ---
   const addProject = (project: Project) => {
@@ -541,17 +600,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 3. Handle current selection switch
     if (currentProjectId === projectId && currentVersionId === versionId) {
-         // Find the project from current state logic in effect, 
-         // since we are inside a state update batch, we look at the projects state
-         // But here we'll use a functional update safe logic if possible or just assume state integrity
          const project = projects.find(p => p.id === projectId);
          if (project) {
              const remaining = project.versions.filter(v => v.id !== versionId);
              if (remaining.length > 0) {
-                 // Switch to the first available version
                  setCurrentVersionId(remaining[0].id);
              } else {
-                 // If no versions left, create a default one to avoid broken state
                  const newDefaultId = Date.now().toString();
                  setProjects(prev => prev.map(p => {
                     if (p.id === projectId) {
@@ -594,15 +648,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const existingIndex = prev.findIndex(item => item.projectId === projectId && item.versionId === versionId && item.masterId === masterItem.id);
           
           if (qty <= 0) {
-              // Remove if exists
               if (existingIndex > -1) {
                   return prev.filter((_, index) => index !== existingIndex);
               }
-              return prev; // Nothing to do
+              return prev;
           }
 
           if (existingIndex > -1) {
-              // Update existing
               const newItems = [...prev];
               const currentItem = newItems[existingIndex];
               const updatedTotal = currentItem.price * qty;
@@ -614,7 +666,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               };
               return newItems;
           } else {
-              // Add new
               const newItem: BQItem = {
                   id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
                   projectId,
@@ -643,13 +694,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateBQItem = (id: string, field: keyof BQItem, value: any) => {
     setBqItems((prev) => {
-      // Force number type for numeric fields to prevent string concatenation bugs
       let processedValue = value;
       if (field === 'qty' || field === 'price') {
          processedValue = Number(value);
       }
 
-      // Logic Change: If Quantity becomes 0 or less, remove item from BQ
       if (field === 'qty' && processedValue <= 0) {
         return prev.filter(item => item.id !== id);
       }
@@ -657,9 +706,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return prev.map((item) => {
         if (item.id === id) {
           const updated = { ...item, [field]: processedValue };
-          // Recalculate total if price or qty changes
           if (field === 'price' || field === 'qty') {
-             // Use processedValue for the field being updated, and existing item value for the other
              const p = field === 'price' ? processedValue : item.price;
              const q = field === 'qty' ? processedValue : item.qty;
              updated.total = p * q;
@@ -673,16 +720,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   
   const reorderBQItems = (projectId: string, versionId: string, sourceIndex: number, destinationIndex: number) => {
     setBqItems((prev) => {
-      // 1. Separate items for this project/version and others
       const projectVersionItems = prev.filter((item) => item.projectId === projectId && item.versionId === versionId);
       const otherItems = prev.filter((item) => !(item.projectId === projectId && item.versionId === versionId));
 
-      // 2. Reorder project items
       const newProjectItems = [...projectVersionItems];
       const [movedItem] = newProjectItems.splice(sourceIndex, 1);
       newProjectItems.splice(destinationIndex, 0, movedItem);
 
-      // 3. Combine back. 
       return [...otherItems, ...newProjectItems];
     });
   };
@@ -693,7 +737,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const discount = project?.discount || 0;
     const projectItems = bqItems.filter(i => i.projectId === projectId && i.versionId === versionId && !i.isOptional);
     const subtotal = projectItems.reduce((acc, item) => acc + item.total, 0);
-    const tax = 0; // Tax rate removed
+    const tax = 0; 
     const grandTotal = subtotal + tax - discount;
     return { subtotal, tax, grandTotal, discount };
   };
@@ -705,7 +749,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const commitQuotationEdits = () => {
       if (Object.keys(quotationEdits).length === 0) return;
-      
       setBqItems(prev => prev.map(item => {
           if (quotationEdits[item.id] !== undefined) {
               return { ...item, quotationDescription: quotationEdits[item.id] };
@@ -717,6 +760,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const discardQuotationEdits = () => {
       setQuotationEdits({});
+  };
+
+  // --- Consolidated Save/Discard Actions ---
+  const saveAllChanges = () => {
+      commitQuotationEdits();
+      commitMasterListEdits();
+  };
+
+  const discardAllChanges = () => {
+      discardQuotationEdits();
+      discardMasterListEdits();
   };
 
   return (
@@ -751,11 +805,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateBQItem,
         reorderBQItems,
         getProjectTotal,
+        
         quotationEdits,
         setQuotationEdit,
         commitQuotationEdits,
         discardQuotationEdits,
+
+        masterListEdits,
+        setMasterListEdit,
+        commitMasterListEdits,
+        discardMasterListEdits,
+
         hasUnsavedChanges,
+        saveAllChanges,
+        discardAllChanges,
       }}
     >
       {children}

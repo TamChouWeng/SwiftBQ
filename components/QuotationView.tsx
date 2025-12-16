@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, User, ChevronDown, Save, RotateCcw, Check } from 'lucide-react';
 import { useAppStore } from '../store';
@@ -107,12 +106,12 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   const optionalItems = useMemo(() => activeItems.filter(item => item.isOptional), [activeItems]);
 
   // Group items by category (Standard)
-  const groupedItems = standardItems.reduce<Record<string, BQItem[]>>((acc, item) => {
+  const groupedItems = standardItems.reduce((acc, item) => {
     const cat = item.category || 'Uncategorized';
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(item);
     return acc;
-  }, {});
+  }, {} as Record<string, BQItem[]>);
 
   const filteredProjects = useMemo(() => {
     return projects.filter(p => 
@@ -136,7 +135,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     // Standard Items
     Object.entries(groupedItems).forEach(([cat, items]) => {
         allRows.push({ type: 'category', label: cat });
-        items.forEach(item => allRows.push({ type: 'item', data: item }));
+        (items as BQItem[]).forEach(item => allRows.push({ type: 'item', data: item }));
     });
 
     // Optional Items
@@ -710,7 +709,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </>
                         )}
                         
                       </div>

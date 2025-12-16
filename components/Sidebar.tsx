@@ -21,7 +21,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentLanguage,
 }) => {
   const t = TRANSLATIONS[currentLanguage];
-  const { appSettings, hasUnsavedChanges, commitQuotationEdits, discardQuotationEdits } = useAppStore();
+  const { appSettings, hasUnsavedChanges, saveAllChanges, discardAllChanges } = useAppStore();
   
   // Navigation Guard State
   const [pendingTab, setPendingTab] = useState<ActiveTab | null>(null);
@@ -46,13 +46,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleSaveAndContinue = () => {
-      commitQuotationEdits();
+      saveAllChanges();
       setShowUnsavedModal(false);
       if (pendingTab) performNavigation(pendingTab);
   };
 
   const handleDiscardAndContinue = () => {
-      discardQuotationEdits();
+      discardAllChanges();
       setShowUnsavedModal(false);
       if (pendingTab) performNavigation(pendingTab);
   };
@@ -152,7 +152,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Unsaved Changes</h3>
                     <p className="text-sm text-slate-500 dark:text-slate-400">
-                        You have unsaved changes in your quotation description. Do you want to save them before leaving?
+                        You have unsaved changes. Do you want to save them before leaving?
                     </p>
                  </div>
                  <div className="flex flex-col gap-2">

@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Plus, Trash2, Search, ChevronLeft, ChevronRight, Filter, X, Eye, LayoutTemplate, Check, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Search, ChevronLeft, ChevronRight, Filter, X, Eye, LayoutTemplate, Check, EyeOff, Save } from 'lucide-react';
 import { useAppStore, calculateDerivedFields } from '../store';
 import { AppLanguage, MasterItem } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -10,7 +11,7 @@ interface Props {
 }
 
 const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
-  const { masterData, updateMasterItem, addMasterItem, deleteMasterItem } = useAppStore();
+  const { masterData, addMasterItem, deleteMasterItem, masterListEdits, setMasterListEdit, commitMasterListEdits } = useAppStore();
   const t = TRANSLATIONS[currentLanguage];
 
   // --- Local State ---
@@ -142,6 +143,8 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     return filteredData.slice(start, start + itemsPerPage);
   }, [filteredData, currentPage, itemsPerPage]);
 
+  const hasUnsavedMasterChanges = Object.keys(masterListEdits).length > 0;
+
   // --- Handlers ---
 
   useEffect(() => {
@@ -149,7 +152,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
   }, [selectedCategories, selectedTypes, searchQuery, itemsPerPage]);
 
   const handleEdit = (id: string, field: keyof MasterItem, value: string | number) => {
-    updateMasterItem(id, { [field]: value });
+    setMasterListEdit(id, field, value);
   };
 
   const handlePageChange = (newPage: number) => {
@@ -396,6 +399,20 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
              )}
           </div>
           
+          {/* Save Button (Transactional) */}
+          <button
+            onClick={commitMasterListEdits}
+            disabled={!hasUnsavedMasterChanges}
+            className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-colors ${
+                hasUnsavedMasterChanges 
+                ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/50 shadow-sm'
+                : 'bg-white dark:bg-slate-800 text-gray-300 dark:text-gray-600 border-gray-200 dark:border-slate-700 cursor-not-allowed'
+            }`}
+            title="Save Changes"
+          >
+            <Save size={20} />
+          </button>
+
           {/* Column Toggle Button (Square) */}
           <div className="relative">
                <button
@@ -466,38 +483,47 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
               {paginatedData.length > 0 ? (
-                paginatedData.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
-                    {visibleColumns.colA && <td className="p-2"><input type="text" value={item.colA} onChange={(e) => handleEdit(item.id, 'colA', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
-                    {visibleColumns.colB && <td className="p-2"><input type="text" value={item.colB} onChange={(e) => handleEdit(item.id, 'colB', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
-                    {visibleColumns.colC && <td className="p-2"><input type="text" value={item.colC} onChange={(e) => handleEdit(item.id, 'colC', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
-                    {visibleColumns.colD && <td className="p-2"><input type="text" value={item.colD} onChange={(e) => handleEdit(item.id, 'colD', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                paginatedData.map((item) => {
+                  // Determine display values based on pending edits
+                  const pending = masterListEdits[item.id] || {};
+                  const display = {
+                      ...item,
+                      ...pending
+                  };
 
-                    {visibleColumns.category && <td className="p-2"><input type="text" value={item.category} onChange={(e) => handleEdit(item.id, 'category', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
-                    {visibleColumns.description && <td className="p-2"><input type="text" value={item.description} onChange={(e) => handleEdit(item.id, 'description', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
-                    {visibleColumns.itemName && <td className="p-2"><input type="text" value={item.itemName} onChange={(e) => handleEdit(item.id, 'itemName', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
-                    {visibleColumns.uom && <td className="p-2"><input type="text" value={item.uom} onChange={(e) => handleEdit(item.id, 'uom', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-center text-slate-800 dark:text-slate-200 text-sm" /></td>}
+                  return (
+                  <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
+                    {visibleColumns.colA && <td className="p-2"><input type="text" value={display.colA} onChange={(e) => handleEdit(item.id, 'colA', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                    {visibleColumns.colB && <td className="p-2"><input type="text" value={display.colB} onChange={(e) => handleEdit(item.id, 'colB', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                    {visibleColumns.colC && <td className="p-2"><input type="text" value={display.colC} onChange={(e) => handleEdit(item.id, 'colC', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                    {visibleColumns.colD && <td className="p-2"><input type="text" value={display.colD} onChange={(e) => handleEdit(item.id, 'colD', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+
+                    {visibleColumns.category && <td className="p-2"><input type="text" value={display.category} onChange={(e) => handleEdit(item.id, 'category', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                    {visibleColumns.description && <td className="p-2"><input type="text" value={display.description} onChange={(e) => handleEdit(item.id, 'description', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                    {visibleColumns.itemName && <td className="p-2"><input type="text" value={display.itemName} onChange={(e) => handleEdit(item.id, 'itemName', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                    {visibleColumns.uom && <td className="p-2"><input type="text" value={display.uom} onChange={(e) => handleEdit(item.id, 'uom', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-center text-slate-800 dark:text-slate-200 text-sm" /></td>}
                     
-                    {visibleColumns.rexScFob && <td className="p-2"><input type="number" value={item.rexScFob} onChange={(e) => handleEdit(item.id, 'rexScFob', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
-                    {visibleColumns.forex && <td className="p-2"><input type="number" value={item.forex} onChange={(e) => handleEdit(item.id, 'forex', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
-                    {visibleColumns.sst && <td className="p-2"><input type="number" value={item.sst} onChange={(e) => handleEdit(item.id, 'sst', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
-                    {visibleColumns.opta && <td className="p-2"><input type="number" value={item.opta} onChange={(e) => handleEdit(item.id, 'opta', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
+                    {visibleColumns.rexScFob && <td className="p-2"><input type="number" value={display.rexScFob} onChange={(e) => handleEdit(item.id, 'rexScFob', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
+                    {visibleColumns.forex && <td className="p-2"><input type="number" value={display.forex} onChange={(e) => handleEdit(item.id, 'forex', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
+                    {visibleColumns.sst && <td className="p-2"><input type="number" value={display.sst} onChange={(e) => handleEdit(item.id, 'sst', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
+                    {visibleColumns.opta && <td className="p-2"><input type="number" value={display.opta} onChange={(e) => handleEdit(item.id, 'opta', parseFloat(e.target.value))} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
                     
                     {visibleColumns.rexScDdp && <td className="p-2">
-                        <input type="number" value={item.rexScDdp} readOnly className="w-full bg-transparent p-2 rounded border-none text-right text-slate-500 dark:text-slate-400 text-sm font-medium cursor-not-allowed" />
+                        <input type="number" value={display.rexScDdp} readOnly className="w-full bg-transparent p-2 rounded border-none text-right text-slate-500 dark:text-slate-400 text-sm font-medium cursor-not-allowed" />
                     </td>}
                     {visibleColumns.rexSp && <td className="p-2">
-                        <input type="number" value={item.rexSp} readOnly className="w-full bg-transparent p-2 rounded border-none text-right text-slate-500 dark:text-slate-400 text-sm font-medium cursor-not-allowed" />
+                        <input type="number" value={display.rexSp} readOnly className="w-full bg-transparent p-2 rounded border-none text-right text-slate-500 dark:text-slate-400 text-sm font-medium cursor-not-allowed" />
                     </td>}
                     {visibleColumns.rexRsp && <td className="p-2">
-                        <input type="number" value={item.rexRsp} readOnly className="w-full bg-transparent p-2 rounded border-none text-right text-slate-800 dark:text-white text-sm font-medium cursor-not-allowed" />
+                        <input type="number" value={display.rexRsp} readOnly className="w-full bg-transparent p-2 rounded border-none text-right text-slate-800 dark:text-white text-sm font-medium cursor-not-allowed" />
                     </td>}
 
                     {visibleColumns.action && <td className="p-2 text-center">
                       <button onClick={() => deleteMasterItem(item.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={16} /></button>
                     </td>}
                   </tr>
-                ))
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={20} className="p-12 text-center text-slate-400 dark:text-slate-500">
