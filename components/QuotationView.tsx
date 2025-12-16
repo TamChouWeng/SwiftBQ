@@ -514,7 +514,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                     {/* Bill To */}
                                     <div className="w-[55%]">
                                         <div className="mb-3">
-                                            <span className="font-bold text-xs uppercase border-b border-black pb-0.5" style={{ width: 'fit-content', borderBottomStyle: 'solid', display: 'inline-block' }}>BILL / SHIP TO:</span>
+                                            <span className="font-bold text-xs uppercase border-b border-black pb-1 inline-block">BILL / SHIP TO:</span>
                                         </div>
                                         <table className="w-full text-xs text-black border-collapse">
                                             <tbody>
@@ -537,7 +537,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                     {/* Quote Reference */}
                                     <div className="w-[40%]">
                                         <div className="mb-3">
-                                            <span className="font-bold text-xs uppercase border-b border-black pb-0.5" style={{ width: 'fit-content', borderBottomStyle: 'solid', display: 'inline-block' }}>QUOTE REFERENCE:</span>
+                                            <span className="font-bold text-xs uppercase border-b border-black pb-1 inline-block">QUOTE REFERENCE:</span>
                                         </div>
                                         <table className="w-full text-xs text-black border-collapse">
                                             <tbody>
@@ -634,19 +634,19 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                 {/* Totals */}
                                 <div className="flex justify-end mb-6 text-black">
                                     <div className="w-[40%]">
-                                        <div className="flex justify-between border-b border-black py-1">
+                                        <div className="flex justify-between border-b border-black py-2">
                                             <span className="font-semibold text-xs">Subtotal ({appSettings.currencySymbol}) :</span>
                                             <span className="font-medium">{fmt(subtotal)}</span>
                                         </div>
                                         
                                         {discount > 0 && (
-                                            <div className="flex justify-between border-b border-black py-1 text-green-600 font-bold">
+                                            <div className="flex justify-between border-b border-black py-2 text-green-600 font-bold">
                                                 <span className="text-xs uppercase">Special Discount ({appSettings.currencySymbol}) :</span>
                                                 <span className="">({fmt(discount)})</span>
                                             </div>
                                         )}
 
-                                        <div className="flex justify-between border-b-2 border-black py-1 text-sm font-bold mt-1">
+                                        <div className="flex justify-between border-b-2 border-black py-2 text-sm font-bold mt-1">
                                             <span>TOTAL ({appSettings.currencySymbol}):</span>
                                             <span>{fmt(grandTotal)}</span>
                                         </div>
@@ -656,7 +656,9 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                 {/* Terms & Signature */}
                                 <div className="text-black">
                                     <div className="text-xs mb-6">
-                                        <h4 className="font-bold underline mb-2">TERMS & CONDITIONS:</h4>
+                                        <div className="mb-3">
+                                            <span className="font-bold border-b border-black pb-1 inline-block">TERMS & CONDITIONS:</span>
+                                        </div>
                                         <ul className="list-disc list-outside ml-4 space-y-1 text-black">
                                             <li>Payment : 50% deposit, balance before delivery.</li>
                                             <li>Delivery : 10 - 14 weeks upon order confirmation and deposit paid.</li>
