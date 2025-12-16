@@ -182,8 +182,8 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
   const handleExportPDF = async () => {
     if (hasUnsavedChanges) {
-        const confirmSave = window.confirm("You have unsaved changes. Save before exporting?");
-        if (confirmSave) commitQuotationEdits();
+        alert("Please save your changes before exporting.");
+        return;
     }
 
     const pageElements = document.querySelectorAll('.quotation-page');
@@ -453,8 +453,13 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 {/* Export Button */}
                 <button
                 onClick={handleExportPDF}
-                className="w-10 h-10 flex items-center justify-center bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg shadow-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
-                title={t.exportPDF}
+                disabled={hasUnsavedChanges}
+                className={`w-10 h-10 flex items-center justify-center rounded-lg shadow-lg transition-colors ${
+                    hasUnsavedChanges 
+                    ? 'bg-gray-300 dark:bg-slate-700 text-gray-500 dark:text-slate-500 cursor-not-allowed'
+                    : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100'
+                }`}
+                title={hasUnsavedChanges ? "Save changes to enable export" : t.exportPDF}
                 >
                 <Download size={20} />
                 </button>
@@ -708,10 +713,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             </div>
                         )}
                         
-                        {/* Page Number */}
-                        <div className="absolute bottom-4 right-8 text-[9px] text-slate-400">
-                             Page {pageIndex + 1} of {pages.length}
-                        </div>
                       </div>
                   )
               })}
