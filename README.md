@@ -1,4 +1,5 @@
-# SwitftBQ (Beta 1.0)
+
+# SwitftBQ (Beta 1.1)
 
 A sleek, responsive React application for managing Bills of Quantities (BQ) and generating professional Quotations. Built with TypeScript and Tailwind CSS.
 
@@ -78,4 +79,5 @@ To run this project locally:
 
 ## 📝 Version History
 
+- **Beta 1.1**: Enhanced Master List with transactional editing (save/discard), navigation guards for unsaved changes, improved numeric input handling, and code optimizations.
 - **Beta 1.0**: Initial release with core BQ functionalities, local storage persistence, and PDF export.

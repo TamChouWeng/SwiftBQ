@@ -11,8 +11,17 @@ import { AppProvider } from './store';
 
 const AppContent: React.FC = () => {
   // --- State ---
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<ActiveTab>(ActiveTab.MASTER_LIST);
+  
+  // Persist Sidebar State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    return localStorage.getItem('swiftbq_sidebarOpen') === 'true';
+  });
+
+  // Persist Active Tab
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
+    const saved = localStorage.getItem('swiftbq_activeTab');
+    return (saved as ActiveTab) || ActiveTab.MASTER_LIST;
+  });
   
   // Theme State (Persisted)
   const [theme, setTheme] = useState<AppTheme>(() => {
@@ -28,6 +37,18 @@ const AppContent: React.FC = () => {
 
   // --- Effects ---
 
+  // Handle Sidebar Persistence
+  useEffect(() => {
+    localStorage.setItem('swiftbq_sidebarOpen', String(isSidebarOpen));
+  }, [isSidebarOpen]);
+
+  // Handle Active Tab Persistence
+  useEffect(() => {
+    localStorage.setItem('swiftbq_activeTab', activeTab);
+    // Scroll to top when tab changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [activeTab]);
+
   // Handle Theme Change
   useEffect(() => {
     const root = window.document.documentElement;
@@ -40,12 +61,6 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('language', language);
   }, [language]);
-
-  // Handle active tab transitions or effects if needed
-  useEffect(() => {
-    // Scroll to top when tab changes
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [activeTab]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-300 font-sans flex overflow-hidden">

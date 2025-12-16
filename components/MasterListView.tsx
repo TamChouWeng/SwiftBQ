@@ -16,7 +16,17 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
 
   // --- Local State ---
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  
+  // Persist itemsPerPage
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+      const saved = localStorage.getItem('swiftbq_itemsPerPage');
+      return saved ? parseInt(saved, 10) : 10;
+  });
+
+  useEffect(() => {
+      localStorage.setItem('swiftbq_itemsPerPage', itemsPerPage.toString());
+  }, [itemsPerPage]);
+
   const [searchQuery, setSearchQuery] = useState('');
   
   // Dropdown States

@@ -340,9 +340,6 @@ const INITIAL_MASTER_DATA: MasterItem[] = [
   
   createItem('690', '', '2209978', 'DP-34-024D', '', 'EV DISTRIBUTION BOARD', 'EFOC', 'EARTH FAULT & OVERCURRENT RELAY IDMT (DP-34-024D), DC18-72V', 'Unit', 0, 1, 1, 0.965, 0.7),
   createItem('691', 'DELAB', '2209978', 'DP-31', '', 'EV DISTRIBUTION BOARD', 'EFOC', 'EARTH FAULT RELAY IDMT DP-31', 'Unit', 0, 1, 1, 0.965, 0.7),
-  
-  // ... (Abbreviated for brevity, logic unchanged for initial data)
-  createItem('691', 'DELAB', '2209978', 'DP-31', '', 'EV DISTRIBUTION BOARD', 'EFOC', 'EARTH FAULT RELAY IDMT DP-31', 'Unit', 0, 1, 1, 0.965, 0.7),
 ];
 
 const INITIAL_SETTINGS: AppSettings = {
@@ -413,9 +410,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
-  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
-  const [currentVersionId, setCurrentVersionId] = useState<string | null>(null);
-  const [bqViewMode, setBqViewMode] = useState<BQViewMode>('catalog');
+  // --- Session State with Persistence ---
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(() => {
+      return localStorage.getItem('swiftbq_currentProjectId');
+  });
+
+  const [currentVersionId, setCurrentVersionId] = useState<string | null>(() => {
+      return localStorage.getItem('swiftbq_currentVersionId');
+  });
+
+  const [bqViewMode, setBqViewMode] = useState<BQViewMode>(() => {
+      const saved = localStorage.getItem('swiftbq_bqViewMode');
+      return (saved as BQViewMode) || 'catalog';
+  });
 
   const [quotationEdits, setQuotationEdits] = useState<Record<string, string>>({});
   const [masterListEdits, setMasterListEdits] = useState<Record<string, Partial<MasterItem>>>({});
@@ -430,6 +437,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => { localStorage.setItem('swiftbq_projects', JSON.stringify(projects)); }, [projects]);
   useEffect(() => { localStorage.setItem('swiftbq_bqItems', JSON.stringify(bqItems)); }, [bqItems]);
   useEffect(() => { localStorage.setItem('swiftbq_appSettings', JSON.stringify(appSettings)); }, [appSettings]);
+
+  // Session Persistence Effects
+  useEffect(() => {
+    if (currentProjectId) localStorage.setItem('swiftbq_currentProjectId', currentProjectId);
+    else localStorage.removeItem('swiftbq_currentProjectId');
+  }, [currentProjectId]);
+
+  useEffect(() => {
+    if (currentVersionId) localStorage.setItem('swiftbq_currentVersionId', currentVersionId);
+    else localStorage.removeItem('swiftbq_currentVersionId');
+  }, [currentVersionId]);
+
+  useEffect(() => {
+    localStorage.setItem('swiftbq_bqViewMode', bqViewMode);
+  }, [bqViewMode]);
 
 
   // --- Master Data Actions ---
@@ -472,7 +494,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (!currentItem) return prev;
 
           const existingEdits = prev[id] || {};
-          // Merge to calculate derived - allow value to be string during edit
           const mergedForCalc = { ...currentItem, ...existingEdits, [field]: value };
           
           let derivedUpdates = {};
@@ -493,7 +514,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setMasterData(prev => prev.map(item => {
           if (masterListEdits[item.id]) {
               const edits = masterListEdits[item.id];
-              // Safe conversion to numbers for numeric fields upon commit
               const numericFields: (keyof MasterItem)[] = ['price', 'rexScFob', 'forex', 'sst', 'opta', 'rexScDdp', 'rexSp', 'rexRsp', 'spMargin'];
               const sanitizedEdits = { ...edits };
               
