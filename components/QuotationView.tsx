@@ -12,6 +12,15 @@ interface Props {
   isSidebarOpen: boolean;
 }
 
+// Pagination Constants
+const ITEMS_PER_PAGE_DEFAULT = 14;
+const FOOTER_BUFFER_ITEMS = 6; // If last page has more than (Max - this) items, push footer to new page
+
+type RenderRow = 
+ | { type: 'item'; data: BQItem }
+ | { type: 'category'; label: string }
+ | { type: 'section_header'; label: string };
+
 const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
   const { 
       bqItems, 
@@ -80,101 +89,128 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
       }
   };
 
-  const handleExportPDF = async () => {
-    if (hasUnsavedChanges) {
-        // Simple alert for user to save first
-        const confirmSave = window.confirm("You have unsaved changes to the description. Do you want to save them before exporting?");
-        if (confirmSave) {
-            commitQuotationEdits();
-        }
-        // Proceed regardless of save choice to avoid blocking export
+  // --- Pagination Logic ---
+  const pages = useMemo(() => {
+    // 1. Flatten all data into render rows
+    const allRows: RenderRow[] = [];
+    
+    // Standard Items
+    Object.entries(groupedItems).forEach(([cat, items]) => {
+        allRows.push({ type: 'category', label: cat });
+        items.forEach(item => allRows.push({ type: 'item', data: item }));
+    });
+
+    // Optional Items
+    if (optionalItems.length > 0) {
+        allRows.push({ type: 'section_header', label: 'OPTIONAL ITEMS' });
+        optionalItems.forEach(item => allRows.push({ type: 'item', data: item }));
     }
 
-    const input = document.getElementById('quotation-content');
-    if (!input) return;
+    // 2. Chunk into pages
+    const _pages: RenderRow[][] = [];
+    let currentBatch: RenderRow[] = [];
+    
+    // Heuristic: Page 1 has header, so fewer items. Subsequent pages have more space?
+    // For simplicity and consistency in layout, we keep it uniform, 
+    // but we can be smarter.
+    // Let's stick to a safe limit.
+    const LIMIT = ITEMS_PER_PAGE_DEFAULT;
+
+    allRows.forEach((row, index) => {
+        currentBatch.push(row);
+        if (currentBatch.length >= LIMIT) {
+            _pages.push(currentBatch);
+            currentBatch = [];
+        }
+    });
+
+    if (currentBatch.length > 0) {
+        _pages.push(currentBatch);
+    }
+
+    // 3. Check footer space on last page
+    // If the last page is very full, add an empty page for the footer
+    if (_pages.length > 0) {
+        const lastPage = _pages[_pages.length - 1];
+        if (lastPage.length > (LIMIT - FOOTER_BUFFER_ITEMS)) {
+            _pages.push([]); // New page for footer
+        }
+    } else {
+        // If no items, still show one page
+        _pages.push([]);
+    }
+
+    return _pages;
+  }, [groupedItems, optionalItems]);
+
+
+  const handleExportPDF = async () => {
+    if (hasUnsavedChanges) {
+        const confirmSave = window.confirm("You have unsaved changes. Save before exporting?");
+        if (confirmSave) commitQuotationEdits();
+    }
+
+    const pageElements = document.querySelectorAll('.quotation-page');
+    if (pageElements.length === 0) return;
+
+    // Show loading state if needed...
+    
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pdfWidth = 210;
+    const pdfHeight = 297;
 
     try {
-      // Create a clone of the element to modify for capture without affecting the UI
-      const clone = input.cloneNode(true) as HTMLElement;
-      
-      // Remove shadow from clone for cleaner capture
-      clone.style.boxShadow = 'none';
-      
-      // Position clone off-screen but visible to the renderer
-      // We must append it to the body so html2canvas can render it
-      clone.style.position = 'absolute';
-      clone.style.left = '-9999px';
-      clone.style.top = '0';
-      // Lock width to ensure layout consistency
-      clone.style.width = `${input.offsetWidth}px`;
-      
-      document.body.appendChild(clone);
+        for (let i = 0; i < pageElements.length; i++) {
+            const pageEl = pageElements[i] as HTMLElement;
+            
+            // Create a clone to clean up for capture
+            const clone = pageEl.cloneNode(true) as HTMLElement;
+            clone.style.transform = 'none'; // Remove any zoom transforms
+            clone.style.margin = '0';
+            clone.style.boxShadow = 'none';
+            // Ensure fixed dimensions for capture
+            clone.style.width = '210mm'; 
+            clone.style.height = '297mm'; // Force A4 height context
+            clone.style.position = 'fixed';
+            clone.style.left = '-9999px';
+            clone.style.top = '0';
+            
+            // Fix Textareas in clone
+            const originalTextareas = pageEl.querySelectorAll('textarea');
+            const cloneTextareas = clone.querySelectorAll('textarea');
+            cloneTextareas.forEach((cta, idx) => {
+                const div = document.createElement('div');
+                div.className = cta.className;
+                div.style.whiteSpace = 'pre-wrap';
+                div.style.wordBreak = 'break-word';
+                div.style.minHeight = originalTextareas[idx].style.minHeight || 'auto';
+                div.textContent = originalTextareas[idx].value;
+                cta.parentNode?.replaceChild(div, cta);
+            });
 
-      // FIX: Replace Textareas with Divs
-      // html2canvas often fails to render textareas with proper line breaks/wrapping.
-      // We iterate through the original textareas to get the current value, 
-      // then replace the corresponding node in the clone with a styled div.
-      const originalTextareas = input.querySelectorAll('textarea');
-      const cloneTextareas = clone.querySelectorAll('textarea');
+            document.body.appendChild(clone);
 
-      cloneTextareas.forEach((cloneTa, index) => {
-          const originalTa = originalTextareas[index];
-          const div = document.createElement('div');
-          
-          // Copy styling classes to maintain appearance
-          div.className = originalTa.className;
-          
-          // Force specific styles for text rendering
-          div.style.whiteSpace = 'pre-wrap'; // Preserves newlines
-          div.style.wordBreak = 'break-word'; // Prevents overflow
-          div.style.minHeight = originalTa.style.minHeight;
-          
-          // Copy the text content
-          div.textContent = originalTa.value;
-          
-          // Replace the textarea in the clone
-          cloneTa.parentNode?.replaceChild(div, cloneTa);
-      });
+            const canvas = await html2canvas(clone, {
+                scale: 4, // High Quality Scale
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+                windowWidth: 794, // Approx px width of A4 at 96dpi
+                windowHeight: 1123
+            });
 
-      const canvas = await html2canvas(clone, {
-        scale: 2, // Higher resolution
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        height: clone.scrollHeight, // Capture full height of clone
-        windowHeight: clone.scrollHeight
-      });
+            document.body.removeChild(clone);
 
-      // Remove the clone from DOM
-      document.body.removeChild(clone);
+            const imgData = canvas.toDataURL('image/jpeg', 1.0);
+            
+            if (i > 0) pdf.addPage();
+            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        }
 
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const imgWidth = 210;
-      const pageHeight = 297;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft > 1) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
-      pdf.save(`Quotation-${activeProject?.quoteId || 'draft'}.pdf`);
-    } catch (error) {
-      console.error('PDF Generation failed', error);
-      alert('Failed to generate PDF.');
+        pdf.save(`Quotation-${activeProject?.quoteId || 'draft'}.pdf`);
+    } catch (err) {
+        console.error("PDF Export Failed", err);
+        alert("Failed to generate PDF. Please try again.");
     }
   };
 
@@ -188,6 +224,9 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
       element.style.height = 'auto';
       element.style.height = element.scrollHeight + 'px';
   };
+
+  // Global row counter for pagination
+  let globalRowCounter = 1;
 
   if (!currentProjectId) {
       return (
@@ -257,8 +296,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         </div>
       );
   }
-
-  let rowCounter = 1;
 
   // === DETAIL VIEW ===
   return (
@@ -372,7 +409,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         </div>
       </div>
 
-      {activeItems.length === 0 ? (
+      {activeItems.length === 0 && pages.length <= 1 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in flex-1">
             <div className="bg-gray-100 dark:bg-slate-800 p-6 rounded-full mb-4">
                 <FileText size={48} className="text-slate-400" />
@@ -381,285 +418,254 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             <p className="text-sm text-slate-500 mt-2">Ensure the selected version has items.</p>
           </div>
       ) : (
-          /* A4 Container Simulation */
-          <div className="flex-1 overflow-auto bg-gray-200 dark:bg-slate-950 p-8 flex justify-center">
-              <div
-                id="quotation-content"
-                className="bg-white text-black p-[10mm] w-[210mm] min-h-[297mm] shadow-2xl relative font-sans flex flex-col shrink-0 transition-transform duration-200 ease-in-out"
-                style={{ fontSize: '10pt', lineHeight: '1.3' }}
-              >
-                {/* 1. Header Section */}
-                <div className="flex justify-between items-end mb-4">
-                  {/* Left: Company Details */}
-                  <div className="w-[60%] pb-2">
-                     {appSettings.companyLogo && (
-                         <img 
-                            src={appSettings.companyLogo} 
-                            alt="Company Logo" 
-                            className="h-16 w-auto mb-3 object-contain"
-                            onError={(e) => {
-                                e.currentTarget.style.display = 'none'; // Hide if broken
-                            }}
-                         />
-                     )}
-                     <h2 className="font-bold text-xl text-red-600 mb-2">{appSettings.companyName}</h2>
-                     <p className="whitespace-pre-line text-xs leading-normal">{appSettings.companyAddress}</p>
-                  </div>
+          /* Pagination Wrapper */
+          <div className="flex-1 overflow-auto bg-gray-200 dark:bg-slate-950 p-8 flex flex-col items-center gap-8">
+              {pages.map((pageRows, pageIndex) => {
+                  const isFirstPage = pageIndex === 0;
+                  const isLastPage = pageIndex === pages.length - 1;
                   
-                  {/* Right: QUOTE Title */}
-                  <div className="w-[40%] text-right pb-2">
-                     <h1 className="text-3xl font-bold tracking-widest uppercase mb-4">QUOTE</h1>
-                  </div>
-                </div>
+                  return (
+                      <div
+                        key={pageIndex}
+                        className="quotation-page bg-white text-black p-[10mm] w-[210mm] min-h-[297mm] shadow-2xl relative font-sans flex flex-col shrink-0"
+                        style={{ fontSize: '10pt', lineHeight: '1.3' }}
+                      >
+                        {/* 1. Header Section (First Page Only) */}
+                        {isFirstPage && (
+                            <>
+                                <div className="flex justify-between items-end mb-4">
+                                {/* Left: Company Details */}
+                                <div className="w-[60%] pb-2">
+                                    {appSettings.companyLogo && (
+                                        <img 
+                                            src={appSettings.companyLogo} 
+                                            alt="Company Logo" 
+                                            className="h-16 w-auto mb-3 object-contain"
+                                            onError={(e) => {
+                                                e.currentTarget.style.display = 'none'; // Hide if broken
+                                            }}
+                                        />
+                                    )}
+                                    <h2 className="font-bold text-xl text-red-600 mb-2">{appSettings.companyName}</h2>
+                                    <p className="whitespace-pre-line text-xs leading-normal">{appSettings.companyAddress}</p>
+                                </div>
+                                
+                                {/* Right: QUOTE Title */}
+                                <div className="w-[40%] text-right pb-2">
+                                    <h1 className="text-3xl font-bold tracking-widest uppercase mb-4">QUOTE</h1>
+                                </div>
+                                </div>
 
-                {/* 2. Bill To / Reference Section */}
-                <div className="flex justify-between gap-8 mb-6">
-                    {/* Bill To */}
-                    <div className="w-[55%]">
-                        <div className="mb-3">
-                            <span className="font-bold text-xs uppercase border-b border-black pb-0.5" style={{ width: 'fit-content', borderBottomStyle: 'solid', display: 'inline-block' }}>BILL / SHIP TO:</span>
-                        </div>
-                        <table className="w-full text-xs text-black border-collapse">
-                            <tbody>
-                                <tr>
-                                    <td className="w-20 font-semibold align-top py-0.5">Attn to:</td>
-                                    <td className="align-top py-0.5 uppercase">{activeProject?.clientContact || 'N/A'}</td>
-                                </tr>
-                                <tr>
-                                    <td className="w-20 font-semibold align-top py-0.5">Client:</td>
-                                    <td className="align-top py-0.5 uppercase">{activeProject?.clientName}</td>
-                                </tr>
-                                <tr>
-                                    <td className="w-20 font-semibold align-top py-0.5">Address:</td>
-                                    <td className="align-top py-0.5 whitespace-pre-wrap">{activeProject?.clientAddress}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                                {/* 2. Bill To / Reference Section */}
+                                <div className="flex justify-between gap-8 mb-6">
+                                    {/* Bill To */}
+                                    <div className="w-[55%]">
+                                        <div className="mb-3">
+                                            <span className="font-bold text-xs uppercase border-b border-black pb-0.5" style={{ width: 'fit-content', borderBottomStyle: 'solid', display: 'inline-block' }}>BILL / SHIP TO:</span>
+                                        </div>
+                                        <table className="w-full text-xs text-black border-collapse">
+                                            <tbody>
+                                                <tr>
+                                                    <td className="w-20 font-semibold align-top py-0.5">Attn to:</td>
+                                                    <td className="align-top py-0.5 uppercase">{activeProject?.clientContact || 'N/A'}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="w-20 font-semibold align-top py-0.5">Client:</td>
+                                                    <td className="align-top py-0.5 uppercase">{activeProject?.clientName}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="w-20 font-semibold align-top py-0.5">Address:</td>
+                                                    <td className="align-top py-0.5 whitespace-pre-wrap">{activeProject?.clientAddress}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
 
-                    {/* Quote Reference */}
-                    <div className="w-[40%]">
-                         <div className="mb-3">
-                            <span className="font-bold text-xs uppercase border-b border-black pb-0.5" style={{ width: 'fit-content', borderBottomStyle: 'solid', display: 'inline-block' }}>QUOTE REFERENCE:</span>
-                         </div>
-                         <table className="w-full text-xs text-black border-collapse">
-                            <tbody>
-                                <tr>
-                                    <td className="w-24 font-semibold align-top py-0.5">Quote #:</td>
-                                    <td className="align-top py-0.5">{activeProject?.quoteId}</td>
-                                </tr>
-                                <tr>
-                                    <td className="w-24 font-semibold align-top py-0.5">Date:</td>
-                                    <td className="align-top py-0.5">{activeProject?.date}</td>
-                                </tr>
-                                <tr>
-                                    <td className="w-24 font-semibold align-top py-0.5">Valid for:</td>
-                                    <td className="align-top py-0.5">{activeProject?.validityPeriod} Days</td>
-                                </tr>
-                                <tr>
-                                    <td className="w-24 font-semibold align-top py-0.5">Issued by:</td>
-                                    <td className="align-top py-0.5">{appSettings.profileName}</td>
-                                </tr>
-                                <tr>
-                                    <td className="w-24 font-semibold align-top py-0.5">Contact:</td>
-                                    <td className="align-top py-0.5">{appSettings.profileContact}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* 3. Items Table */}
-                <div className="mb-6">
-                    <table className="w-full border-collapse border border-black text-xs text-black">
-                        <thead>
-                            <tr className="bg-gray-100">
-                                <th className="border border-black p-2 w-10 text-center font-bold">NO</th>
-                                <th className="border border-black p-2 text-left font-bold">DESCRIPTION</th>
-                                <th className="border border-black p-2 w-28 text-right font-bold">Unit Price ({appSettings.currencySymbol})</th>
-                                <th className="border border-black p-2 w-12 text-center font-bold">QTY</th>
-                                <th className="border border-black p-2 w-16 text-center font-bold">UOM</th>
-                                <th className="border border-black p-2 w-28 text-right font-bold">Total Price ({appSettings.currencySymbol})</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {/* Standard Items */}
-                            {Object.entries(groupedItems).map(([category, items]) => (
-                                <React.Fragment key={category}>
-                                    {/* Category Header */}
-                                    <tr>
-                                        <td className="border border-black p-1 bg-gray-200"></td>
-                                        <td className="border border-black p-1 font-bold bg-gray-50 uppercase pl-2" colSpan={5}>
-                                            {category}
-                                        </td>
-                                    </tr>
-                                    {/* Items */}
-                                    {(items as BQItem[]).map((item) => {
-                                        // Prioritize Local Edits -> Saved Edit -> Original Description
-                                        const displayDescription = quotationEdits[item.id] ?? item.quotationDescription ?? item.description;
-                                        
-                                        return (
-                                        <tr key={item.id}>
-                                            <td className="border border-black p-2 text-center align-top">{rowCounter++}</td>
-                                            <td className="border border-black p-2 align-top">
-                                                <div className="font-bold text-xs mb-1">{item.itemName}</div>
-                                                <textarea
-                                                    value={displayDescription}
-                                                    onChange={(e) => {
-                                                        setQuotationEdit(item.id, e.target.value);
-                                                        adjustTextareaHeight(e.target);
-                                                    }}
-                                                    className="w-full bg-transparent border-none p-0 text-[10px] text-black whitespace-pre-wrap leading-tight focus:ring-0 resize-none overflow-hidden"
-                                                    style={{ minHeight: '1.2em' }}
-                                                    rows={1}
-                                                    onFocus={(e) => adjustTextareaHeight(e.target)}
-                                                />
-                                            </td>
-                                            <td className="border border-black p-2 text-right align-top">{fmt(item.price)}</td>
-                                            <td className="border border-black p-2 text-center align-top">{item.qty}</td>
-                                            <td className="border border-black p-2 text-center align-top">{item.uom}</td>
-                                            <td className="border border-black p-2 text-right align-top font-semibold">{fmt(item.total)}</td>
-                                        </tr>
-                                    )})}
-                                </React.Fragment>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* 4. Totals (Standard) */}
-                <div className="flex justify-end mb-6 break-inside-avoid text-black">
-                    <div className="w-[40%]">
-                        <div className="flex justify-between border-b border-black py-1">
-                            <span className="font-semibold text-xs">Subtotal ({appSettings.currencySymbol}) :</span>
-                            <span className="font-medium">{fmt(subtotal)}</span>
-                        </div>
+                                    {/* Quote Reference */}
+                                    <div className="w-[40%]">
+                                        <div className="mb-3">
+                                            <span className="font-bold text-xs uppercase border-b border-black pb-0.5" style={{ width: 'fit-content', borderBottomStyle: 'solid', display: 'inline-block' }}>QUOTE REFERENCE:</span>
+                                        </div>
+                                        <table className="w-full text-xs text-black border-collapse">
+                                            <tbody>
+                                                <tr>
+                                                    <td className="w-24 font-semibold align-top py-0.5">Quote #:</td>
+                                                    <td className="align-top py-0.5">{activeProject?.quoteId}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="w-24 font-semibold align-top py-0.5">Date:</td>
+                                                    <td className="align-top py-0.5">{activeProject?.date}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="w-24 font-semibold align-top py-0.5">Valid for:</td>
+                                                    <td className="align-top py-0.5">{activeProject?.validityPeriod} Days</td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="w-24 font-semibold align-top py-0.5">Issued by:</td>
+                                                    <td className="align-top py-0.5">{appSettings.profileName}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td className="w-24 font-semibold align-top py-0.5">Contact:</td>
+                                                    <td className="align-top py-0.5">{appSettings.profileContact}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </>
+                        )}
                         
-                        {/* Conditional Special Discount */}
-                        {discount > 0 && (
-                            <div className="flex justify-between border-b border-black py-1 text-green-600 font-bold">
-                                <span className="text-xs uppercase">Special Discount ({appSettings.currencySymbol}) :</span>
-                                <span className="">({fmt(discount)})</span>
+                        {/* 3. Items Table */}
+                        <div className="mb-6 flex-1">
+                            <table className="w-full border-collapse border border-black text-xs text-black">
+                                <thead>
+                                    <tr className="bg-gray-100">
+                                        <th className="border border-black p-2 w-10 text-center font-bold">NO</th>
+                                        <th className="border border-black p-2 text-left font-bold">DESCRIPTION</th>
+                                        <th className="border border-black p-2 w-28 text-right font-bold">Unit Price ({appSettings.currencySymbol})</th>
+                                        <th className="border border-black p-2 w-12 text-center font-bold">QTY</th>
+                                        <th className="border border-black p-2 w-16 text-center font-bold">UOM</th>
+                                        <th className="border border-black p-2 w-28 text-right font-bold">Total Price ({appSettings.currencySymbol})</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {pageRows.map((row, idx) => {
+                                        if (row.type === 'category') {
+                                            return (
+                                                <tr key={`cat-${idx}`}>
+                                                    <td className="border border-black p-1 bg-gray-200"></td>
+                                                    <td className="border border-black p-1 font-bold bg-gray-50 uppercase pl-2" colSpan={5}>
+                                                        {row.label}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        } else if (row.type === 'section_header') {
+                                             return (
+                                                <tr key={`header-${idx}`}>
+                                                    <td className="border border-black p-1 bg-gray-200"></td>
+                                                    <td className="border border-black p-1 font-bold bg-gray-100 text-center uppercase" colSpan={5}>
+                                                        {row.label}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        } else if (row.type === 'item') {
+                                            const item = row.data;
+                                            const displayDescription = quotationEdits[item.id] ?? item.quotationDescription ?? item.description;
+                                            return (
+                                                <tr key={item.id}>
+                                                    <td className="border border-black p-2 text-center align-top">{globalRowCounter++}</td>
+                                                    <td className="border border-black p-2 align-top">
+                                                        <div className="font-bold text-xs mb-1">{item.itemName}</div>
+                                                        <textarea
+                                                            value={displayDescription}
+                                                            onChange={(e) => {
+                                                                setQuotationEdit(item.id, e.target.value);
+                                                                adjustTextareaHeight(e.target);
+                                                            }}
+                                                            className="w-full bg-transparent border-none p-0 text-[10px] text-black whitespace-pre-wrap leading-tight focus:ring-0 resize-none overflow-hidden"
+                                                            style={{ minHeight: '1.2em' }}
+                                                            rows={1}
+                                                            onFocus={(e) => adjustTextareaHeight(e.target)}
+                                                        />
+                                                    </td>
+                                                    <td className="border border-black p-2 text-right align-top">{fmt(item.price)}</td>
+                                                    <td className="border border-black p-2 text-center align-top">{item.qty}</td>
+                                                    <td className="border border-black p-2 text-center align-top">{item.uom}</td>
+                                                    <td className="border border-black p-2 text-right align-top font-semibold">{fmt(item.total)}</td>
+                                                </tr>
+                                            );
+                                        }
+                                        return null;
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* 4. Footer Section (Last Page Only) */}
+                        {isLastPage && (
+                            <div className="mt-auto">
+                                {/* Totals */}
+                                <div className="flex justify-end mb-6 text-black">
+                                    <div className="w-[40%]">
+                                        <div className="flex justify-between border-b border-black py-1">
+                                            <span className="font-semibold text-xs">Subtotal ({appSettings.currencySymbol}) :</span>
+                                            <span className="font-medium">{fmt(subtotal)}</span>
+                                        </div>
+                                        
+                                        {discount > 0 && (
+                                            <div className="flex justify-between border-b border-black py-1 text-green-600 font-bold">
+                                                <span className="text-xs uppercase">Special Discount ({appSettings.currencySymbol}) :</span>
+                                                <span className="">({fmt(discount)})</span>
+                                            </div>
+                                        )}
+
+                                        <div className="flex justify-between border-b-2 border-black py-1 text-sm font-bold mt-1">
+                                            <span>TOTAL ({appSettings.currencySymbol}):</span>
+                                            <span>{fmt(grandTotal)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Terms & Signature */}
+                                <div className="text-black">
+                                    <div className="text-xs mb-6">
+                                        <h4 className="font-bold underline mb-2">TERMS & CONDITIONS:</h4>
+                                        <ul className="list-disc list-outside ml-4 space-y-1 text-black">
+                                            <li>Payment : 50% deposit, balance before delivery.</li>
+                                            <li>Delivery : 10 - 14 weeks upon order confirmation and deposit paid.</li>
+                                        </ul>
+                                        <p className="mt-3 italic text-[10px] text-black">
+                                            (1) No cancellation, suspension or variation of an accepted customer's order shall be valid unless agreed in writing by our company.
+                                        </p>
+                                    </div>
+
+                                    <div className="flex justify-between items-end text-xs italic">
+                                        <div className="w-[50%]"><p>Thank you for your business,</p></div>
+                                        <div className="w-[40%] text-center font-bold text-[10px] not-italic"><p>Sign and return to confirm your order.</p></div>
+                                    </div>
+
+                                    <div className="h-16"></div>
+
+                                    <div className="flex justify-between items-start text-xs">
+                                        <div className="w-[50%]">
+                                            <div className="border-t border-black pt-1">
+                                                <div className="text-[10px] space-y-1">
+                                                    <p className="font-bold text-xs">{appSettings.companyName}</p>
+                                                    <p className="text-blue-600 underline">xxx@rexharge.net</p>
+                                                    <div className="mt-2">
+                                                        <p className="italic mb-1">All cheques should be crossed and made to :</p>
+                                                        <p className="font-bold">{appSettings.companyName}</p>
+                                                        <p>Bank Name: <span className="font-semibold">OCBC Bank</span></p>
+                                                        <p>Bank Account: <span className="font-semibold">xxxxxx</span></p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="w-[40%]">
+                                            <div className="border-t border-black pt-1">
+                                                <div className="flex justify-between text-[10px] text-black font-bold mb-4 items-start">
+                                                    <div className="flex flex-col"><span>Company Stamp</span><span className="font-normal italic text-[9px] text-gray-500">(if any)</span></div>
+                                                    <div className="flex flex-col text-right"><span>Authorized</span><span>Signature</span></div>
+                                                </div>
+                                                <div className="space-y-3 font-bold text-black text-[10px]">
+                                                    <div className="flex items-end gap-2"><span className="w-12">Name:</span></div>
+                                                    <div className="flex items-end gap-2"><span className="w-12">Mobile:</span></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
-
-                        <div className="flex justify-between border-b-2 border-black py-1 text-sm font-bold mt-1">
-                            <span>TOTAL ({appSettings.currencySymbol}):</span>
-                            <span>{fmt(grandTotal)}</span>
+                        
+                        {/* Page Number */}
+                        <div className="absolute bottom-4 right-8 text-[9px] text-slate-400">
+                             Page {pageIndex + 1} of {pages.length}
                         </div>
-                    </div>
-                </div>
-
-                {/* 5. Optional Items Section (if any) */}
-                {optionalItems.length > 0 && (
-                    <div className="mb-6 break-inside-avoid">
-                         <div className="border border-black border-b-0 bg-gray-100 p-1 text-center font-bold text-xs uppercase">
-                             OPTIONAL
-                         </div>
-                         <table className="w-full border-collapse border border-black text-xs text-black">
-                             <tbody>
-                                 {optionalItems.map((item) => {
-                                      const displayDescription = quotationEdits[item.id] ?? item.quotationDescription ?? item.description;
-                                     return (
-                                     <tr key={item.id}>
-                                         <td className="border border-black p-2 w-10 text-center align-top">{rowCounter++}</td>
-                                         <td className="border border-black p-2 align-top">
-                                             <div className="font-bold text-xs mb-1">{item.itemName}</div>
-                                             <textarea
-                                                    value={displayDescription}
-                                                    onChange={(e) => {
-                                                        setQuotationEdit(item.id, e.target.value);
-                                                        adjustTextareaHeight(e.target);
-                                                    }}
-                                                    className="w-full bg-transparent border-none p-0 text-[10px] text-black whitespace-pre-wrap leading-tight focus:ring-0 resize-none overflow-hidden"
-                                                    style={{ minHeight: '1.2em' }}
-                                                    rows={1}
-                                                    onFocus={(e) => adjustTextareaHeight(e.target)}
-                                                />
-                                         </td>
-                                         <td className="border border-black p-2 w-28 text-right align-top">{fmt(item.price)}</td>
-                                         <td className="border border-black p-2 w-12 text-center align-top">{item.qty}</td>
-                                         <td className="border border-black p-2 w-16 text-center align-top">{item.uom}</td>
-                                         <td className="border border-black p-2 w-28 text-right align-top font-semibold">{fmt(item.total)}</td>
-                                     </tr>
-                                 )})}
-                             </tbody>
-                         </table>
-                    </div>
-                )}
-
-                {/* 6. Footer Terms & Signature */}
-                <div className="mt-8 break-inside-avoid text-black">
-                    {/* Terms */}
-                    <div className="text-xs mb-6">
-                        <h4 className="font-bold underline mb-2">TERMS & CONDITIONS:</h4>
-                        <ul className="list-disc list-outside ml-4 space-y-1 text-black">
-                            <li>Payment : 50% deposit, balance before delivery.</li>
-                            <li>Delivery : 10 - 14 weeks upon order confirmation and deposit paid.</li>
-                        </ul>
-                        <p className="mt-3 italic text-[10px] text-black">
-                            (1) No cancellation, suspension or variation of an accepted customer's order shall be valid unless agreed in writing by our company.
-                        </p>
-                    </div>
-
-                    {/* Closing Phrases Row - Aligned horizontally */}
-                    <div className="flex justify-between items-end text-xs italic">
-                        <div className="w-[50%]">
-                             <p>Thank you for your business,</p>
-                        </div>
-                        <div className="w-[40%] text-center font-bold text-[10px] not-italic">
-                             <p>Sign and return to confirm your order.</p>
-                        </div>
-                    </div>
-
-                    {/* Spacer for Signature (4-5 lines approx) */}
-                    <div className="h-24"></div>
-
-                    {/* Bottom Section: Banking & Signature Lines */}
-                    <div className="flex justify-between items-start text-xs">
-                        {/* Banking / Company Info */}
-                        <div className="w-[50%]">
-                            <div className="border-t border-black pt-1">
-                                <div className="text-[10px] space-y-1">
-                                    <p className="font-bold text-xs">{appSettings.companyName}</p>
-                                    <p className="text-blue-600 underline">xxx@rexharge.net</p>
-                                    <div className="mt-2">
-                                        <p className="italic mb-1">All cheques should be crossed and made to :</p>
-                                        <p className="font-bold">{appSettings.companyName}</p>
-                                        <p>Bank Name: <span className="font-semibold">OCBC Bank</span></p>
-                                        <p>Bank Account: <span className="font-semibold">xxxxxx</span></p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Signature Block Lines */}
-                        <div className="w-[40%]">
-                            <div className="border-t border-black pt-1">
-                                <div className="flex justify-between text-[10px] text-black font-bold mb-8 items-start">
-                                    <div className="flex flex-col">
-                                        <span>Company Stamp</span>
-                                        <span className="font-normal italic text-[9px] text-gray-500">(if any)</span>
-                                    </div>
-                                    <div className="flex flex-col text-right">
-                                        <span>Authorized</span>
-                                        <span>Signature</span>
-                                    </div>
-                                </div>
-                                <div className="space-y-3 font-bold text-black text-[10px]">
-                                    <div className="flex items-end gap-2">
-                                        <span className="w-12">Name:</span>
-                                    </div>
-                                    <div className="flex items-end gap-2">
-                                        <span className="w-12">Mobile:</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-              </div>
+                      </div>
+                  )
+              })}
           </div>
       )}
     </div>
