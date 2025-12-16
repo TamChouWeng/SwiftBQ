@@ -90,6 +90,9 @@ export interface AppSettings {
   companyAddress: string;
   currencySymbol: string;
   companyLogo: string; // Added Base64 logo string
+  // Bank Info
+  bankName: string;
+  bankAccount: string;
   // Profile Info
   profileName: string;
   profileContact: string;
@@ -174,6 +177,9 @@ export interface Translations {
   // Column Visibility
   columns: string;
   isOptional: string;
+  // Bank Info
+  bankName: string;
+  bankAccount: string;
 }
 
 export const LANGUAGES = [

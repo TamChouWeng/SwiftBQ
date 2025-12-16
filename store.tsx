@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { MasterItem, BQItem, Project, AppSettings, BQViewMode } from './types';
 
@@ -333,6 +334,8 @@ const INITIAL_SETTINGS: AppSettings = {
   companyAddress: 'L3-023, Level 3, MyTOWN Shopping Centre, \n6,Jalan Cochrane, Seksyen 90,\n55100 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur',
   currencySymbol: 'RM',
   companyLogo: '',
+  bankName: 'OCBC Bank',
+  bankAccount: 'xxxxx',
   profileName: 'Teoh Chi Yang',
   profileContact: '+6012 528 0665',
   profileRole: 'Admin',
@@ -388,7 +391,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [appSettings, setAppSettings] = useState<AppSettings>(() => {
     try {
         const saved = localStorage.getItem('swiftbq_appSettings');
-        return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
+        // Merge with initial settings to handle missing new fields (like bank info)
+        return saved ? { ...INITIAL_SETTINGS, ...JSON.parse(saved) } : INITIAL_SETTINGS;
     } catch (e) {
         return INITIAL_SETTINGS;
     }

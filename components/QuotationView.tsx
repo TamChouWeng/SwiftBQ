@@ -684,8 +684,8 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                                     <div className="mt-2">
                                                         <p className="italic mb-1">All cheques should be crossed and made to :</p>
                                                         <p className="font-bold">{appSettings.companyName}</p>
-                                                        <p>Bank Name: <span className="font-semibold">OCBC Bank</span></p>
-                                                        <p>Bank Account: <span className="font-semibold">xxxxxx</span></p>
+                                                        <p>Bank Name: <span className="font-semibold">{appSettings.bankName}</span></p>
+                                                        <p>Bank Account: <span className="font-semibold">{appSettings.bankAccount}</span></p>
                                                     </div>
                                                 </div>
                                             </div>

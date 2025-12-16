@@ -75,6 +75,8 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     roleUser: 'User',
     columns: 'Columns',
     isOptional: 'Optional',
+    bankName: 'Bank Name',
+    bankAccount: 'Bank Account Number',
   },
   [AppLanguage.MALAY]: {
     masterList: 'Utama',
@@ -149,6 +151,8 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     roleUser: 'Pengguna',
     columns: 'Lajur',
     isOptional: 'Pilihan',
+    bankName: 'Nama Bank',
+    bankAccount: 'Nombor Akaun Bank',
   },
   [AppLanguage.CHINESE]: {
     masterList: '主要',
@@ -223,5 +227,7 @@ export const TRANSLATIONS: Record<AppLanguage, Translations> = {
     roleUser: '用户',
     columns: '列',
     isOptional: '可选',
+    bankName: '银行名称',
+    bankAccount: '银行账号',
   },
 };

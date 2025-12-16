@@ -164,6 +164,24 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                         className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
                     />
                 </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.bankName}</label>
+                    <input 
+                        type="text" 
+                        value={appSettings.bankName}
+                        onChange={(e) => handleSettingChange('bankName', e.target.value)}
+                        className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                    />
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.bankAccount}</label>
+                    <input 
+                        type="text" 
+                        value={appSettings.bankAccount}
+                        onChange={(e) => handleSettingChange('bankAccount', e.target.value)}
+                        className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                    />
+                </div>
                 <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.companyAddress}</label>
                     <textarea 
