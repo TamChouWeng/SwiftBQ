@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Moon, Sun, Globe, Info, Check, Building, User, ShieldCheck, Trash2, Upload } from 'lucide-react';
 import { AppLanguage, AppTheme, LANGUAGES } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -31,8 +31,63 @@ const SettingsView: React.FC<SettingsViewProps> = ({
       role: appSettings.profileRole || 'Admin'
   });
 
-  const handleSettingChange = (field: keyof typeof appSettings, value: string | number) => {
-      setAppSettings({ ...appSettings, [field]: value });
+  // Local state for company form to detect changes
+  const [companyForm, setCompanyForm] = useState({
+      name: appSettings.companyName,
+      address: appSettings.companyAddress,
+      currency: appSettings.currencySymbol,
+      bankName: appSettings.bankName,
+      bankAccount: appSettings.bankAccount
+  });
+
+  // Sync local states if global state changes externally (though unlikely here)
+  useEffect(() => {
+    setProfileForm({
+        name: appSettings.profileName,
+        contact: appSettings.profileContact,
+        role: appSettings.profileRole || 'Admin'
+    });
+    setCompanyForm({
+        name: appSettings.companyName,
+        address: appSettings.companyAddress,
+        currency: appSettings.currencySymbol,
+        bankName: appSettings.bankName,
+        bankAccount: appSettings.bankAccount
+    });
+  }, [appSettings]);
+
+  const isProfileDirty = 
+    profileForm.name !== appSettings.profileName || 
+    profileForm.contact !== appSettings.profileContact || 
+    profileForm.role !== (appSettings.profileRole || 'Admin');
+
+  const isCompanyDirty = 
+    companyForm.name !== appSettings.companyName || 
+    companyForm.address !== appSettings.companyAddress || 
+    companyForm.currency !== appSettings.currencySymbol || 
+    companyForm.bankName !== appSettings.bankName || 
+    companyForm.bankAccount !== appSettings.bankAccount;
+
+  const handleProfileSave = () => {
+      if (!isProfileDirty) return;
+      setAppSettings({
+          ...appSettings,
+          profileName: profileForm.name,
+          profileContact: profileForm.contact,
+          profileRole: profileForm.role
+      });
+  };
+
+  const handleCompanySave = () => {
+      if (!isCompanyDirty) return;
+      setAppSettings({
+          ...appSettings,
+          companyName: companyForm.name,
+          companyAddress: companyForm.address,
+          currencySymbol: companyForm.currency,
+          bankName: companyForm.bankName,
+          bankAccount: companyForm.bankAccount
+      });
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,27 +95,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        handleSettingChange('companyLogo', reader.result as string);
+        setAppSettings({ ...appSettings, companyLogo: reader.result as string });
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleRemoveLogo = () => {
-      handleSettingChange('companyLogo', '');
+      setAppSettings({ ...appSettings, companyLogo: '' });
       if (fileInputRef.current) {
           fileInputRef.current.value = '';
       }
-  };
-
-  const handleProfileSave = () => {
-      setAppSettings({
-          ...appSettings,
-          profileName: profileForm.name,
-          profileContact: profileForm.contact,
-          profileRole: profileForm.role
-      });
-      // Optional: Add a toast notification here
   };
 
   const containerPadding = !isSidebarOpen ? 'pl-4 md:pl-24 pr-4' : 'px-4';
@@ -68,26 +113,39 @@ const SettingsView: React.FC<SettingsViewProps> = ({
   return (
     <div className={`space-y-8 animate-fade-in pb-12 transition-all duration-300 ${containerPadding}`}>
       <header className="mb-10">
-        <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white mb-3 tracking-tight">
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-1">
           {t.settings}
         </h1>
-        <div className="h-1 w-20 bg-primary-500 rounded-full"></div>
       </header>
 
-      {/* Profile Settings (New) */}
+      {/* Profile Settings */}
       <section className="space-y-4">
          <h2 className="text-sm uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 px-1">
             {t.profileSettings}
          </h2>
          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden p-6 space-y-4">
-            <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
-                    <User size={20} />
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                        <User size={20} />
+                    </div>
+                    <h3 className="font-semibold text-slate-900 dark:text-white">{t.profileSettings}</h3>
                 </div>
-                <h3 className="font-semibold text-slate-900 dark:text-white">{t.profileSettings}</h3>
+                <button 
+                    onClick={handleProfileSave}
+                    disabled={!isProfileDirty}
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${
+                        isProfileDirty 
+                        ? 'bg-green-500 border-green-600 text-white shadow-lg shadow-green-500/30 hover:bg-green-600'
+                        : 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-400 dark:text-slate-500 cursor-not-allowed'
+                    }`}
+                    title="Save Profile Changes"
+                >
+                    <Check size={20} strokeWidth={3} />
+                </button>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.yourName}</label>
                     <input 
@@ -120,14 +178,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                         <ShieldCheck className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                     </div>
                 </div>
-                <div>
-                    <button 
-                        onClick={handleProfileSave}
-                        className="w-full bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition-colors shadow-lg shadow-primary-500/30 font-medium"
-                    >
-                        {t.confirm}
-                    </button>
-                </div>
             </div>
          </div>
       </section>
@@ -135,14 +185,28 @@ const SettingsView: React.FC<SettingsViewProps> = ({
       {/* Company Settings */}
       <section className="space-y-4">
          <h2 className="text-sm uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 px-1">
-            {t.general}
+            Company Info
          </h2>
          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden p-6 space-y-4">
-            <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
-                    <Building size={20} />
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">
+                        <Building size={20} />
+                    </div>
+                    <h3 className="font-semibold text-slate-900 dark:text-white">Company Information</h3>
                 </div>
-                <h3 className="font-semibold text-slate-900 dark:text-white">{t.companyName}</h3>
+                <button 
+                    onClick={handleCompanySave}
+                    disabled={!isCompanyDirty}
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${
+                        isCompanyDirty 
+                        ? 'bg-green-500 border-green-600 text-white shadow-lg shadow-green-500/30 hover:bg-green-600'
+                        : 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-400 dark:text-slate-500 cursor-not-allowed'
+                    }`}
+                    title="Save Company Info Changes"
+                >
+                    <Check size={20} strokeWidth={3} />
+                </button>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -150,8 +214,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                     <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.companyName}</label>
                     <input 
                         type="text" 
-                        value={appSettings.companyName}
-                        onChange={(e) => handleSettingChange('companyName', e.target.value)}
+                        value={companyForm.name}
+                        onChange={(e) => setCompanyForm({...companyForm, name: e.target.value})}
                         className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
                     />
                 </div>
@@ -159,8 +223,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                     <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.currencySymbol}</label>
                     <input 
                         type="text" 
-                        value={appSettings.currencySymbol}
-                        onChange={(e) => handleSettingChange('currencySymbol', e.target.value)}
+                        value={companyForm.currency}
+                        onChange={(e) => setCompanyForm({...companyForm, currency: e.target.value})}
                         className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
                     />
                 </div>
@@ -168,8 +232,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                     <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.bankName}</label>
                     <input 
                         type="text" 
-                        value={appSettings.bankName}
-                        onChange={(e) => handleSettingChange('bankName', e.target.value)}
+                        value={companyForm.bankName}
+                        onChange={(e) => setCompanyForm({...companyForm, bankName: e.target.value})}
                         className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
                     />
                 </div>
@@ -177,16 +241,16 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                     <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.bankAccount}</label>
                     <input 
                         type="text" 
-                        value={appSettings.bankAccount}
-                        onChange={(e) => handleSettingChange('bankAccount', e.target.value)}
+                        value={companyForm.bankAccount}
+                        onChange={(e) => setCompanyForm({...companyForm, bankAccount: e.target.value})}
                         className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
                     />
                 </div>
                 <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.companyAddress}</label>
                     <textarea 
-                        value={appSettings.companyAddress}
-                        onChange={(e) => handleSettingChange('companyAddress', e.target.value)}
+                        value={companyForm.address}
+                        onChange={(e) => setCompanyForm({...companyForm, address: e.target.value})}
                         rows={2}
                         className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none resize-none"
                     />
