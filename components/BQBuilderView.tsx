@@ -765,6 +765,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             <option value="validityPeriod-desc">Longest Validity</option>
                             <option value="validityPeriod-asc">Shortest Validity</option>
                         </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                     </div>
                 </div>
 

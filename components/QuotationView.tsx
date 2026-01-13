@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
-import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, User, ChevronDown, Save, RotateCcw } from 'lucide-react';
+import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, User, ChevronDown, Save, RotateCcw, ArrowUpDown } from 'lucide-react';
 import { useAppStore } from '../store';
 import { AppLanguage, BQItem } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -78,6 +78,11 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     const t = TRANSLATIONS[currentLanguage];
     const [searchQuery, setSearchQuery] = useState('');
 
+    // Sort Configuration
+    type SortKey = 'date' | 'validityPeriod';
+    type SortDirection = 'asc' | 'desc';
+    const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection }>({ key: 'date', direction: 'desc' });
+
     // Local state for selecting version in Quotation View
     const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
 
@@ -115,11 +120,30 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     }, {} as Record<string, BQItem[]>);
 
     const filteredProjects = useMemo(() => {
-        return projects.filter(p =>
+        let result = projects.filter(p =>
             p.projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
             p.clientName.toLowerCase().includes(searchQuery.toLowerCase())
         );
-    }, [projects, searchQuery]);
+
+        // Sort Logic
+        return result.sort((a, b) => {
+            let valA: string | number | Date = '';
+            let valB: string | number | Date = '';
+
+            if (sortConfig.key === 'date') {
+                valA = new Date(a.date).getTime();
+                valB = new Date(b.date).getTime();
+            } else if (sortConfig.key === 'validityPeriod') {
+                valA = Number(a.validityPeriod);
+                valB = Number(b.validityPeriod);
+            }
+
+            if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+    }, [projects, searchQuery, sortConfig]);
 
     const handleDiscountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (activeProject) {
@@ -292,15 +316,36 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 </div>
 
                 {/* Search Bar */}
-                <div className="relative max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder={t.searchProjects}
-                        className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white"
-                    />
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1 max-w-md">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder={t.searchProjects}
+                            className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white"
+                        />
+                    </div>
+                    <div className="relative min-w-[180px]">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                            <ArrowUpDown size={16} />
+                        </div>
+                        <select
+                            value={`${sortConfig.key}-${sortConfig.direction}`}
+                            onChange={(e) => {
+                                const [key, direction] = e.target.value.split('-');
+                                setSortConfig({ key: key as SortKey, direction: direction as SortDirection });
+                            }}
+                            className="w-full pl-10 pr-8 py-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white appearance-none cursor-pointer"
+                        >
+                            <option value="date-desc">Newest Date First</option>
+                            <option value="date-asc">Oldest Date First</option>
+                            <option value="validityPeriod-desc">Longest Validity</option>
+                            <option value="validityPeriod-asc">Shortest Validity</option>
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                    </div>
                 </div>
 
                 {/* Project List */}
