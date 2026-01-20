@@ -437,6 +437,11 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             const masterItem = !isReview ? (item as MasterItem) : null;
             const itemId = item.id;
 
+            // For Review mode, look up the linked Master item to display fields not stored in BQ item
+            const linkedMasterItem = isReview && bqItem?.masterId
+                ? masterData.find(m => m.id === bqItem.masterId)
+                : null;
+
             // Resolve Values
             let category: string, itemName: string, description: string, uom: string, price: number;
             let currentQty: number | string;
@@ -503,22 +508,30 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
                     {/* Column A */}
                     {visibleColumns.colA && <td className="p-2 align-top">
-                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">{masterItem?.colA || ''}</div>
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">
+                            {(linkedMasterItem || masterItem)?.colA || ''}
+                        </div>
                     </td>}
 
                     {/* Column B */}
                     {visibleColumns.colB && <td className="p-2 align-top">
-                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">{masterItem?.colB || ''}</div>
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">
+                            {(linkedMasterItem || masterItem)?.colB || ''}
+                        </div>
                     </td>}
 
                     {/* Column C */}
                     {visibleColumns.colC && <td className="p-2 align-top">
-                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">{masterItem?.colC || ''}</div>
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">
+                            {(linkedMasterItem || masterItem)?.colC || ''}
+                        </div>
                     </td>}
 
                     {/* Column D */}
                     {visibleColumns.colD && <td className="p-2 align-top">
-                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">{masterItem?.colD || ''}</div>
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">
+                            {(linkedMasterItem || masterItem)?.colD || ''}
+                        </div>
                     </td>}
 
                     {/* Category */}
@@ -616,32 +629,44 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
                     {/* Forex */}
                     {visibleColumns.forex && <td className="p-2 align-top">
-                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(masterItem?.forex || 0)}</div>
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">
+                            {fmt((linkedMasterItem || masterItem)?.forex || 0)}
+                        </div>
                     </td>}
 
                     {/* SST */}
                     {visibleColumns.sst && <td className="p-2 align-top">
-                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(masterItem?.sst || 0)}</div>
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">
+                            {fmt((linkedMasterItem || masterItem)?.sst || 0)}
+                        </div>
                     </td>}
 
                     {/* OPTA */}
                     {visibleColumns.opta && <td className="p-2 align-top">
-                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(masterItem?.opta || 0)}</div>
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">
+                            {fmt((linkedMasterItem || masterItem)?.opta || 0)}
+                        </div>
                     </td>}
 
                     {/* REX SC FOB */}
                     {visibleColumns.rexScFob && <td className="p-2 align-top">
-                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(masterItem?.rexScFob || 0)}</div>
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">
+                            {fmt((linkedMasterItem || masterItem)?.rexScFob || 0)}
+                        </div>
                     </td>}
 
                     {/* REX SC DDP */}
                     {visibleColumns.rexScDdp && <td className="p-2 align-top">
-                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(masterItem?.rexScDdp || 0)}</div>
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">
+                            {fmt((linkedMasterItem || masterItem)?.rexScDdp || 0)}
+                        </div>
                     </td>}
 
                     {/* REX SP */}
                     {visibleColumns.rexSp && <td className="p-2 align-top">
-                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(masterItem?.rexSp || 0)}</div>
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">
+                            {fmt((linkedMasterItem || masterItem)?.rexSp || 0)}
+                        </div>
                     </td>}
 
                     {/* Calculated Columns */}
