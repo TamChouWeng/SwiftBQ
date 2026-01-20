@@ -22,11 +22,11 @@ export type BQViewMode = 'catalog' | 'review';
 export interface MasterItem {
   id: string;
   // New Columns A-D
-  colA: string; // Header: Qty (Often used for Brand in CSV)
-  colB: string; // Header: AX SKU
-  colC: string; // Header: MPN
-  colD: string; // Header: GROUP
-  
+  brand: string; // Header: Brand
+  axsku: string; // Header: AX SKU
+  mpn: string; // Header: MPN
+  group: string; // Header: GROUP
+
   category: string;
   itemName: string;
   description: string; // Type
@@ -41,7 +41,7 @@ export interface MasterItem {
   rexSp: number;
   rexRsp: number;
   // Hidden field for calculation
-  spMargin?: number;
+  // spMargin removed
 }
 
 export interface ProjectVersion {
@@ -80,7 +80,7 @@ export interface BQItem {
   rexScDdp: number;
   rexSp: number;
   rexRsp: number;
-  
+
   // New field
   isOptional?: boolean;
 }
@@ -136,10 +136,10 @@ export interface Translations {
   exportPDF: string;
   noData: string;
   // New Column Headers
-  colA: string;
-  colB: string;
-  colC: string;
-  colD: string;
+  brand: string;
+  axsku: string;
+  mpn: string;
+  group: string;
   rexScFob: string;
   forex: string;
   sst: string;

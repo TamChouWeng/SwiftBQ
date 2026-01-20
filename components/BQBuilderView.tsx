@@ -79,10 +79,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         }
         // Default visibility: first 4 columns (colA-D) hidden
         return {
-            colA: false,
-            colB: false,
-            colC: false,
-            colD: false,
+            brand: false,
+            axsku: false,
+            mpn: false,
+            group: false,
             category: true,
             item: true,
             description: true,
@@ -113,10 +113,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     // --- Column Resizing State ---
     const [colWidths, setColWidths] = useState<{ [key: string]: number }>({
         dragHandle: 40,
-        colA: 120,
-        colB: 100,
-        colC: 120,
-        colD: 100,
+        brand: 120,
+        axsku: 100,
+        mpn: 120,
+        group: 100,
         category: 160,
         item: 200,
         description: 250,
@@ -395,10 +395,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
     // Column Ordering Config
     const columnOrder: { key: keyof typeof visibleColumns; label: string }[] = [
-        { key: 'colA', label: t.colA },
-        { key: 'colB', label: t.colB },
-        { key: 'colC', label: t.colC },
-        { key: 'colD', label: t.colD },
+        { key: 'brand', label: t.brand },
+        { key: 'axsku', label: t.axsku },
+        { key: 'mpn', label: t.mpn },
+        { key: 'group', label: t.group },
         { key: 'category', label: t.category },
         { key: 'item', label: t.item },
         { key: 'description', label: t.description },
@@ -506,31 +506,31 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         </td>
                     )}
 
-                    {/* Column A */}
-                    {visibleColumns.colA && <td className="p-2 align-top">
+                    {/* Column A (Brand) */}
+                    {visibleColumns.brand && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">
-                            {(linkedMasterItem || masterItem)?.colA || ''}
+                            {(linkedMasterItem || masterItem)?.brand || ''}
                         </div>
                     </td>}
 
-                    {/* Column B */}
-                    {visibleColumns.colB && <td className="p-2 align-top">
+                    {/* Column B (AX SKU) */}
+                    {visibleColumns.axsku && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">
-                            {(linkedMasterItem || masterItem)?.colB || ''}
+                            {(linkedMasterItem || masterItem)?.axsku || ''}
                         </div>
                     </td>}
 
-                    {/* Column C */}
-                    {visibleColumns.colC && <td className="p-2 align-top">
+                    {/* Column C (MPN) */}
+                    {visibleColumns.mpn && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">
-                            {(linkedMasterItem || masterItem)?.colC || ''}
+                            {(linkedMasterItem || masterItem)?.mpn || ''}
                         </div>
                     </td>}
 
-                    {/* Column D */}
-                    {visibleColumns.colD && <td className="p-2 align-top">
+                    {/* Column D (Group) */}
+                    {visibleColumns.group && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">
-                            {(linkedMasterItem || masterItem)?.colD || ''}
+                            {(linkedMasterItem || masterItem)?.group || ''}
                         </div>
                     </td>}
 
@@ -778,21 +778,21 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     <th className="p-4 w-10 sticky left-0 z-20 bg-gray-50/50 dark:bg-slate-800 border-r border-gray-100 dark:border-slate-700/50" style={{ width: colWidths.dragHandle }}></th>
                 )}
 
-                {visibleColumns.colA && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.colA }}>
-                    {t.colA}
-                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'colA')} />
+                {visibleColumns.brand && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.brand }}>
+                    {t.brand}
+                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'brand')} />
                 </th>}
-                {visibleColumns.colB && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.colB }}>
-                    {t.colB}
-                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'colB')} />
+                {visibleColumns.axsku && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.axsku }}>
+                    {t.axsku}
+                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'axsku')} />
                 </th>}
-                {visibleColumns.colC && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.colC }}>
-                    {t.colC}
-                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'colC')} />
+                {visibleColumns.mpn && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.mpn }}>
+                    {t.mpn}
+                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'mpn')} />
                 </th>}
-                {visibleColumns.colD && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.colD }}>
-                    {t.colD}
-                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'colD')} />
+                {visibleColumns.group && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.group }}>
+                    {t.group}
+                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'group')} />
                 </th>}
 
                 {visibleColumns.category && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.category }}>

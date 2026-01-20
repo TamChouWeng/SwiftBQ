@@ -39,10 +39,10 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
 
   // Column Visibility State
   const [visibleColumns, setVisibleColumns] = useState({
-    colA: false,
-    colB: false,
-    colC: false,
-    colD: false,
+    brand: false,
+    axsku: false,
+    mpn: false,
+    group: false,
     category: true,
     description: true, // Type
     itemName: true,
@@ -59,10 +59,10 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
 
   // Column Widths State (for Resizing)
   const [colWidths, setColWidths] = useState<{ [key: string]: number }>({
-    colA: 60,
-    colB: 80,
-    colC: 80,
-    colD: 60,
+    brand: 60,
+    axsku: 80,
+    mpn: 80,
+    group: 60,
     category: 120,
     description: 150, // Type
     itemName: 200,
@@ -80,10 +80,10 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newItem, setNewItem] = useState<Partial<MasterItem>>({
-    colA: '',
-    colB: '',
-    colC: '',
-    colD: '',
+    brand: '',
+    axsku: '',
+    mpn: '',
+    group: '',
     category: '',
     description: '', // This maps to "Type" in the UI
     itemName: '',
@@ -96,7 +96,8 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     rexScDdp: 0,
     rexSp: 0,
     rexRsp: 0,
-    spMargin: 0.7
+    rexRsp: 0,
+    // spMargin removed
   });
 
   // Calculate fields dynamically when modal inputs change
@@ -111,7 +112,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
         setNewItem(prev => ({ ...prev, ...derived }));
       }
     }
-  }, [newItem.rexScFob, newItem.forex, newItem.sst, newItem.opta, newItem.spMargin, isModalOpen]);
+  }, [newItem.rexScFob, newItem.forex, newItem.sst, newItem.opta, isModalOpen]);
 
   // --- Derived Data ---
 
@@ -138,8 +139,8 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
         item.itemName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.colA && item.colA.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (item.colB && item.colB.toLowerCase().includes(searchQuery.toLowerCase()));
+        (item.brand && item.brand.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.axsku && item.axsku.toLowerCase().includes(searchQuery.toLowerCase()));
 
       return matchesCategory && matchesType && matchesSearch;
     });
@@ -224,10 +225,10 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
   // --- Modal Logic ---
   const openModal = () => {
     setNewItem({
-      colA: '', colB: '', colC: '', colD: '',
+      brand: '', axsku: '', mpn: '', group: '',
       category: '', description: '', itemName: '',
       price: 0, uom: 'Unit', rexScFob: 0, forex: 1, sst: 1, opta: 0.97,
-      rexScDdp: 0, rexSp: 0, rexRsp: 0, spMargin: 0.7
+      rexScDdp: 0, rexSp: 0, rexRsp: 0 // spMargin removed
     });
     setIsModalOpen(true);
   };
@@ -239,10 +240,10 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     }
     const itemToAdd: MasterItem = {
       id: Date.now().toString(),
-      colA: newItem.colA || '',
-      colB: newItem.colB || '',
-      colC: newItem.colC || '',
-      colD: newItem.colD || '',
+      brand: newItem.brand || '',
+      axsku: newItem.axsku || '',
+      mpn: newItem.mpn || '',
+      group: newItem.group || '',
       category: newItem.category!,
       description: newItem.description || '',
       itemName: newItem.itemName!,
@@ -255,7 +256,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
       rexScDdp: Number(newItem.rexScDdp) || 0,
       rexSp: Number(newItem.rexSp) || 0,
       rexRsp: Number(newItem.rexRsp) || 0,
-      spMargin: Number(newItem.spMargin) || 0.7
+      // spMargin removed
     };
     addMasterItem(itemToAdd);
     setIsModalOpen(false);
@@ -275,10 +276,10 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
   const tableWidth = useMemo(() => {
     let width = 0;
     // Loop through all visibility keys that map to columns
-    if (visibleColumns.colA) width += colWidths.colA;
-    if (visibleColumns.colB) width += colWidths.colB;
-    if (visibleColumns.colC) width += colWidths.colC;
-    if (visibleColumns.colD) width += colWidths.colD;
+    if (visibleColumns.brand) width += colWidths.brand;
+    if (visibleColumns.axsku) width += colWidths.axsku;
+    if (visibleColumns.mpn) width += colWidths.mpn;
+    if (visibleColumns.group) width += colWidths.group;
     if (visibleColumns.category) width += colWidths.category;
     if (visibleColumns.description) width += colWidths.description;
     if (visibleColumns.itemName) width += colWidths.itemName;
@@ -296,10 +297,10 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
 
   // Column Ordering Config (Unified List)
   const columnOrder: { key: keyof typeof visibleColumns; label: string }[] = [
-    { key: 'colA', label: t.colA },
-    { key: 'colB', label: t.colB },
-    { key: 'colC', label: t.colC },
-    { key: 'colD', label: t.colD },
+    { key: 'brand', label: t.brand },
+    { key: 'axsku', label: t.axsku },
+    { key: 'mpn', label: t.mpn },
+    { key: 'group', label: t.group },
     { key: 'category', label: t.category },
     { key: 'itemName', label: t.item },
     { key: 'description', label: t.description },
@@ -467,10 +468,10 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
           <table className="text-left border-collapse table-fixed" style={{ width: tableWidth + 'px', minWidth: '100%' }}>
             <thead className="sticky top-0 bg-gray-50 dark:bg-slate-700/90 backdrop-blur-sm z-10">
               <tr className="text-slate-600 dark:text-slate-300 text-sm border-b border-gray-100 dark:border-slate-700">
-                {visibleColumns.colA && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.colA }}>{t.colA}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'colA')} /></th>}
-                {visibleColumns.colB && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.colB }}>{t.colB}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'colB')} /></th>}
-                {visibleColumns.colC && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.colC }}>{t.colC}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'colC')} /></th>}
-                {visibleColumns.colD && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.colD }}>{t.colD}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'colD')} /></th>}
+                {visibleColumns.brand && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.brand }}>{t.brand}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'brand')} /></th>}
+                {visibleColumns.axsku && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.axsku }}>{t.axsku}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'axsku')} /></th>}
+                {visibleColumns.mpn && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.mpn }}>{t.mpn}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'mpn')} /></th>}
+                {visibleColumns.group && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.group }}>{t.group}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'group')} /></th>}
 
                 {visibleColumns.category && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.category }}>{t.category}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'category')} /></th>}
                 {visibleColumns.itemName && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.itemName }}>{t.item}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'itemName')} /></th>}
@@ -500,10 +501,10 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
 
                   return (
                     <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
-                      {visibleColumns.colA && <td className="p-2"><input type="text" value={display.colA} onChange={(e) => handleEdit(item.id, 'colA', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
-                      {visibleColumns.colB && <td className="p-2"><input type="text" value={display.colB} onChange={(e) => handleEdit(item.id, 'colB', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
-                      {visibleColumns.colC && <td className="p-2"><input type="text" value={display.colC} onChange={(e) => handleEdit(item.id, 'colC', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
-                      {visibleColumns.colD && <td className="p-2"><input type="text" value={display.colD} onChange={(e) => handleEdit(item.id, 'colD', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                      {visibleColumns.brand && <td className="p-2"><input type="text" value={display.brand} onChange={(e) => handleEdit(item.id, 'brand', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                      {visibleColumns.axsku && <td className="p-2"><input type="text" value={display.axsku} onChange={(e) => handleEdit(item.id, 'axsku', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                      {visibleColumns.mpn && <td className="p-2"><input type="text" value={display.mpn} onChange={(e) => handleEdit(item.id, 'mpn', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                      {visibleColumns.group && <td className="p-2"><input type="text" value={display.group} onChange={(e) => handleEdit(item.id, 'group', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
 
                       {visibleColumns.category && <td className="p-2"><input type="text" value={display.category} onChange={(e) => handleEdit(item.id, 'category', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
                       {visibleColumns.itemName && <td className="p-2"><input type="text" value={display.itemName} onChange={(e) => handleEdit(item.id, 'itemName', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate font-bold" /></td>}
@@ -580,25 +581,25 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
               <div className="grid grid-cols-2 gap-4">
                 {/* Col A */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.colA}</label>
-                  <input type="text" value={newItem.colA} onChange={(e) => setNewItem({ ...newItem, colA: e.target.value })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.brand}</label>
+                  <input type="text" value={newItem.brand} onChange={(e) => setNewItem({ ...newItem, brand: e.target.value })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
                 </div>
-                {/* Col B */}
+                {/* Ax SKU */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.colB}</label>
-                  <input type="text" value={newItem.colB} onChange={(e) => setNewItem({ ...newItem, colB: e.target.value })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.axsku}</label>
+                  <input type="text" value={newItem.axsku} onChange={(e) => setNewItem({ ...newItem, axsku: e.target.value })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 {/* Col C */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.colC}</label>
-                  <input type="text" value={newItem.colC} onChange={(e) => setNewItem({ ...newItem, colC: e.target.value })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.mpn}</label>
+                  <input type="text" value={newItem.mpn} onChange={(e) => setNewItem({ ...newItem, mpn: e.target.value })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
                 </div>
-                {/* Col D */}
+                {/* Group */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.colD}</label>
-                  <input type="text" value={newItem.colD} onChange={(e) => setNewItem({ ...newItem, colD: e.target.value })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.group}</label>
+                  <input type="text" value={newItem.group} onChange={(e) => setNewItem({ ...newItem, group: e.target.value })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
                 </div>
               </div>
 

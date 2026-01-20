@@ -87,7 +87,6 @@ export const calculateDerivedFields = (item: Partial<MasterItem>): Partial<Maste
   const forex = safeNum(item.forex, 1);
   const sst = safeNum(item.sst, 1);
   const opta = safeNum(item.opta, 0.97);
-  const spMargin = safeNum(item.spMargin, 0.7);
 
   // Heuristic for precision
   const isHighValue = fob > 500;
@@ -97,8 +96,8 @@ export const calculateDerivedFields = (item: Partial<MasterItem>): Partial<Maste
   // Formula for DDP: CEILING((FOB * Forex * SST) / OPTA, precisionDDP)
   const ddp = opta !== 0 ? calcCeiling((fob * forex * sst) / opta, precisionDDP) : 0;
 
-  // Formula for SP: CEILING(DDP / spMargin, precisionSP)
-  const sp = spMargin !== 0 ? calcCeiling(ddp / spMargin, precisionSP) : 0;
+  // Formula for SP: CEILING(DDP / 0.71, precisionSP)
+  const sp = calcCeiling(ddp / 0.71, precisionSP);
 
   // RSP = SP
   const rsp = sp;
@@ -114,10 +113,10 @@ export const calculateDerivedFields = (item: Partial<MasterItem>): Partial<Maste
 // Raw Data processing function to mimic CSV row logic
 const createItem = (
   id: string,
-  colA: string,
-  colB: string,
-  colC: string,
-  colD: string,
+  brand: string,
+  axsku: string,
+  mpn: string,
+  group: string,
   category: string,
   type: string,
   item: string,
@@ -126,7 +125,7 @@ const createItem = (
   forex: number,
   sst: number,
   opta: number,
-  spMargin: number = 0.7, // 0.7 or 0.71 or 0.9 based on CSV
+  // spMargin removed
   overrideRSP: number | null = null
 ): MasterItem => {
   const derived = calculateDerivedFields({
@@ -134,15 +133,14 @@ const createItem = (
     forex,
     sst,
     opta,
-    spMargin
   });
 
   return {
     id,
-    colA,
-    colB,
-    colC,
-    colD,
+    brand,
+    axsku,
+    mpn,
+    group,
     category,
     itemName: item,
     description: type,
@@ -155,7 +153,6 @@ const createItem = (
     rexScDdp: derived.rexScDdp ?? 0,
     rexSp: derived.rexSp ?? 0,
     rexRsp: overrideRSP ?? derived.rexRsp ?? 0,
-    spMargin
   };
 };
 
@@ -465,7 +462,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((item) => {
         if (item.id === id) {
           const isCalculationNeeded =
-            'rexScFob' in updates || 'forex' in updates || 'sst' in updates || 'opta' in updates || 'spMargin' in updates;
+            'rexScFob' in updates || 'forex' in updates || 'sst' in updates || 'opta' in updates;
 
           if (isCalculationNeeded) {
             const merged = { ...item, ...updates };
@@ -498,7 +495,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const mergedForCalc = { ...currentItem, ...existingEdits, [field]: value };
 
       let derivedUpdates = {};
-      if (['rexScFob', 'forex', 'sst', 'opta', 'spMargin'].includes(field as string)) {
+      if (['rexScFob', 'forex', 'sst', 'opta'].includes(field as string)) {
         derivedUpdates = calculateDerivedFields(mergedForCalc);
       }
 
@@ -515,7 +512,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMasterData(prev => prev.map(item => {
       if (masterListEdits[item.id]) {
         const edits = masterListEdits[item.id];
-        const numericFields: (keyof MasterItem)[] = ['price', 'rexScFob', 'forex', 'sst', 'opta', 'rexScDdp', 'rexSp', 'rexRsp', 'spMargin'];
+        const numericFields: (keyof MasterItem)[] = ['price', 'rexScFob', 'forex', 'sst', 'opta', 'rexScDdp', 'rexSp', 'rexRsp'];
         const sanitizedEdits = { ...edits };
 
         numericFields.forEach(field => {
