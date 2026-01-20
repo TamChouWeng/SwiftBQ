@@ -460,7 +460,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 itemName = masterItem.itemName;
                 description = masterItem.description;
                 uom = masterItem.uom;
-                price = masterItem.rexRsp;
+                price = masterItem.rexScFob;
                 currentQty = getQtyForMasterItem(masterItem.id) || '';
             } else {
                 return null;
