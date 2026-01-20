@@ -159,10 +159,10 @@ const createItem = (
 // Parsed Data from CSV with robust calculations
 const INITIAL_MASTER_DATA: MasterItem[] = [
   // --- EV CHARGER ---
-  createItem('101', 'SIEMENS', '', '', '7', 'EV CHARGER', 'A BRAND EV CHARGER', '7 KW AC CHARGER', 'Unit', 3000.00, 1, 1, 0.965, 0.71, 6699.00),
-  createItem('102', 'SIEMENS', '', '', '11', 'EV CHARGER', 'A BRAND EV CHARGER', '11 KW AC CHARGER', 'Unit', 3500.00, 1, 1, 0.965, 0.71, 6999.00),
-  createItem('103', 'SIEMENS', '', '', '22', 'EV CHARGER', 'A BRAND EV CHARGER', '22 KW AC CHARGER', 'Unit', 4500.00, 1, 1, 0.965, 0.71, 6999.00),
-  createItem('104', 'SIEMENS', '', '', '180', 'EV CHARGER', 'A BRAND EV CHARGER', '180 KW DC CHARGER', 'Unit', 95000.00, 4.8, 1.1, 1.000, 0.9, 79999.00),
+  createItem('101', 'SIEMENS', '', '', '7', 'EV CHARGER', 'A BRAND EV CHARGER', '7 KW AC CHARGER', 'Unit', 3000.00, 1, 1, 0.965, 0.71),
+  createItem('102', 'SIEMENS', '', '', '11', 'EV CHARGER', 'A BRAND EV CHARGER', '11 KW AC CHARGER', 'Unit', 3500.00, 1, 1, 0.965, 0.71),
+  createItem('103', 'SIEMENS', '', '', '22', 'EV CHARGER', 'A BRAND EV CHARGER', '22 KW AC CHARGER', 'Unit', 4500.00, 1, 1, 0.965, 0.71),
+  createItem('104', 'SIEMENS', '', '', '180', 'EV CHARGER', 'A BRAND EV CHARGER', '180 KW DC CHARGER', 'Unit', 95000.00, 4.8, 1.1, 1.000, 0.9),
 
   createItem('105', 'SIEMENS', '', 'CPC50CC-M', '50', 'EV CHARGER', 'B BRAND EV CHARGER', '55 KW DC CHARGER', 'Unit', 30000.00, 1, 1.08, 1.000, 0.7),
   createItem('106', 'SIEMENS', '', 'CPC50CC-M', '50', 'EV CHARGER', 'B BRAND EV CHARGER', '240KW DC CHARGER', 'Unit', 60000.00, 1, 1.08, 1.000, 0.7),

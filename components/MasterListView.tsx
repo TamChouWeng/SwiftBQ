@@ -95,9 +95,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     opta: 0.97,
     rexScDdp: 0,
     rexSp: 0,
-    rexRsp: 0,
-    rexRsp: 0,
-    // spMargin removed
+    rexRsp: 0
   });
 
   // Calculate fields dynamically when modal inputs change
