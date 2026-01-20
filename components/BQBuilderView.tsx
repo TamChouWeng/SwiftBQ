@@ -66,31 +66,67 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     // Filter State (Catalog)
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
-    // Column Visibility State
+    // Column Visibility State with localStorage persistence
     const [showColumnDropdown, setShowColumnDropdown] = useState(false);
-    const [visibleColumns, setVisibleColumns] = useState({
-        category: true,
-        item: true,
-        description: true,
-        uom: true,
-        price: true,
-        qty: true,
-        rexTsc: true,
-        rexTsp: true,
-        rexTrsp: true,
-        rexGp: true,
-        rexGpPercent: true,
-        isOptional: true,
-        action: true
+    const [visibleColumns, setVisibleColumns] = useState(() => {
+        try {
+            const saved = localStorage.getItem('swiftbq_bqBuilder_visibleColumns');
+            if (saved) {
+                return JSON.parse(saved);
+            }
+        } catch (e) {
+            console.error('Failed to load column visibility preferences:', e);
+        }
+        // Default visibility: first 4 columns (colA-D) hidden
+        return {
+            colA: false,
+            colB: false,
+            colC: false,
+            colD: false,
+            category: true,
+            item: true,
+            description: true,
+            uom: true,
+            forex: true,
+            sst: true,
+            opta: true,
+            rexScFob: true,
+            rexScDdp: true,
+            rexSp: true,
+            price: true,
+            qty: true,
+            rexTsc: true,
+            rexTsp: true,
+            rexTrsp: true,
+            rexGp: true,
+            rexGpPercent: true,
+            isOptional: true,
+            action: true
+        };
     });
+
+    // Persist column visibility changes to localStorage
+    useEffect(() => {
+        localStorage.setItem('swiftbq_bqBuilder_visibleColumns', JSON.stringify(visibleColumns));
+    }, [visibleColumns]);
 
     // --- Column Resizing State ---
     const [colWidths, setColWidths] = useState<{ [key: string]: number }>({
         dragHandle: 40,
+        colA: 120,
+        colB: 100,
+        colC: 120,
+        colD: 100,
         category: 160,
         item: 200,
         description: 250,
         uom: 80,
+        forex: 80,
+        sst: 80,
+        opta: 80,
+        rexScFob: 100,
+        rexScDdp: 100,
+        rexSp: 100,
         price: 120,
         qty: 100,
         rexTsc: 120,
@@ -359,18 +395,27 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
     // Column Ordering Config
     const columnOrder: { key: keyof typeof visibleColumns; label: string }[] = [
+        { key: 'colA', label: t.colA },
+        { key: 'colB', label: t.colB },
+        { key: 'colC', label: t.colC },
+        { key: 'colD', label: t.colD },
         { key: 'category', label: t.category },
         { key: 'item', label: t.item },
         { key: 'description', label: t.description },
         { key: 'uom', label: t.uom },
-        { key: 'price', label: t.price },
-        { key: 'qty', label: t.qty },
+        { key: 'price', label: 'REX SC (FOB)' },
+        { key: 'qty', label: 'Quantity' },
+        { key: 'forex', label: t.forex },
+        { key: 'sst', label: t.sst },
+        { key: 'opta', label: t.opta },
+        { key: 'rexScFob', label: t.rexScFob },
+        { key: 'rexScDdp', label: t.rexScDdp },
+        { key: 'rexSp', label: t.rexSp },
         { key: 'rexTsc', label: t.rexTsc },
         { key: 'rexTsp', label: t.rexTsp },
         { key: 'rexTrsp', label: t.rexTrsp },
         { key: 'rexGp', label: t.rexGp },
         { key: 'rexGpPercent', label: t.rexGpPercent },
-        { key: 'isOptional', label: t.isOptional },
         { key: 'action', label: t.actions },
     ];
 
@@ -456,6 +501,26 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         </td>
                     )}
 
+                    {/* Column A */}
+                    {visibleColumns.colA && <td className="p-2 align-top">
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">{masterItem?.colA || ''}</div>
+                    </td>}
+
+                    {/* Column B */}
+                    {visibleColumns.colB && <td className="p-2 align-top">
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">{masterItem?.colB || ''}</div>
+                    </td>}
+
+                    {/* Column C */}
+                    {visibleColumns.colC && <td className="p-2 align-top">
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">{masterItem?.colC || ''}</div>
+                    </td>}
+
+                    {/* Column D */}
+                    {visibleColumns.colD && <td className="p-2 align-top">
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">{masterItem?.colD || ''}</div>
+                    </td>}
+
                     {/* Category */}
                     {visibleColumns.category && <td className="p-2 align-top">
                         {isReview ? (
@@ -515,7 +580,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         )}
                     </td>}
 
-                    {/* Price (RSP) */}
+                    {/* Price (REX SC FOB) */}
                     {visibleColumns.price && <td className="p-2 align-top">
                         {isReview ? (
                             <input
@@ -529,7 +594,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         )}
                     </td>}
 
-                    {/* Qty */}
+                    {/* Qty (Quantity) */}
                     {visibleColumns.qty && <td className="p-2 align-top">
                         <input
                             type="number"
@@ -547,6 +612,36 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                     : 'border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:border-primary-500'
                                 }`}
                         />
+                    </td>}
+
+                    {/* Forex */}
+                    {visibleColumns.forex && <td className="p-2 align-top">
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(masterItem?.forex || 0)}</div>
+                    </td>}
+
+                    {/* SST */}
+                    {visibleColumns.sst && <td className="p-2 align-top">
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(masterItem?.sst || 0)}</div>
+                    </td>}
+
+                    {/* OPTA */}
+                    {visibleColumns.opta && <td className="p-2 align-top">
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(masterItem?.opta || 0)}</div>
+                    </td>}
+
+                    {/* REX SC FOB */}
+                    {visibleColumns.rexScFob && <td className="p-2 align-top">
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(masterItem?.rexScFob || 0)}</div>
+                    </td>}
+
+                    {/* REX SC DDP */}
+                    {visibleColumns.rexScDdp && <td className="p-2 align-top">
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(masterItem?.rexScDdp || 0)}</div>
+                    </td>}
+
+                    {/* REX SP */}
+                    {visibleColumns.rexSp && <td className="p-2 align-top">
+                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(masterItem?.rexSp || 0)}</div>
                     </td>}
 
                     {/* Calculated Columns */}
@@ -658,7 +753,25 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     <th className="p-4 w-10 sticky left-0 z-20 bg-gray-50/50 dark:bg-slate-800 border-r border-gray-100 dark:border-slate-700/50" style={{ width: colWidths.dragHandle }}></th>
                 )}
 
+                {visibleColumns.colA && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.colA }}>
+                    {t.colA}
+                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'colA')} />
+                </th>}
+                {visibleColumns.colB && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.colB }}>
+                    {t.colB}
+                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'colB')} />
+                </th>}
+                {visibleColumns.colC && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.colC }}>
+                    {t.colC}
+                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'colC')} />
+                </th>}
+                {visibleColumns.colD && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.colD }}>
+                    {t.colD}
+                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'colD')} />
+                </th>}
+
                 {visibleColumns.category && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.category }}>
+
                     {t.category}
                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'category')} />
                 </th>}
@@ -675,12 +788,36 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'uom')} />
                 </th>}
                 {visibleColumns.price && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.price }}>
-                    {t.price} (RSP)
+                    REX SC (FOB)
                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'price')} />
                 </th>}
                 {visibleColumns.qty && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.qty }}>
-                    {t.qty}
+                    Quantity
                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'qty')} />
+                </th>}
+                {visibleColumns.forex && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.forex }}>
+                    {t.forex}
+                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'forex')} />
+                </th>}
+                {visibleColumns.sst && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.sst }}>
+                    {t.sst}
+                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'sst')} />
+                </th>}
+                {visibleColumns.opta && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.opta }}>
+                    {t.opta}
+                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'opta')} />
+                </th>}
+                {visibleColumns.rexScFob && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexScFob }}>
+                    {t.rexScFob}
+                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexScFob')} />
+                </th>}
+                {visibleColumns.rexScDdp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexScDdp }}>
+                    {t.rexScDdp}
+                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexScDdp')} />
+                </th>}
+                {visibleColumns.rexSp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexSp }}>
+                    {t.rexSp}
+                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexSp')} />
                 </th>}
 
                 {/* Calculated Columns */}
