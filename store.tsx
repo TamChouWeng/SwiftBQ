@@ -37,7 +37,7 @@ interface AppContextType {
   updateVersionName: (projectId: string, versionId: string, name: string) => void;
   deleteVersion: (projectId: string, versionId: string) => void;
 
-  updateProjectSnapshot: (projectId: string, snapshotUpdates: Partial<MasterItem>[]) => void;
+  updateProjectSnapshot: (projectId: string, versionId: string, snapshotUpdates: Partial<MasterItem>[]) => void;
 
   addBQItem: (projectId: string, versionId: string) => void;
   syncMasterToBQ: (projectId: string, versionId: string, masterItem: MasterItem, qty: number) => void;
@@ -358,8 +358,11 @@ const INITIAL_SETTINGS: AppSettings = {
 const migrateProjects = (projects: any[]): Project[] => {
   return projects.map(p => ({
     ...p,
-    versions: p.versions || [{ id: 'v1', name: 'version-1', createdAt: new Date().toISOString() }],
-    discount: p.discount || 0 // Default discount to 0
+    versions: (p.versions || [{ id: 'v1', name: 'version-1', createdAt: new Date().toISOString() }]).map((v: any) => ({
+      ...v,
+      masterSnapshot: v.masterSnapshot || p.masterSnapshot || INITIAL_MASTER_DATA // Migrate old project snapshot to version or use initial
+    })),
+    discount: p.discount || 0
   }));
 };
 
@@ -388,11 +391,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const saved = localStorage.getItem('swiftbq_projects');
       if (saved) {
         const parsed = migrateProjects(JSON.parse(saved));
-        // Backfill snapshot for existing projects if missing
-        return parsed.map(p => ({
-          ...p,
-          masterSnapshot: p.masterSnapshot || INITIAL_MASTER_DATA
-        }));
+        return parsed;
       }
       return [];
     } catch (e) {
@@ -547,8 +546,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addProject = (project: Project) => {
     const newProject = {
       ...project,
-      versions: [{ id: 'v1', name: 'version-1', createdAt: new Date().toISOString() }],
-      masterSnapshot: [...masterData]
+      versions: [{
+        id: 'v1',
+        name: 'version-1',
+        createdAt: new Date().toISOString(),
+        masterSnapshot: [...masterData] // Snapshot for v1
+      }],
+      // masterSnapshot removed from Project
     };
     setProjects(prev => [...prev, newProject]);
     setCurrentProjectId(newProject.id);
@@ -587,8 +591,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: newProjectId,
       projectName: newName,
       quoteId: `Q-${new Date().getFullYear()}-${projects.length + 1001 + Math.floor(Math.random() * 1000)}`, // New unique quote ID
-      versions: sourceProject.versions.map(v => ({ ...v })), // Deep copy versions metadata
-      masterSnapshot: sourceProject.masterSnapshot ? [...sourceProject.masterSnapshot] : [...masterData]
+      versions: sourceProject.versions.map(v => ({
+        ...v,
+        masterSnapshot: v.masterSnapshot ? [...v.masterSnapshot] : [...masterData] // Deep copy snapshot
+      })),
+      // masterSnapshot removed
     };
 
     // Duplicate Items
@@ -609,9 +616,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setProjects(prev => prev.map(p => {
       if (p.id === projectId) {
+        const sourceVersion = p.versions.find(v => v.id === sourceVersionId);
+        const sourceSnapshot = sourceVersion?.masterSnapshot || INITIAL_MASTER_DATA;
+
         return {
           ...p,
-          versions: [...p.versions, { id: newVersionId, name: newVersionName, createdAt: new Date().toISOString() }]
+          versions: [...p.versions, {
+            id: newVersionId,
+            name: newVersionName,
+            createdAt: new Date().toISOString(),
+            masterSnapshot: [...sourceSnapshot] // Deep copy snapshot
+          }]
         };
       }
       return p;
@@ -628,46 +643,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentVersionId(newVersionId);
   };
 
-  const updateProjectSnapshot = (projectId: string, snapshotUpdates: Partial<MasterItem>[]) => {
-    // 1. Update Project Snapshot
+  const updateProjectSnapshot = (projectId: string, versionId: string, snapshotUpdates: Partial<MasterItem>[]) => {
+    // 1. Update Version Snapshot
     setProjects(prev => prev.map(p => {
-      if (p.id === projectId && p.masterSnapshot) {
-        const newSnapshot = p.masterSnapshot.map(m => {
-          const update = snapshotUpdates.find(u => u.id === m.id);
-          if (update) {
-            return { ...m, ...update };
+      if (p.id === projectId) {
+        const newVersions = p.versions.map(v => {
+          if (v.id === versionId && v.masterSnapshot) {
+            const newSnapshot = v.masterSnapshot.map(m => {
+              const update = snapshotUpdates.find(u => u.id === m.id);
+              if (update) return { ...m, ...update };
+              return m;
+            });
+            return { ...v, masterSnapshot: newSnapshot };
           }
-          return m;
+          return v;
         });
-        return { ...p, masterSnapshot: newSnapshot };
+        return { ...p, versions: newVersions };
       }
       return p;
     }));
 
-    // 2. Sync BQ Items (Review View) with new Snapshot values
+    // 2. Sync BQ Items (Review View) -> Only for this version!
     setBqItems(prev => prev.map(item => {
-      if (item.projectId === projectId && item.masterId) {
+      if (item.projectId === projectId && item.versionId === versionId && item.masterId) {
         const update = snapshotUpdates.find(u => u.id === item.masterId);
         if (update) {
-          // Apply snapshot updates to BQ Item (keeping qty/total logic intact if price changes?)
-          // User said "Review view always follow catalog view value".
-          // So we update descriptive fields AND price/costing.
-          // If price changes, total should recalculate.
-
           const newItem = { ...item, ...update };
-
-          // Recalculate Derived totals if price/costing changed
-          // (Note: update contains potentially new rexScFob, etc from staged edits)
-          // We should ensure 'price' (RSP) is updated if it's in the update
-          // And total = price * qty
-
           if (update.price !== undefined || update.rexRsp !== undefined) {
             const newPrice = update.rexRsp ?? update.price ?? item.price;
             newItem.price = newPrice;
             newItem.rexRsp = newPrice;
             newItem.total = newPrice * item.qty;
           }
-
           return newItem as BQItem;
         }
       }

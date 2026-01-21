@@ -48,6 +48,7 @@ export interface ProjectVersion {
   id: string;
   name: string;
   createdAt: string;
+  masterSnapshot: MasterItem[]; // Data Independence: Per-Version Price Book
 }
 
 export interface Project {
@@ -60,8 +61,6 @@ export interface Project {
   validityPeriod: string;
   quoteId: string; // Keeping for reference
   versions: ProjectVersion[]; // New: List of versions
-  // Data Independence: Project-specific Price Book
-  masterSnapshot?: MasterItem[];
   discount?: number; // Special Discount
 }
 

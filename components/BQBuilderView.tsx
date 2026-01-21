@@ -208,8 +208,12 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         return ['All', ...cats];
     }, [masterData]);
     // --- Derived State (Catalog) ---
-    // Use Project-specific Master Snapshot if available, else fallback to global Master Data
-    const catalogSource = useMemo(() => activeProject?.masterSnapshot || masterData, [activeProject, masterData]);
+    // Use Version-specific Master Snapshot if available, else fallback to global Master Data
+    const catalogSource = useMemo(() => {
+        if (!activeProject || !currentVersionId) return [];
+        const version = activeProject.versions.find(v => v.id === currentVersionId);
+        return version?.masterSnapshot || [];
+    }, [activeProject, currentVersionId, masterData]);
 
     const filteredItems = useMemo(() => {
         let items = catalogSource;
@@ -269,8 +273,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             ...edits
         }));
 
-        updateProjectSnapshot(activeProject.id, updates);
-        setStagedEdits({});
+        if (currentVersionId) {
+            updateProjectSnapshot(activeProject.id, currentVersionId, updates);
+            setStagedEdits({});
+        }
 
         // Force reload BQ items that use these master items to ensure they stay in sync?
         // Actually, BQ items are snapshots of Master items *at add time*.
@@ -293,7 +299,12 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 if (masterItem) {
                     const mergedItem = { ...masterItem, ...newStaged[id] } as MasterItem;
                     // Defer sync to avoid state update conflict/race
-                    setTimeout(() => syncMasterToBQ(activeProject.id, currentVersionId, mergedItem, Number(currentQty)), 0);
+                    const qtyVal = Number(currentQty);
+                    setTimeout(() => {
+                        if (syncMasterToBQ) {
+                            syncMasterToBQ(activeProject.id, currentVersionId, mergedItem, qtyVal);
+                        }
+                    }, 0);
                 }
             }
             return newStaged;
@@ -1212,8 +1223,8 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             onClick={commitCatalogChanges}
                             disabled={Object.keys(stagedEdits).length === 0}
                             className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${Object.keys(stagedEdits).length > 0
-                                    ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/50 shadow-sm'
-                                    : 'bg-white dark:bg-slate-800 text-gray-300 dark:text-gray-600 border-gray-200 dark:border-slate-700 cursor-not-allowed opacity-60'
+                                ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/50 shadow-sm'
+                                : 'bg-white dark:bg-slate-800 text-gray-300 dark:text-gray-600 border-gray-200 dark:border-slate-700 cursor-not-allowed opacity-60'
                                 }`}
                             title="Save Catalog Changes"
                         >
