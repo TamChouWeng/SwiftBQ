@@ -270,7 +270,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
         const updates = Object.entries(stagedEdits).map(([id, edits]) => ({
             id,
-            ...edits
+            ...(edits as Partial<MasterItem>)
         }));
 
         if (currentVersionId) {
@@ -487,7 +487,6 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         { key: 'forex', label: t.forex },
         { key: 'sst', label: t.sst },
         { key: 'opta', label: t.opta },
-        { key: 'rexScFob', label: t.rexScFob },
         { key: 'rexScDdp', label: t.rexScDdp },
         { key: 'rexSp', label: t.rexSp },
         { key: 'rexTsc', label: t.rexTsc },
@@ -557,7 +556,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             const numQty = Number(currentQty) || 0;
 
             const rowRexTsc = numQty * rowRexScDdp;
-            // const rowRexTsp = numQty * rowRexSp;
+            const rowRexTsp = numQty * rowRexSp;
 
             // TRSP: In Review, use stored Total. In Catalog, calculate.
             // Note: BQItem.total is TRSP. Store calculates it as rexRsp * qty.
@@ -735,14 +734,14 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         )}
                     </td>}
 
-                    {/* REX SC FOB */}
-                    {visibleColumns.rexScFob && <td className="p-2 align-top">
+                    {/* REX SC FOB - Removed Duplicate (Handled by 'price' column) */}
+                    {/* {visibleColumns.rexScFob && <td className="p-2 align-top">
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt((bqItem as BQItem)?.rexScFob || 0)}</div>
                         ) : (
                             <input tabIndex={1} type="number" value={displayItem.rexScFob || 0} onChange={(e) => handleCatalogEdit(itemId, 'rexScFob', e.target.value)} className="w-full text-right bg-transparent border-b border-transparent hover:border-gray-200 focus:border-primary-500 focus:outline-none text-xs" />
                         )}
-                    </td>}
+                    </td>} */}
 
                     {/* REX SC DDP */}
                     {visibleColumns.rexScDdp && <td className="p-2 align-top">
@@ -780,7 +779,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
                     {/* Calculated Columns */}
                     {visibleColumns.rexTsc && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexTsc)}</td>}
-                    {visibleColumns.rexTsp && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{/* {fmt(rowRexTsp)} */} - </td>}
+                    {visibleColumns.rexTsp && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexTsp)}</td>}
                     {visibleColumns.rexTrsp && <td className="p-2 align-top text-right text-slate-500 font-normal text-sm">{fmt(rowRexTrsp)}</td>}
                     {visibleColumns.rexGp && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexGp)}</td>}
                     {visibleColumns.rexGpPercent && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmtPct(rowRexGpPercent)}</td>}
@@ -941,10 +940,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     {t.opta}
                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'opta')} />
                 </th>}
-                {visibleColumns.rexScFob && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexScFob }}>
+                {/* {visibleColumns.rexScFob && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexScFob }}>
                     {t.rexScFob}
                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexScFob')} />
-                </th>}
+                </th>} */}
                 {visibleColumns.rexScDdp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexScDdp }}>
                     {t.rexScDdp}
                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexScDdp')} />
