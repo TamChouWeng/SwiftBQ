@@ -672,7 +672,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     {/* Calculated Columns */}
                     {visibleColumns.rexTsc && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexTsc)}</td>}
                     {visibleColumns.rexTsp && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexTsp)}</td>}
-                    {visibleColumns.rexTrsp && <td className="p-2 align-top text-right text-slate-900 dark:text-white font-medium text-sm">{fmt(rowRexTrsp)}</td>}
+                    {visibleColumns.rexTrsp && <td className="p-2 align-top text-right text-slate-500 font-normal text-sm">{fmt(rowRexTrsp)}</td>}
                     {visibleColumns.rexGp && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexGp)}</td>}
                     {visibleColumns.rexGpPercent && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmtPct(rowRexGpPercent)}</td>}
 
