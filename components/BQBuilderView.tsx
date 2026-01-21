@@ -378,6 +378,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     };
 
     const fmt = (n: number) => n?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00';
+    const fmtSensitive = (n: number) => {
+        if (n === undefined || n === null) return '0';
+        return n.toString();
+    };
     const fmtPct = (n: number) => (n * 100)?.toFixed(1) + '%';
 
     const contentPadding = !isSidebarOpen ? 'pl-4 md:pl-24 pr-4' : 'px-4';
@@ -630,21 +634,21 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     {/* Forex */}
                     {visibleColumns.forex && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">
-                            {fmt((linkedMasterItem || masterItem)?.forex || 0)}
+                            {fmtSensitive((linkedMasterItem || masterItem)?.forex || 0)}
                         </div>
                     </td>}
 
                     {/* SST */}
                     {visibleColumns.sst && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">
-                            {fmt((linkedMasterItem || masterItem)?.sst || 0)}
+                            {fmtSensitive((linkedMasterItem || masterItem)?.sst || 0)}
                         </div>
                     </td>}
 
                     {/* OPTA */}
                     {visibleColumns.opta && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">
-                            {fmt((linkedMasterItem || masterItem)?.opta || 0)}
+                            {fmtSensitive((linkedMasterItem || masterItem)?.opta || 0)}
                         </div>
                     </td>}
 
