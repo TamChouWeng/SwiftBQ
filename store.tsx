@@ -33,9 +33,11 @@ interface AppContextType {
   duplicateProject: (id: string) => void;
 
   // Version Actions
-  createVersion: (projectId: string, sourceVersionId: string, newVersionName: string) => void;
+  createVersion: (projectId: string, sourceVersionId: string, newVersionName: string, explicitNewVersionId?: string) => void;
   updateVersionName: (projectId: string, versionId: string, name: string) => void;
   deleteVersion: (projectId: string, versionId: string) => void;
+
+  updateProjectSnapshot: (projectId: string, snapshotUpdates: Partial<MasterItem>[]) => void;
 
   addBQItem: (projectId: string, versionId: string) => void;
   syncMasterToBQ: (projectId: string, versionId: string, masterItem: MasterItem, qty: number) => void;
@@ -602,8 +604,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // --- Version Actions ---
-  const createVersion = (projectId: string, sourceVersionId: string, newVersionName: string) => {
-    const newVersionId = Date.now().toString();
+  const createVersion = (projectId: string, sourceVersionId: string, newVersionName: string, explicitNewVersionId?: string) => {
+    const newVersionId = explicitNewVersionId || Date.now().toString();
 
     setProjects(prev => prev.map(p => {
       if (p.id === projectId) {
@@ -624,6 +626,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setBqItems(prev => [...prev, ...newItems]);
     setCurrentVersionId(newVersionId);
+  };
+
+  const updateProjectSnapshot = (projectId: string, snapshotUpdates: Partial<MasterItem>[]) => {
+    // 1. Update Project Snapshot
+    setProjects(prev => prev.map(p => {
+      if (p.id === projectId && p.masterSnapshot) {
+        const newSnapshot = p.masterSnapshot.map(m => {
+          const update = snapshotUpdates.find(u => u.id === m.id);
+          if (update) {
+            return { ...m, ...update };
+          }
+          return m;
+        });
+        return { ...p, masterSnapshot: newSnapshot };
+      }
+      return p;
+    }));
+
+    // 2. Sync BQ Items (Review View) with new Snapshot values
+    setBqItems(prev => prev.map(item => {
+      if (item.projectId === projectId && item.masterId) {
+        const update = snapshotUpdates.find(u => u.id === item.masterId);
+        if (update) {
+          // Apply snapshot updates to BQ Item (keeping qty/total logic intact if price changes?)
+          // User said "Review view always follow catalog view value".
+          // So we update descriptive fields AND price/costing.
+          // If price changes, total should recalculate.
+
+          const newItem = { ...item, ...update };
+
+          // Recalculate Derived totals if price/costing changed
+          // (Note: update contains potentially new rexScFob, etc from staged edits)
+          // We should ensure 'price' (RSP) is updated if it's in the update
+          // And total = price * qty
+
+          if (update.price !== undefined || update.rexRsp !== undefined) {
+            const newPrice = update.rexRsp ?? update.price ?? item.price;
+            newItem.price = newPrice;
+            newItem.rexRsp = newPrice;
+            newItem.total = newPrice * item.qty;
+          }
+
+          return newItem as BQItem;
+        }
+      }
+      return item;
+    }));
   };
 
   const updateVersionName = (projectId: string, versionId: string, name: string) => {
@@ -855,7 +904,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bqViewMode, setBqViewMode,
         addMasterItem, updateMasterItem, deleteMasterItem,
         addProject, updateProject, deleteProject, duplicateProject,
-        createVersion, updateVersionName, deleteVersion,
+        createVersion, updateVersionName, deleteVersion, updateProjectSnapshot,
         addBQItem, syncMasterToBQ, removeBQItem, updateBQItem, reorderBQItems,
         getProjectTotal,
         quotationEdits, setQuotationEdit, commitQuotationEdits, discardQuotationEdits,

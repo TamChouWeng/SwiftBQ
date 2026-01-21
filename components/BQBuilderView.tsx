@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical, AlertTriangle, Copy, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical, AlertTriangle, Copy, ChevronDown, Save } from 'lucide-react';
 import { useAppStore } from '../store';
 import { AppLanguage, Project, BQItem, MasterItem } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -29,6 +29,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         createVersion,
         updateVersionName,
         deleteVersion,
+        updateProjectSnapshot,
         addBQItem,
         syncMasterToBQ,
         removeBQItem,
@@ -260,6 +261,25 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
     // --- Handlers ---
 
+    const commitCatalogChanges = () => {
+        if (!activeProject || !stagedEdits || Object.keys(stagedEdits).length === 0) return;
+
+        const updates = Object.entries(stagedEdits).map(([id, edits]) => ({
+            id,
+            ...edits
+        }));
+
+        updateProjectSnapshot(activeProject.id, updates);
+        setStagedEdits({});
+
+        // Force reload BQ items that use these master items to ensure they stay in sync?
+        // Actually, BQ items are snapshots of Master items *at add time*.
+        // If we update the Project Snapshot, subsequent Adds will be correct.
+        // Existing BQ items: User might want them updated? 
+        // For now, versioning philosophy says "Snapshot on Add". 
+        // If user wants to update BQ Item, they should re-add or we could implement a "Refresh Prices" feature later.
+    };
+
     const handleCatalogEdit = (id: string, field: keyof MasterItem, value: any) => {
         setStagedEdits(prev => {
             const currentStaged = prev[id] || {};
@@ -371,7 +391,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             newName = `version-${counter}`;
         }
 
-        createVersion(activeProject.id, currentVersionId, newName);
+        const newVersionId = Date.now().toString();
+        createVersion(activeProject.id, currentVersionId, newName, newVersionId);
+        // Immediate switch
+        setCurrentVersionId(newVersionId);
     };
 
     const handleRenameVersion = () => {
@@ -1182,6 +1205,21 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
                 {/* Toggle View & Custom Item Actions */}
                 <div className="flex gap-2 items-center w-full xl:w-auto self-end xl:self-center">
+
+                    {/* Catalog Save Button: Only visible in Catalog View */}
+                    {bqViewMode === 'catalog' && (
+                        <button
+                            onClick={commitCatalogChanges}
+                            disabled={Object.keys(stagedEdits).length === 0}
+                            className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${Object.keys(stagedEdits).length > 0
+                                    ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/50 shadow-sm'
+                                    : 'bg-white dark:bg-slate-800 text-gray-300 dark:text-gray-600 border-gray-200 dark:border-slate-700 cursor-not-allowed opacity-60'
+                                }`}
+                            title="Save Catalog Changes"
+                        >
+                            <Save size={20} />
+                        </button>
+                    )}
 
                     {/* Columns Button - Shared for both views */}
                     <div className="relative">
