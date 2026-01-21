@@ -60,6 +60,8 @@ export interface Project {
   validityPeriod: string;
   quoteId: string; // Keeping for reference
   versions: ProjectVersion[]; // New: List of versions
+  // Data Independence: Project-specific Price Book
+  masterSnapshot?: MasterItem[];
   discount?: number; // Special Discount
 }
 
@@ -76,7 +78,19 @@ export interface BQItem {
   qty: number;
   uom: string;
   total: number; // This is REX TRSP
-  // Snapshots for calculation
+
+  // Snapshots for Data Independence
+  brand: string;
+  axsku: string;
+  mpn: string;
+  group: string;
+
+  // Costing Snapshots
+  rexScFob: number;
+  forex: number;
+  sst: number;
+  opta: number;
+
   rexScDdp: number;
   rexSp: number;
   rexRsp: number;

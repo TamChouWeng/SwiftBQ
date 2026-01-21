@@ -384,7 +384,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [projects, setProjects] = useState<Project[]>(() => {
     try {
       const saved = localStorage.getItem('swiftbq_projects');
-      return saved ? migrateProjects(JSON.parse(saved)) : [];
+      if (saved) {
+        const parsed = migrateProjects(JSON.parse(saved));
+        // Backfill snapshot for existing projects if missing
+        return parsed.map(p => ({
+          ...p,
+          masterSnapshot: p.masterSnapshot || INITIAL_MASTER_DATA
+        }));
+      }
+      return [];
     } catch (e) {
       return [];
     }
@@ -537,7 +545,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addProject = (project: Project) => {
     const newProject = {
       ...project,
-      versions: [{ id: 'v1', name: 'version-1', createdAt: new Date().toISOString() }]
+      versions: [{ id: 'v1', name: 'version-1', createdAt: new Date().toISOString() }],
+      masterSnapshot: [...masterData]
     };
     setProjects(prev => [...prev, newProject]);
     setCurrentProjectId(newProject.id);
@@ -576,7 +585,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: newProjectId,
       projectName: newName,
       quoteId: `Q-${new Date().getFullYear()}-${projects.length + 1001 + Math.floor(Math.random() * 1000)}`, // New unique quote ID
-      versions: sourceProject.versions.map(v => ({ ...v })) // Deep copy versions metadata
+      versions: sourceProject.versions.map(v => ({ ...v })), // Deep copy versions metadata
+      masterSnapshot: sourceProject.masterSnapshot ? [...sourceProject.masterSnapshot] : [...masterData]
     };
 
     // Duplicate Items
@@ -673,10 +683,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       category: '',
       itemName: '',
       description: '',
+      uom: '',
+      brand: '',
+      axsku: '',
+      mpn: '',
+      group: '',
       price: 0,
       qty: 1,
-      uom: '',
       total: 0,
+      rexScFob: 0,
+      forex: 1,
+      sst: 1,
+      opta: 1,
       rexScDdp: 0,
       rexSp: 0,
       rexRsp: 0,
@@ -711,16 +729,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           projectId,
           versionId,
           masterId: masterItem.id,
+          // Snapshot Master Data
           category: masterItem.category,
           itemName: masterItem.itemName,
           description: masterItem.description,
-          price: masterItem.rexRsp,
-          qty: qty,
           uom: masterItem.uom,
+          brand: masterItem.brand,
+          axsku: masterItem.axsku,
+          mpn: masterItem.mpn,
+          group: masterItem.group,
+
+          // Costing Snapshot
+          price: masterItem.rexRsp, // Default Price is RSP
+          qty: qty,
           total: masterItem.rexRsp * qty,
+
+          rexScFob: masterItem.rexScFob,
+          forex: masterItem.forex,
+          sst: masterItem.sst,
+          opta: masterItem.opta,
           rexScDdp: masterItem.rexScDdp,
           rexSp: masterItem.rexSp,
           rexRsp: masterItem.rexRsp,
+
           isOptional: false,
         };
         return [...prev, newItem];

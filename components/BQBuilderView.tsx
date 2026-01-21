@@ -203,17 +203,32 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         const cats = Array.from(new Set(masterData.map((item) => item.category))).filter(Boolean).sort();
         return ['All', ...cats];
     }, [masterData]);
+    // --- Derived State (Catalog) ---
+    // Use Project-specific Master Snapshot if available, else fallback to global Master Data
+    const catalogSource = useMemo(() => activeProject?.masterSnapshot || masterData, [activeProject, masterData]);
 
-    const filteredCatalog = useMemo(() => {
-        return masterData.filter(item => {
-            const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
-            const matchesSearch =
-                item.itemName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                item.category.toLowerCase().includes(searchQuery.toLowerCase());
-            return matchesCategory && matchesSearch;
-        });
-    }, [masterData, selectedCategory, searchQuery]);
+    const filteredItems = useMemo(() => {
+        let items = catalogSource;
+
+        // 1. Filter by Category
+        if (selectedCategory !== 'All') {
+            items = items.filter(item => item.category === selectedCategory);
+        }
+
+        // 2. Filter by Search Query
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            items = items.filter(item =>
+                item.itemName.toLowerCase().includes(q) ||
+                item.description.toLowerCase().includes(q) ||
+                (item.brand || '').toLowerCase().includes(q) ||
+                (item.axsku || '').toLowerCase().includes(q) ||
+                (item.mpn || '').toLowerCase().includes(q)
+            );
+        }
+
+        return items;
+    }, [catalogSource, selectedCategory, searchQuery]);
 
 
     // --- Project List Processing ---
@@ -245,7 +260,8 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     const handleCatalogQtyChange = (masterItemId: string, qty: string) => {
         if (!activeProject || !currentVersionId) return;
         const val = parseFloat(qty);
-        const masterItem = masterData.find(m => m.id === masterItemId);
+        // Sync Logic Leak Fix: Use catalogSource (Snapshot)
+        const masterItem = catalogSource.find(m => m.id === masterItemId);
         if (masterItem) {
             syncMasterToBQ(activeProject.id, currentVersionId, masterItem, isNaN(val) ? 0 : val);
         }
@@ -441,36 +457,9 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             const masterItem = !isReview ? (item as MasterItem) : null;
             const itemId = item.id;
 
-            // For Review mode, look up the linked Master item to display fields not stored in BQ item
-            const linkedMasterItem = isReview && bqItem?.masterId
-                ? masterData.find(m => m.id === bqItem.masterId)
-                : null;
-
-            // Resolve Values
-            let category: string, itemName: string, description: string, uom: string, price: number;
-            let currentQty: number | string;
-            let isOptional = false;
-
-            if (isReview && bqItem) {
-                category = bqItem.category;
-                itemName = bqItem.itemName;
-                description = bqItem.description;
-                uom = bqItem.uom;
-                price = bqItem.price;
-                currentQty = bqItem.qty;
-                isOptional = !!bqItem.isOptional;
-            } else if (masterItem) {
-                category = masterItem.category;
-                itemName = masterItem.itemName;
-                description = masterItem.description;
-                uom = masterItem.uom;
-                price = masterItem.rexScFob;
-                currentQty = getQtyForMasterItem(masterItem.id) || '';
-            } else {
-                return null;
-            }
-
-            const numQty = Number(currentQty) || 0;
+            // Phase 1: Data Independence - Remove Linked Master Item Logic
+            // In Review Mode, we strictly use the BQItem snapshot fields.
+            // In Catalog Mode, we use the MasterItem fields.
 
             // Calculations
             let rowRexScDdp = 0, rowRexSp = 0;
@@ -482,11 +471,35 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 rowRexSp = masterItem.rexSp || 0;
             }
 
+            // Quantity & Pricing
+            let currentQty: number | string = '';
+            let priceVal = 0;
+
+            if (isReview && bqItem) {
+                currentQty = bqItem.qty;
+                priceVal = bqItem.rexScFob || 0; // We display FOB in 'Price' column
+            } else if (masterItem) {
+                currentQty = getQtyForMasterItem(masterItem.id) || '';
+                priceVal = masterItem.rexScFob || 0;
+            }
+            const numQty = Number(currentQty) || 0;
+
             const rowRexTsc = numQty * rowRexScDdp;
-            const rowRexTsp = numQty * rowRexSp;
-            const rowRexTrsp = isReview && bqItem ? bqItem.total : (numQty * price);
+            // const rowRexTsp = numQty * rowRexSp;
+
+            // TRSP: In Review, use stored Total. In Catalog, calculate.
+            // Note: BQItem.total is TRSP. Store calculates it as rexRsp * qty.
+            // Catalog: Calculate derived TRSP.
+            let rowRexTrsp = 0;
+            if (isReview && bqItem) {
+                rowRexTrsp = bqItem.total;
+            } else if (masterItem) {
+                rowRexTrsp = numQty * (masterItem.rexRsp || 0);
+            }
+
             const rowRexGp = rowRexTrsp - rowRexTsc;
             const rowRexGpPercent = rowRexTrsp ? rowRexGp / rowRexTrsp : 0;
+            const isOptional = isReview && bqItem ? !!bqItem.isOptional : false;
 
             // Drag & Select States
             const isDragging = isReview && draggedIndex === index;
@@ -513,105 +526,79 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     {/* Column A (Brand) */}
                     {visibleColumns.brand && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">
-                            {(linkedMasterItem || masterItem)?.brand || ''}
+                            {/* Phase 1: Pure Read Only for both Review (Snapshot) and Catalog (Master) */}
+                            {isReview && bqItem ? bqItem.brand : masterItem?.brand}
                         </div>
                     </td>}
 
                     {/* Column B (AX SKU) */}
                     {visibleColumns.axsku && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">
-                            {(linkedMasterItem || masterItem)?.axsku || ''}
+                            {isReview && bqItem ? bqItem.axsku : masterItem?.axsku}
                         </div>
                     </td>}
 
                     {/* Column C (MPN) */}
                     {visibleColumns.mpn && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">
-                            {(linkedMasterItem || masterItem)?.mpn || ''}
+                            {isReview && bqItem ? bqItem.mpn : masterItem?.mpn}
                         </div>
                     </td>}
 
                     {/* Column D (Group) */}
                     {visibleColumns.group && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">
-                            {(linkedMasterItem || masterItem)?.group || ''}
+                            {isReview && bqItem ? bqItem.group : masterItem?.group}
                         </div>
                     </td>}
 
                     {/* Category */}
                     {visibleColumns.category && <td className="p-2 align-top">
                         {isReview ? (
-                            <input
-                                type="text"
-                                value={category}
-                                onChange={(e) => updateBQItem(itemId, 'category', e.target.value)}
-                                className="w-full bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-slate-200 font-normal text-xs transition-colors"
-                                placeholder="Category"
-                            />
+                            <div className="truncate text-xs font-normal text-slate-700 dark:text-slate-200">{bqItem?.category}</div>
                         ) : (
-                            <div className="truncate text-xs font-normal text-slate-700 dark:text-slate-200">{category}</div>
+                            <div className="truncate text-xs font-normal text-slate-700 dark:text-slate-200">{masterItem?.category}</div>
                         )}
                     </td>}
 
                     {/* Item Name */}
                     {visibleColumns.item && <td className="p-2 align-top">
                         {isReview ? (
-                            <input
-                                type="text"
-                                value={itemName}
-                                onChange={(e) => updateBQItem(itemId, 'itemName', e.target.value)}
-                                className="w-full bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-white font-medium text-sm transition-colors"
-                                placeholder="Item Name"
-                            />
+                            <div className="font-medium text-sm text-slate-900 dark:text-white truncate">{bqItem?.itemName}</div>
                         ) : (
-                            <div className="font-medium text-sm text-slate-900 dark:text-white truncate">{itemName}</div>
+                            <div className="font-medium text-sm text-slate-900 dark:text-white truncate">{masterItem?.itemName}</div>
                         )}
                     </td>}
 
                     {/* Description */}
                     {visibleColumns.description && <td className="p-2 align-top">
                         {isReview ? (
-                            <textarea
-                                value={description}
-                                onChange={(e) => updateBQItem(itemId, 'description', e.target.value)}
-                                rows={1}
-                                className="w-full bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-slate-400 font-normal text-xs resize-none transition-colors"
-                                placeholder="Description"
-                            />
+                            /* Phase 1: Read Only in Review View */
+                            <div className="text-xs font-normal text-slate-500 dark:text-slate-400 truncate whitespace-pre-wrap">{bqItem?.description}</div>
                         ) : (
-                            <div className="text-xs font-normal text-slate-500 dark:text-slate-400 truncate">{description}</div>
+                            <div className="text-xs font-normal text-slate-500 dark:text-slate-400 truncate">{masterItem?.description}</div>
                         )}
                     </td>}
 
                     {/* UOM */}
                     {visibleColumns.uom && <td className="p-2 align-top">
                         {isReview ? (
-                            <input
-                                type="text"
-                                value={uom}
-                                onChange={(e) => updateBQItem(itemId, 'uom', e.target.value)}
-                                className="w-full text-center bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-slate-400 font-normal text-xs transition-colors"
-                            />
+                            <div className="text-xs font-normal text-slate-500 dark:text-slate-400 text-center">{bqItem?.uom}</div>
                         ) : (
-                            <div className="text-xs font-normal text-slate-500 dark:text-slate-400 text-center">{uom}</div>
+                            <div className="text-xs font-normal text-slate-500 dark:text-slate-400 text-center">{masterItem?.uom}</div>
                         )}
                     </td>}
 
                     {/* Price (REX SC FOB) */}
                     {visibleColumns.price && <td className="p-2 align-top">
                         {isReview ? (
-                            <input
-                                type="number"
-                                value={price}
-                                onChange={(e) => updateBQItem(itemId, 'price', e.target.value)}
-                                className="w-full text-right bg-transparent border-b border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:outline-none dark:text-slate-200 font-normal text-sm transition-colors"
-                            />
+                            <div className="text-sm font-normal text-slate-900 dark:text-slate-200 text-right">{fmt(priceVal)}</div>
                         ) : (
-                            <div className="text-sm font-normal text-slate-900 dark:text-slate-200 text-right">{fmt(price)}</div>
+                            <div className="text-sm font-normal text-slate-900 dark:text-slate-200 text-right">{fmt(priceVal)}</div>
                         )}
                     </td>}
 
-                    {/* Qty (Quantity) */}
+                    {/* Qty (Quantity) - Review: Editable (user request ambiguous, but usually Qty is the ONLY thing editable in a locked BOQ). Catalog: Editable. */}
                     {visibleColumns.qty && <td className="p-2 align-top">
                         <input
                             type="number"
@@ -634,48 +621,48 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     {/* Forex */}
                     {visibleColumns.forex && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">
-                            {fmtSensitive((linkedMasterItem || masterItem)?.forex || 0)}
+                            {fmtSensitive(isReview && bqItem ? bqItem.forex : masterItem?.forex || 0)}
                         </div>
                     </td>}
 
                     {/* SST */}
                     {visibleColumns.sst && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">
-                            {fmtSensitive((linkedMasterItem || masterItem)?.sst || 0)}
+                            {fmtSensitive(isReview && bqItem ? bqItem.sst : masterItem?.sst || 0)}
                         </div>
                     </td>}
 
                     {/* OPTA */}
                     {visibleColumns.opta && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">
-                            {fmtSensitive((linkedMasterItem || masterItem)?.opta || 0)}
+                            {fmtSensitive(isReview && bqItem ? bqItem.opta : masterItem?.opta || 0)}
                         </div>
                     </td>}
 
                     {/* REX SC FOB */}
                     {visibleColumns.rexScFob && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">
-                            {fmt((linkedMasterItem || masterItem)?.rexScFob || 0)}
+                            {fmt(isReview && bqItem ? bqItem.rexScFob : masterItem?.rexScFob || 0)}
                         </div>
                     </td>}
 
                     {/* REX SC DDP */}
                     {visibleColumns.rexScDdp && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">
-                            {fmt((linkedMasterItem || masterItem)?.rexScDdp || 0)}
+                            {fmt(rowRexScDdp)}
                         </div>
                     </td>}
 
                     {/* REX SP */}
                     {visibleColumns.rexSp && <td className="p-2 align-top">
                         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">
-                            {fmt((linkedMasterItem || masterItem)?.rexSp || 0)}
+                            {fmt(rowRexSp)}
                         </div>
                     </td>}
 
                     {/* Calculated Columns */}
                     {visibleColumns.rexTsc && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexTsc)}</td>}
-                    {visibleColumns.rexTsp && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexTsp)}</td>}
+                    {visibleColumns.rexTsp && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{/* {fmt(rowRexTsp)} */} - </td>}
                     {visibleColumns.rexTrsp && <td className="p-2 align-top text-right text-slate-500 font-normal text-sm">{fmt(rowRexTrsp)}</td>}
                     {visibleColumns.rexGp && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexGp)}</td>}
                     {visibleColumns.rexGpPercent && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmtPct(rowRexGpPercent)}</td>}
@@ -941,9 +928,11 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             key={project.id}
                             onClick={() => {
                                 setCurrentProjectId(project.id);
-                                // Auto select first version if available
+                                // Default to Catalog View when opening a project
+                                setBqViewMode('catalog');
                                 if (project.versions.length > 0) {
-                                    setCurrentVersionId(project.versions[0].id);
+                                    // Auto-select latest version
+                                    setCurrentVersionId(project.versions[project.versions.length - 1].id);
                                 }
                             }}
                             className="group bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700 hover:shadow-md hover:border-primary-200 dark:hover:border-primary-800 transition-all cursor-pointer relative overflow-hidden"
@@ -1216,7 +1205,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             <table className="text-left border-collapse table-fixed" style={{ width: totalTableWidth, minWidth: '100%' }}>
                                 {renderTableHeader()}
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-700 text-sm">
-                                    {renderTableRows(filteredCatalog, 'catalog')}
+                                    {renderTableRows(filteredItems, 'catalog')}
                                 </tbody>
                             </table>
                         </div>
