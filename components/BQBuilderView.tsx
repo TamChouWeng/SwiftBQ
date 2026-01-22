@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical, AlertTriangle, Copy, ChevronDown, Save } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical, AlertTriangle, Copy, ChevronDown, Save, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppStore } from '../store';
 import { AppLanguage, Project, BQItem, MasterItem } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -44,6 +44,18 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     const t = TRANSLATIONS[currentLanguage];
     const [searchQuery, setSearchQuery] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection }>({ key: 'date', direction: 'desc' });
+
+    // Pagination State (Catalog)
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(() => {
+        const saved = localStorage.getItem('swiftbq_builder_itemsPerPage');
+        return saved ? parseInt(saved, 10) : 10;
+    });
+
+    useEffect(() => {
+        localStorage.setItem('swiftbq_builder_itemsPerPage', itemsPerPage.toString());
+    }, [itemsPerPage]);
+
 
     // Project Form State
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -279,6 +291,24 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
         return items;
     }, [catalogSource, selectedCategory, searchQuery]);
+
+    // Reset page when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedCategory, searchQuery, itemsPerPage]);
+
+    // Pagination Calculation
+    const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+    const paginatedItems = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredItems.slice(start, start + itemsPerPage);
+    }, [filteredItems, currentPage, itemsPerPage]);
+
+    const handlePageChange = (newPage: number) => {
+        if (newPage >= 1 && newPage <= totalPages) {
+            setCurrentPage(newPage);
+        }
+    };
 
 
     // --- Project List Processing ---
@@ -1192,7 +1222,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
     // === PROJECT BUILDER VIEW ===
     return (
-        <div className="space-y-6 animate-fade-in pb-24 relative flex flex-col h-[calc(100vh-3.5rem)]">
+        <div className="space-y-6 animate-fade-in pb-12 relative flex flex-col h-[calc(100vh-3.5rem)]">
 
             {/* Header Bar */}
             <div className={`transition-all duration-300 flex flex-col xl:flex-row xl:items-center justify-between gap-4 shrink-0 ${contentPadding}`}>
@@ -1357,7 +1387,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     <div className="flex flex-col h-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
                         {/* Catalog Toolbar */}
                         <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex flex-col md:flex-row gap-4">
-                            <div className="relative flex-1">
+                            <div className="relative w-full md:w-72 shrink-0">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                                 <input
                                     type="text"
@@ -1367,7 +1397,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                     className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white"
                                 />
                             </div>
-                            <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
+                            <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 min-w-0 md:flex-1 [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 hover:[&::-webkit-scrollbar-thumb]:bg-gray-300 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
                                 {categories.map(cat => (
                                     <button
                                         key={cat}
@@ -1388,9 +1418,40 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             <table className="text-left border-collapse table-fixed" style={{ width: totalTableWidth, minWidth: '100%' }}>
                                 {renderTableHeader()}
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-700 text-sm">
-                                    {renderTableRows(filteredItems, 'catalog')}
+                                    {renderTableRows(paginatedItems, 'catalog')}
                                 </tbody>
                             </table>
+                        </div>
+
+                        {/* Pagination Footer */}
+                        <div className="p-4 border-t border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/20 flex items-center justify-between gap-4 shrink-0">
+                            <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                                <span className="hidden sm:inline">Rows per page:</span>
+                                <span className="sm:hidden">Rows:</span>
+                                <select
+                                    value={itemsPerPage}
+                                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                                    className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded px-2 py-1 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                                >
+                                    {[10, 20, 50, 100].map((num) => (
+                                        <option key={num} value={num}>{num}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex items-center gap-4">
+                                <span className="text-sm text-slate-600 dark:text-slate-400">
+                                    Page {currentPage} of {totalPages || 1}
+                                </span>
+                                <div className="flex items-center gap-1">
+                                    <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="p-1.5 rounded-lg border border-gray-200 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-600 dark:text-slate-300 transition-colors">
+                                        <ChevronLeft size={18} />
+                                    </button>
+                                    <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages || totalPages === 0} className="p-1.5 rounded-lg border border-gray-200 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-600 dark:text-slate-300 transition-colors">
+                                        <ChevronRight size={18} />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
