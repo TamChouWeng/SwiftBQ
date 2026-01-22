@@ -187,6 +187,17 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         bqItems.filter(item => item.projectId === currentProjectId && item.versionId === currentVersionId),
         [bqItems, currentProjectId, currentVersionId]);
 
+    // OPTIMIZATION: Create a Map for O(1) lookup of BQ Items by Master ID
+    const activeItemsMap = useMemo(() => {
+        const map = new Map<string, BQItem>();
+        activeItems.forEach(item => {
+            if (item.masterId) {
+                map.set(item.masterId, item);
+            }
+        });
+        return map;
+    }, [activeItems]);
+
     // Effect to set default version if none selected
     useEffect(() => {
         if (activeProject && !currentVersionId && activeProject.versions.length > 0) {
@@ -355,7 +366,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     };
 
     const getQtyForMasterItem = (masterId: string) => {
-        const item = activeItems.find(i => i.masterId === masterId);
+        const item = activeItemsMap.get(masterId);
         return item ? item.qty : '';
     };
 
