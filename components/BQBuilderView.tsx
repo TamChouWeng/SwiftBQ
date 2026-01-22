@@ -159,31 +159,31 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
     // --- Column Resizing State ---
     const [colWidths, setColWidths] = useState<{ [key: string]: number }>({
-        dragHandle: 40,
-        brand: 120,
-        axsku: 100,
-        mpn: 120,
-        group: 100,
-        category: 160,
-        item: 200,
-        description: 250,
-        uom: 80,
-        forex: 80,
-        sst: 80,
-        opta: 80,
-        rexScFob: 100,
-        rexScDdp: 100,
-        rexSp: 100,
-        rexRsp: 100,
-        price: 120,
-        qty: 100,
-        rexTsc: 120,
-        rexTsp: 120,
-        rexTrsp: 120,
-        rexGp: 120,
-        rexGpPercent: 80,
-        isOptional: 60,
-        action: 60
+        dragHandle: 30,
+        brand: 60,
+        axsku: 70,
+        mpn: 70,
+        group: 60,
+        category: 100,
+        item: 140,
+        description: 180,
+        uom: 50,
+        forex: 50,
+        sst: 45,
+        opta: 45,
+        rexScFob: 80,
+        rexScDdp: 80,
+        rexSp: 80,
+        rexRsp: 80,
+        price: 90,
+        qty: 70,
+        rexTsc: 90,
+        rexTsp: 90,
+        rexTrsp: 90,
+        rexGp: 90,
+        rexGpPercent: 60,
+        isOptional: 50,
+        action: 40
     });
 
     // Drag State for Review Table Rows
@@ -679,7 +679,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">{(bqItem as BQItem)?.brand}</div>
                         ) : (
-                            <input tabIndex={1} type="text" value={displayItem.brand || ''} onChange={(e) => handleCatalogEdit(itemId, 'brand', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-gray-200 focus:border-primary-500 focus:outline-none text-xs font-normal text-slate-600" />
+                            <input tabIndex={1} type="text" value={displayItem.brand || ''} onChange={(e) => handleCatalogEdit(itemId, 'brand', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs font-normal text-slate-600 dark:text-slate-300 truncate" />
                         )}
                     </td>}
 
@@ -688,7 +688,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">{(bqItem as BQItem)?.axsku}</div>
                         ) : (
-                            <input tabIndex={1} type="text" value={displayItem.axsku || ''} onChange={(e) => handleCatalogEdit(itemId, 'axsku', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-gray-200 focus:border-primary-500 focus:outline-none text-xs font-normal text-slate-600" />
+                            <input tabIndex={1} type="text" value={displayItem.axsku || ''} onChange={(e) => handleCatalogEdit(itemId, 'axsku', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs font-normal text-slate-600 dark:text-slate-300 truncate" />
                         )}
                     </td>}
 
@@ -697,7 +697,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">{(bqItem as BQItem)?.mpn}</div>
                         ) : (
-                            <input tabIndex={1} type="text" value={displayItem.mpn || ''} onChange={(e) => handleCatalogEdit(itemId, 'mpn', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-gray-200 focus:border-primary-500 focus:outline-none text-xs font-normal text-slate-600" />
+                            <input tabIndex={1} type="text" value={displayItem.mpn || ''} onChange={(e) => handleCatalogEdit(itemId, 'mpn', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs font-normal text-slate-600 dark:text-slate-300 truncate" />
                         )}
                     </td>}
 
@@ -706,7 +706,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">{(bqItem as BQItem)?.group}</div>
                         ) : (
-                            <input tabIndex={1} type="text" value={displayItem.group || ''} onChange={(e) => handleCatalogEdit(itemId, 'group', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-gray-200 focus:border-primary-500 focus:outline-none text-xs font-normal text-slate-600" />
+                            <input tabIndex={1} type="text" value={displayItem.group || ''} onChange={(e) => handleCatalogEdit(itemId, 'group', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs font-normal text-slate-600 dark:text-slate-300 truncate" />
                         )}
                     </td>}
 
@@ -715,7 +715,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         {isReview ? (
                             <div className="truncate text-xs font-normal text-slate-700 dark:text-slate-200">{bqItem?.category}</div>
                         ) : (
-                            <input tabIndex={1} type="text" value={displayItem.category || ''} onChange={(e) => handleCatalogEdit(itemId, 'category', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-gray-200 focus:border-primary-500 focus:outline-none text-xs font-normal" />
+                            <input tabIndex={1} type="text" value={displayItem.category || ''} onChange={(e) => handleCatalogEdit(itemId, 'category', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs font-normal text-slate-600 dark:text-slate-300 truncate" />
                         )}
                     </td>}
 
@@ -724,7 +724,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         {isReview ? (
                             <div className="font-medium text-sm text-slate-900 dark:text-white truncate">{bqItem?.itemName}</div>
                         ) : (
-                            <input tabIndex={1} type="text" value={displayItem.itemName || ''} onChange={(e) => handleCatalogEdit(itemId, 'itemName', e.target.value)} className="w-full bg-transparent border-b border-transparent hover:border-gray-200 focus:border-primary-500 focus:outline-none font-medium text-sm" />
+                            <input tabIndex={1} type="text" value={displayItem.itemName || ''} onChange={(e) => handleCatalogEdit(itemId, 'itemName', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all font-medium text-sm text-slate-900 dark:text-white truncate" />
                         )}
                     </td>}
 
@@ -738,7 +738,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                 value={displayItem.description || ''}
                                 onChange={(e) => handleCatalogEdit(itemId, 'description', e.target.value)}
                                 rows={1}
-                                className="w-full bg-transparent border-b border-transparent hover:border-gray-200 focus:border-primary-500 focus:outline-none font-normal text-xs resize-none"
+                                className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all font-normal text-xs resize-none text-slate-600 dark:text-slate-300"
                             />
                         )}
                     </td>}
@@ -748,7 +748,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-500 dark:text-slate-400 text-center">{bqItem?.uom}</div>
                         ) : (
-                            <input tabIndex={1} type="text" value={displayItem.uom || ''} onChange={(e) => handleCatalogEdit(itemId, 'uom', e.target.value)} className="w-full text-center bg-transparent border-b border-transparent hover:border-gray-200 focus:border-primary-500 focus:outline-none font-normal text-xs" />
+                            <input tabIndex={1} type="text" value={displayItem.uom || ''} onChange={(e) => handleCatalogEdit(itemId, 'uom', e.target.value)} className="w-full text-center bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all font-normal text-xs text-slate-600 dark:text-slate-300" />
                         )}
                     </td>}
 
@@ -762,7 +762,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                 type="number"
                                 value={priceVal}
                                 onChange={(e) => handleCatalogEdit(itemId, 'rexScFob', e.target.value)} // Editing FOB triggers calc
-                                className="w-full text-right bg-transparent border-b border-transparent hover:border-gray-200 focus:border-primary-500 focus:outline-none font-normal text-sm"
+                                className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all font-normal text-sm text-slate-900 dark:text-white"
                             />
                         )}
                     </td>}
@@ -792,7 +792,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmtSensitive((bqItem as BQItem)?.forex || 0)}</div>
                         ) : (
-                            <input tabIndex={1} type="number" value={displayItem.forex} onChange={(e) => handleCatalogEdit(itemId, 'forex', e.target.value)} className="w-full text-right bg-transparent border-b border-transparent hover:border-gray-200 focus:border-primary-500 focus:outline-none text-xs" />
+                            <input tabIndex={1} type="number" value={displayItem.forex} onChange={(e) => handleCatalogEdit(itemId, 'forex', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
                         )}
                     </td>}
 
@@ -801,7 +801,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmtSensitive((bqItem as BQItem)?.sst || 0)}</div>
                         ) : (
-                            <input tabIndex={1} type="number" value={displayItem.sst} onChange={(e) => handleCatalogEdit(itemId, 'sst', e.target.value)} className="w-full text-right bg-transparent border-b border-transparent hover:border-gray-200 focus:border-primary-500 focus:outline-none text-xs" />
+                            <input tabIndex={1} type="number" value={displayItem.sst} onChange={(e) => handleCatalogEdit(itemId, 'sst', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
                         )}
                     </td>}
 
@@ -810,7 +810,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmtSensitive((bqItem as BQItem)?.opta || 0)}</div>
                         ) : (
-                            <input tabIndex={1} type="number" value={displayItem.opta} onChange={(e) => handleCatalogEdit(itemId, 'opta', e.target.value)} className="w-full text-right bg-transparent border-b border-transparent hover:border-gray-200 focus:border-primary-500 focus:outline-none text-xs" />
+                            <input tabIndex={1} type="number" value={displayItem.opta} onChange={(e) => handleCatalogEdit(itemId, 'opta', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
                         )}
                     </td>}
 
@@ -828,38 +828,19 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(rowRexScDdp)}</div>
                         ) : (
-                            // DDP is calculated, but maybe user wants to edit? User said "Category till REX SP are not editable". 
-                            // Normally DDP is calc. But let's check MasterItem logic. 
-                            // Master Item editing allows editing components to affect DDP. 
-                            // Usually you don't edit DDP directly if it is derived. 
-                            // But if user requested "Brand to REX SP", let's follow.
-                            // WAIT, DDP is derived from FOB * Forex * SST * OPTA.
-                            // If I make it editable, I need to know what to update.
-                            // Use standard input for now if it is in MasterItem.
-                            // Looking at types, rexScDdp is in MasterItem.
-                            // However, usually it's calculated.
-                            // Let's stick to calculated for DDP/SP to avoid conflict, unless user complains.
-                            // User said "Brand to REX SP" should be editable.
-                            // If I allow editing DDP, I must update the state.
-                            // I'll leave DDP/SP as calculated for now because they are derived in `store.tsx`.
-                            // Actually, if I change FOB/Forex, DDP updates.
-                            // So displaying the calculated value is correct.
-                            // IF user wants to OVERRIDE DDP, that's different.
-                            // I will assume they mean the INPUTS to the price (FOB, Forex, SST, OPTA) are editable.
-                            // AND Brand/Group/etc.
-                            // So I will only make the INPUT fields editable.
-                            <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(rowRexScDdp)}</div>
+                            <input tabIndex={1} type="number" value={displayItem.rexScDdp} onChange={(e) => handleCatalogEdit(itemId, 'rexScDdp', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
                         )}
+
                     </td>}
 
                     {/* REX SP */}
                     {visibleColumns.rexSp && <td className="p-2 align-top">
-                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(rowRexSp)}</div>
+                        <input tabIndex={1} type="number" value={displayItem.rexSp} onChange={(e) => handleCatalogEdit(itemId, 'rexSp', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
                     </td>}
 
                     {/* REX RSP - Placeholder */}
                     {visibleColumns.rexRsp && <td className="p-2 align-top">
-                        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">-</div>
+                        <input tabIndex={1} type="number" value={displayItem.rexRsp} onChange={(e) => handleCatalogEdit(itemId, 'rexRsp', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
                     </td>}
 
                     {/* Calculated Columns */}

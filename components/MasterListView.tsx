@@ -59,21 +59,21 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
 
   // Column Widths State (for Resizing)
   const [colWidths, setColWidths] = useState<{ [key: string]: number }>({
-    brand: 60,
-    axsku: 80,
-    mpn: 80,
-    group: 60,
-    category: 120,
-    description: 150, // Type
-    itemName: 200,
-    uom: 60,
-    rexScFob: 80,
-    forex: 60,
-    sst: 50,
-    opta: 60,
-    rexScDdp: 80,
-    rexSp: 80,
-    rexRsp: 80,
+    brand: 50,
+    axsku: 60,
+    mpn: 60,
+    group: 50,
+    category: 100,
+    description: 120, // Type
+    itemName: 160,
+    uom: 50,
+    rexScFob: 70,
+    forex: 50,
+    sst: 45,
+    opta: 50,
+    rexScDdp: 70,
+    rexSp: 70,
+    rexRsp: 70,
     action: 50
   });
 
