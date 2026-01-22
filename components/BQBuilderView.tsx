@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical, AlertTriangle, Copy, ChevronDown, Save, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical, AlertTriangle, Copy, ChevronDown, Save, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { useAppStore } from '../store';
 import { AppLanguage, Project, BQItem, MasterItem } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -78,6 +78,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
     // Filter State (Catalog)
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
+    const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
     // Staged Edits for Catalog Mode (Session-based)
     const [stagedEdits, setStagedEdits] = useState<Record<string, Partial<MasterItem>>>({});
@@ -356,6 +357,13 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         // Existing BQ items: User might want them updated? 
         // For now, versioning philosophy says "Snapshot on Add". 
         // If user wants to update BQ Item, they should re-add or we could implement a "Refresh Prices" feature later.
+    };
+
+
+
+    const handleCategorySelect = (cat: string) => {
+        setSelectedCategory(cat);
+        setShowCategoryDropdown(false);
     };
 
     const handleCatalogEdit = (id: string, field: keyof MasterItem, value: any) => {
@@ -1297,6 +1305,55 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 {/* Toggle View & Custom Item Actions */}
                 <div className="flex gap-2 items-center w-full xl:w-auto self-end xl:self-center">
 
+                    {/* Catalog Search & Filter: Only visible in Catalog View */}
+                    {bqViewMode === 'catalog' && (
+                        <>
+                            {/* Search Bar */}
+                            <div className="relative">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Search..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-40 xl:w-64 pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white transition-all"
+                                />
+                            </div>
+
+                            {/* Category Filter Dropdown */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                                    className={`w-10 h-10 flex items-center justify-center border hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg transition-colors ${selectedCategory !== 'All'
+                                        ? 'bg-primary-50 text-primary-600 border-primary-200 dark:bg-primary-900/30 dark:border-primary-800 dark:text-primary-400'
+                                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-gray-200 dark:border-slate-600'}`}
+                                    title="Filter Category"
+                                >
+                                    <Filter size={20} />
+                                </button>
+                                {showCategoryDropdown && (
+                                    <>
+                                        <div className="fixed inset-0 z-10 cursor-default" onClick={() => setShowCategoryDropdown(false)} />
+                                        <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 z-20 p-2 grid grid-cols-1 gap-1 max-h-[300px] overflow-y-auto">
+                                            {categories.map((cat) => (
+                                                <button
+                                                    key={cat}
+                                                    onClick={() => handleCategorySelect(cat)}
+                                                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors ${selectedCategory === cat
+                                                        ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400'
+                                                        : 'text-slate-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
+                                                >
+                                                    <span className="truncate font-medium">{cat}</span>
+                                                    {selectedCategory === cat && <CheckSquare size={14} />}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </>
+                    )}
+
                     {/* Catalog Save Button: Only visible in Catalog View */}
                     {bqViewMode === 'catalog' && (
                         <button
@@ -1385,33 +1442,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 {/* === CATALOG VIEW === */}
                 {bqViewMode === 'catalog' && (
                     <div className="flex flex-col h-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
-                        {/* Catalog Toolbar */}
-                        <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex flex-col md:flex-row gap-4">
-                            <div className="relative w-full md:w-72 shrink-0">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                                <input
-                                    type="text"
-                                    placeholder="Search catalog..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white"
-                                />
-                            </div>
-                            <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 min-w-0 md:flex-1 [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 hover:[&::-webkit-scrollbar-thumb]:bg-gray-300 dark:hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
-                                {categories.map(cat => (
-                                    <button
-                                        key={cat}
-                                        onClick={() => setSelectedCategory(cat)}
-                                        className={`px-4 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors border ${selectedCategory === cat
-                                            ? 'bg-primary-50 border-primary-200 text-primary-700 dark:bg-primary-900/30 dark:border-primary-800 dark:text-primary-300'
-                                            : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700'
-                                            }`}
-                                    >
-                                        {cat}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
+                        {/* Catalog Toolbar REMOVED */}
 
                         {/* Catalog Table */}
                         <div className="flex-1 overflow-auto overflow-x-auto">
