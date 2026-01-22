@@ -135,8 +135,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                             onClick={handleProfileSave}
                             disabled={!isProfileDirty}
                             className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${isProfileDirty
-                                    ? 'bg-green-500 border-green-600 text-white shadow-lg shadow-green-500/30 hover:bg-green-600'
-                                    : 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-400 dark:text-slate-500 cursor-not-allowed'
+                                ? 'bg-green-500 border-green-600 text-white shadow-lg shadow-green-500/30 hover:bg-green-600'
+                                : 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-400 dark:text-slate-500 cursor-not-allowed'
                                 }`}
                             title="Save Profile Changes"
                         >
@@ -198,8 +198,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                             onClick={handleCompanySave}
                             disabled={!isCompanyDirty}
                             className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${isCompanyDirty
-                                    ? 'bg-green-500 border-green-600 text-white shadow-lg shadow-green-500/30 hover:bg-green-600'
-                                    : 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-400 dark:text-slate-500 cursor-not-allowed'
+                                ? 'bg-green-500 border-green-600 text-white shadow-lg shadow-green-500/30 hover:bg-green-600'
+                                : 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-400 dark:text-slate-500 cursor-not-allowed'
                                 }`}
                             title="Save Company Info Changes"
                         >
@@ -316,8 +316,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                             <button
                                 onClick={() => setTheme(AppTheme.LIGHT)}
                                 className={`flex-1 relative group rounded-xl p-4 border-2 transition-all duration-200 ${currentTheme === AppTheme.LIGHT
-                                        ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/10'
-                                        : 'border-transparent bg-gray-50 dark:bg-slate-700/50 hover:bg-gray-100 dark:hover:bg-slate-700'
+                                    ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/10'
+                                    : 'border-transparent bg-gray-50 dark:bg-slate-700/50 hover:bg-gray-100 dark:hover:bg-slate-700'
                                     }`}
                             >
                                 <div className="flex items-center justify-between mb-3">
@@ -342,8 +342,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                             <button
                                 onClick={() => setTheme(AppTheme.DARK)}
                                 className={`flex-1 relative group rounded-xl p-4 border-2 transition-all duration-200 ${currentTheme === AppTheme.DARK
-                                        ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/10'
-                                        : 'border-transparent bg-gray-50 dark:bg-slate-700/50 hover:bg-gray-100 dark:hover:bg-slate-700'
+                                    ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/10'
+                                    : 'border-transparent bg-gray-50 dark:bg-slate-700/50 hover:bg-gray-100 dark:hover:bg-slate-700'
                                     }`}
                             >
                                 <div className="flex items-center justify-between mb-3">
@@ -393,8 +393,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                                     key={lang.code}
                                     onClick={() => setLanguage(lang.code)}
                                     className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 ${currentLanguage === lang.code
-                                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
-                                            : 'border-gray-200 dark:border-slate-600 hover:border-primary-200 dark:hover:border-primary-800 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800'
+                                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                                        : 'border-gray-200 dark:border-slate-600 hover:border-primary-200 dark:hover:border-primary-800 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800'
                                         }`}
                                 >
                                     <span className="text-xl">{lang.flag}</span>
@@ -423,7 +423,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                             </div>
                         </div>
                         <div className="px-3 py-1 bg-gray-100 dark:bg-slate-700 rounded-full border border-gray-200 dark:border-slate-600">
-                            <span className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">Beta 1.2</span>
+                            <span className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">Beta 2.0</span>
                         </div>
                     </div>
                 </div>
