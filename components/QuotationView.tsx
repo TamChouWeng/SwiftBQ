@@ -665,7 +665,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                                                     className="w-full bg-transparent border-none p-0 text-[10px] text-black whitespace-pre-wrap leading-tight focus:ring-0"
                                                                 />
                                                             </td>
-                                                            <td className="border border-black p-1 text-right align-top text-[10px]">{fmt(item.price)}</td>
+                                                            <td className="border border-black p-1 text-right align-top text-[10px]">{fmt(item.total)}</td>
                                                             <td className="border border-black p-1 text-center align-top text-[10px]">{item.qty}</td>
                                                             <td className="border border-black p-1 text-center align-top text-[10px]">{item.uom}</td>
                                                             <td className="border border-black p-1 text-right align-top font-semibold text-[10px]">{fmt(item.total)}</td>
