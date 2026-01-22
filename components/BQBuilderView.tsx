@@ -667,7 +667,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 >
                     {/* Drag Handle / Spacer */}
                     {isReview && (
-                        <td className="p-2 align-middle text-center sticky left-0 bg-white dark:bg-slate-800 z-10 border-r border-gray-100 dark:border-slate-700/50" style={{ width: colWidths.dragHandle }}>
+                        <td className="p-1 align-middle text-center sticky left-0 bg-white dark:bg-slate-800 z-10 border-r border-gray-100 dark:border-slate-700/50" style={{ width: colWidths.dragHandle }}>
                             <div className="cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                                 <GripVertical size={16} className="mx-auto" />
                             </div>
@@ -675,7 +675,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     )}
 
                     {/* Column A (Brand) */}
-                    {visibleColumns.brand && <td className="p-2 align-top">
+                    {visibleColumns.brand && <td className="p-1 align-top">
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">{(bqItem as BQItem)?.brand}</div>
                         ) : (
@@ -684,7 +684,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* Column B (AX SKU) */}
-                    {visibleColumns.axsku && <td className="p-2 align-top">
+                    {visibleColumns.axsku && <td className="p-1 align-top">
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">{(bqItem as BQItem)?.axsku}</div>
                         ) : (
@@ -693,7 +693,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* Column C (MPN) */}
-                    {visibleColumns.mpn && <td className="p-2 align-top">
+                    {visibleColumns.mpn && <td className="p-1 align-top">
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">{(bqItem as BQItem)?.mpn}</div>
                         ) : (
@@ -702,7 +702,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* Column D (Group) */}
-                    {visibleColumns.group && <td className="p-2 align-top">
+                    {visibleColumns.group && <td className="p-1 align-top">
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 truncate">{(bqItem as BQItem)?.group}</div>
                         ) : (
@@ -711,7 +711,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* Category */}
-                    {visibleColumns.category && <td className="p-2 align-top">
+                    {visibleColumns.category && <td className="p-1 align-top">
                         {isReview ? (
                             <div className="truncate text-xs font-normal text-slate-700 dark:text-slate-200">{bqItem?.category}</div>
                         ) : (
@@ -720,7 +720,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* Item Name */}
-                    {visibleColumns.item && <td className="p-2 align-top">
+                    {visibleColumns.item && <td className="p-1 align-top">
                         {isReview ? (
                             <div className="font-medium text-sm text-slate-900 dark:text-white truncate">{bqItem?.itemName}</div>
                         ) : (
@@ -729,7 +729,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* Description */}
-                    {visibleColumns.description && <td className="p-2 align-top">
+                    {visibleColumns.description && <td className="p-1 align-top">
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-500 dark:text-slate-400 truncate whitespace-pre-wrap">{bqItem?.description}</div>
                         ) : (
@@ -744,7 +744,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* UOM */}
-                    {visibleColumns.uom && <td className="p-2 align-top">
+                    {visibleColumns.uom && <td className="p-1 align-top">
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-500 dark:text-slate-400 text-center">{bqItem?.uom}</div>
                         ) : (
@@ -753,7 +753,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* Price (REX SC FOB) */}
-                    {visibleColumns.price && <td className="p-2 align-top">
+                    {visibleColumns.price && <td className="p-1 align-top">
                         {isReview ? (
                             <div className="text-sm font-normal text-slate-900 dark:text-slate-200 text-right">{fmt(priceVal)}</div>
                         ) : (
@@ -768,7 +768,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* Qty (Quantity) - Review: Editable (user request ambiguous, but usually Qty is the ONLY thing editable in a locked BOQ). Catalog: Editable. */}
-                    {visibleColumns.qty && <td className="p-2 align-top">
+                    {visibleColumns.qty && <td className="p-1 align-top">
                         <input
                             type="number"
                             min="0"
@@ -788,7 +788,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* Forex */}
-                    {visibleColumns.forex && <td className="p-2 align-top">
+                    {visibleColumns.forex && <td className="p-1 align-top">
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmtSensitive((bqItem as BQItem)?.forex || 0)}</div>
                         ) : (
@@ -797,7 +797,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* SST */}
-                    {visibleColumns.sst && <td className="p-2 align-top">
+                    {visibleColumns.sst && <td className="p-1 align-top">
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmtSensitive((bqItem as BQItem)?.sst || 0)}</div>
                         ) : (
@@ -806,7 +806,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* OPTA */}
-                    {visibleColumns.opta && <td className="p-2 align-top">
+                    {visibleColumns.opta && <td className="p-1 align-top">
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmtSensitive((bqItem as BQItem)?.opta || 0)}</div>
                         ) : (
@@ -814,17 +814,8 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         )}
                     </td>}
 
-                    {/* REX SC FOB - Removed Duplicate (Handled by 'price' column) */}
-                    {/* {visibleColumns.rexScFob && <td className="p-2 align-top">
-                        {isReview ? (
-                            <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt((bqItem as BQItem)?.rexScFob || 0)}</div>
-                        ) : (
-                            <input tabIndex={1} type="number" value={displayItem.rexScFob || 0} onChange={(e) => handleCatalogEdit(itemId, 'rexScFob', e.target.value)} className="w-full text-right bg-transparent border-b border-transparent hover:border-gray-200 focus:border-primary-500 focus:outline-none text-xs" />
-                        )}
-                    </td>} */}
-
                     {/* REX SC DDP */}
-                    {visibleColumns.rexScDdp && <td className="p-2 align-top">
+                    {visibleColumns.rexScDdp && <td className="p-1 align-top">
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(rowRexScDdp)}</div>
                         ) : (
@@ -834,24 +825,24 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* REX SP */}
-                    {visibleColumns.rexSp && <td className="p-2 align-top">
+                    {visibleColumns.rexSp && <td className="p-1 align-top">
                         <input tabIndex={1} type="number" value={displayItem.rexSp} onChange={(e) => handleCatalogEdit(itemId, 'rexSp', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
                     </td>}
 
                     {/* REX RSP - Placeholder */}
-                    {visibleColumns.rexRsp && <td className="p-2 align-top">
+                    {visibleColumns.rexRsp && <td className="p-1 align-top">
                         <input tabIndex={1} type="number" value={displayItem.rexRsp} onChange={(e) => handleCatalogEdit(itemId, 'rexRsp', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
                     </td>}
 
                     {/* Calculated Columns */}
-                    {visibleColumns.rexTsc && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexTsc)}</td>}
-                    {visibleColumns.rexTsp && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexTsp)}</td>}
-                    {visibleColumns.rexTrsp && <td className="p-2 align-top text-right text-slate-500 font-bold text-sm">{fmt(rowRexTrsp)}</td>}
-                    {visibleColumns.rexGp && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexGp)}</td>}
-                    {visibleColumns.rexGpPercent && <td className="p-2 align-top text-right text-slate-500 font-normal text-xs">{fmtPct(rowRexGpPercent)}</td>}
+                    {visibleColumns.rexTsc && <td className="p-1 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexTsc)}</td>}
+                    {visibleColumns.rexTsp && <td className="p-1 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexTsp)}</td>}
+                    {visibleColumns.rexTrsp && <td className="p-1 align-top text-right text-slate-500 font-bold text-sm">{fmt(rowRexTrsp)}</td>}
+                    {visibleColumns.rexGp && <td className="p-1 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexGp)}</td>}
+                    {visibleColumns.rexGpPercent && <td className="p-1 align-top text-right text-slate-500 font-normal text-xs">{fmtPct(rowRexGpPercent)}</td>}
 
                     {/* Optional */}
-                    {visibleColumns.isOptional && isReview && <td className="p-2 align-top text-center">
+                    {visibleColumns.isOptional && isReview && <td className="p-1 align-top text-center">
                         <input
                             type="checkbox"
                             checked={isOptional}
@@ -861,7 +852,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* Action */}
-                    {visibleColumns.action && <td className="p-2 align-top text-center">
+                    {visibleColumns.action && <td className="p-1 align-top text-center">
                         {isReview && (
                             <button
                                 onClick={() => removeBQItem(itemId)}
