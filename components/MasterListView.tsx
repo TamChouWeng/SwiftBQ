@@ -120,19 +120,19 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
   }, [masterData]);
 
   // 2. Get Unique Types based on selected Categories (Cascade filter logic, usually helps user)
-  const uniqueTypes = useMemo(() => {
+  const uniqueItems = useMemo(() => {
     let dataToFilter = masterData;
     if (selectedCategories.length > 0) {
       dataToFilter = masterData.filter(item => selectedCategories.includes(item.category));
     }
-    return Array.from(new Set(dataToFilter.map((item) => item.description))).filter(Boolean).sort();
+    return Array.from(new Set(dataToFilter.map((item) => item.itemName))).filter(Boolean).sort();
   }, [masterData, selectedCategories]);
 
   // 3. Filter Data
   const filteredData = useMemo(() => {
     return masterData.filter((item) => {
       const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(item.category);
-      const matchesType = selectedTypes.length === 0 || selectedTypes.includes(item.description);
+      const matchesType = selectedTypes.length === 0 || selectedTypes.includes(item.itemName);
       const matchesSearch =
         item.itemName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -268,7 +268,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
 
   // Data lists for auto-complete in modal
   const allUniqueCategories = useMemo(() => Array.from(new Set(masterData.map(i => i.category))), [masterData]);
-  const allUniqueTypes = useMemo(() => Array.from(new Set(masterData.map(i => i.description))), [masterData]);
+  const alluniqueItems = useMemo(() => Array.from(new Set(masterData.map(i => i.description))), [masterData]);
 
   // Table Width Calculation
   const tableWidth = useMemo(() => {
@@ -383,11 +383,11 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                       </div>
                     </div>
 
-                    {/* Types Column */}
+                    {/* Item Column */}
                     <div className="flex flex-col min-w-[200px] w-auto">
-                      <div className="p-2 bg-gray-50/50 dark:bg-slate-800/50 font-medium text-xs text-slate-500 uppercase tracking-wider sticky top-0 whitespace-nowrap">Type</div>
+                      <div className="p-2 bg-gray-50/50 dark:bg-slate-800/50 font-medium text-xs text-slate-500 uppercase tracking-wider sticky top-0 whitespace-nowrap">Item</div>
                       <div className="overflow-y-auto p-2 space-y-1">
-                        {uniqueTypes.length > 0 ? uniqueTypes.map(typ => (
+                        {uniqueItems.length > 0 ? uniqueItems.map(typ => (
                           <label key={typ} className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded cursor-pointer group whitespace-nowrap">
                             <div className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors ${selectedTypes.includes(typ) ? 'bg-primary-500 border-primary-500 text-white' : 'border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 group-hover:border-primary-400'}`}>
                               {selectedTypes.includes(typ) && <Check size={10} strokeWidth={3} />}
@@ -396,7 +396,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                             <input type="checkbox" className="hidden" checked={selectedTypes.includes(typ)} onChange={() => toggleTypeSelection(typ)} />
                           </label>
                         )) : (
-                          <div className="p-4 text-center text-xs text-slate-400 italic whitespace-nowrap">No types available</div>
+                          <div className="p-4 text-center text-xs text-slate-400 italic whitespace-nowrap">No item available</div>
                         )}
                       </div>
                     </div>
@@ -614,7 +614,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.typeColumn}</label>
                 <input list="type-options" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} placeholder="Select or type new type" className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
-                <datalist id="type-options">{allUniqueTypes.map(t => <option key={t} value={t} />)}</datalist>
+                <datalist id="type-options">{alluniqueItems.map(t => <option key={t} value={t} />)}</datalist>
               </div>
 
               {/* Item Name */}
