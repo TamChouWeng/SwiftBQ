@@ -76,7 +76,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     rexScDdp: 110,
     rexSp: 110,
     rexRsp: 110,
-    action: 50
+    action: 60
   });
 
   // Modal State
@@ -221,6 +221,10 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     document.removeEventListener('mouseup', handleMouseUp);
     document.body.style.cursor = '';
   };
+
+  // --- Scroll Sync Refs ---
+  const headerRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   // --- Modal Logic ---
   const openModal = () => {
@@ -464,10 +468,29 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
 
       {/* Table Container */}
       <div className="flex-1 bg-white dark:bg-slate-800 rounded-none md:rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden flex flex-col relative mx-0 md:mx-4">
-        <div className="overflow-auto flex-1">
+        {/* Table Header - Separate Overflow Hidden Container */}
+        <div ref={headerRef} className="overflow-hidden border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/90 backdrop-blur-sm z-10">
           <table className="text-left border-collapse table-fixed" style={{ width: tableWidth + 'px', minWidth: '100%' }}>
-            <thead className="sticky top-0 bg-gray-50 dark:bg-slate-700/90 backdrop-blur-sm z-10">
-              <tr className="text-slate-600 dark:text-slate-300 text-sm border-b border-gray-100 dark:border-slate-700">
+            <colgroup>
+              {visibleColumns.brand && <col style={{ width: colWidths.brand }} />}
+              {visibleColumns.axsku && <col style={{ width: colWidths.axsku }} />}
+              {visibleColumns.mpn && <col style={{ width: colWidths.mpn }} />}
+              {visibleColumns.group && <col style={{ width: colWidths.group }} />}
+              {visibleColumns.category && <col style={{ width: colWidths.category }} />}
+              {visibleColumns.itemName && <col style={{ width: colWidths.itemName }} />}
+              {visibleColumns.description && <col style={{ width: colWidths.description }} />}
+              {visibleColumns.uom && <col style={{ width: colWidths.uom }} />}
+              {visibleColumns.rexScFob && <col style={{ width: colWidths.rexScFob }} />}
+              {visibleColumns.forex && <col style={{ width: colWidths.forex }} />}
+              {visibleColumns.sst && <col style={{ width: colWidths.sst }} />}
+              {visibleColumns.opta && <col style={{ width: colWidths.opta }} />}
+              {visibleColumns.rexScDdp && <col style={{ width: colWidths.rexScDdp }} />}
+              {visibleColumns.rexSp && <col style={{ width: colWidths.rexSp }} />}
+              {visibleColumns.rexRsp && <col style={{ width: colWidths.rexRsp }} />}
+              {visibleColumns.action && <col style={{ width: colWidths.action }} />}
+            </colgroup>
+            <thead>
+              <tr className="text-slate-600 dark:text-slate-300 text-sm">
                 {visibleColumns.brand && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.brand }}>{t.brand}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'brand')} /></th>}
                 {visibleColumns.axsku && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.axsku }}>{t.axsku}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'axsku')} /></th>}
                 {visibleColumns.mpn && <th className="relative p-4 font-semibold select-none" style={{ width: colWidths.mpn }}>{t.mpn}<div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400" onMouseDown={(e) => startResize(e, 'mpn')} /></th>}
@@ -489,6 +512,38 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                 {visibleColumns.action && <th className="relative p-4 font-semibold text-center select-none" style={{ width: colWidths.action }}>{t.actions}</th>}
               </tr>
             </thead>
+          </table>
+        </div>
+
+        {/* Table Body - Scrollable Container */}
+        <div
+          ref={bodyRef}
+          onScroll={(e) => {
+            if (headerRef.current) {
+              headerRef.current.scrollLeft = (e.target as HTMLDivElement).scrollLeft;
+            }
+          }}
+          className="flex-1 overflow-auto"
+        >
+          <table className="text-left border-collapse table-fixed" style={{ width: tableWidth + 'px', minWidth: '100%' }}>
+            <colgroup>
+              {visibleColumns.brand && <col style={{ width: colWidths.brand }} />}
+              {visibleColumns.axsku && <col style={{ width: colWidths.axsku }} />}
+              {visibleColumns.mpn && <col style={{ width: colWidths.mpn }} />}
+              {visibleColumns.group && <col style={{ width: colWidths.group }} />}
+              {visibleColumns.category && <col style={{ width: colWidths.category }} />}
+              {visibleColumns.itemName && <col style={{ width: colWidths.itemName }} />}
+              {visibleColumns.description && <col style={{ width: colWidths.description }} />}
+              {visibleColumns.uom && <col style={{ width: colWidths.uom }} />}
+              {visibleColumns.rexScFob && <col style={{ width: colWidths.rexScFob }} />}
+              {visibleColumns.forex && <col style={{ width: colWidths.forex }} />}
+              {visibleColumns.sst && <col style={{ width: colWidths.sst }} />}
+              {visibleColumns.opta && <col style={{ width: colWidths.opta }} />}
+              {visibleColumns.rexScDdp && <col style={{ width: colWidths.rexScDdp }} />}
+              {visibleColumns.rexSp && <col style={{ width: colWidths.rexSp }} />}
+              {visibleColumns.rexRsp && <col style={{ width: colWidths.rexRsp }} />}
+              {visibleColumns.action && <col style={{ width: colWidths.action }} />}
+            </colgroup>
             <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
               {paginatedData.length > 0 ? (
                 paginatedData.map((item) => {

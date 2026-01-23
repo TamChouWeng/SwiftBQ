@@ -172,7 +172,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         uom: 50,
         forex: 50,
         sst: 70,
-        opta: 60,
+        opta: 65,
         rexScDdp: 150,
         rexSp: 150,
         rexRsp: 150,
@@ -191,6 +191,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
     const resizingRef = useRef<{ colKey: string; startX: number; startWidth: number } | null>(null);
+
+    // --- Scroll Sync Refs ---
+    const headerRef = useRef<HTMLDivElement>(null);
+    const bodyRef = useRef<HTMLDivElement>(null);
 
     // Derived State
     const activeProject = useMemo(() =>
@@ -680,7 +684,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 >
                     {/* Drag Handle / Spacer */}
                     {isReview && (
-                        <td className="p-1 align-middle text-center sticky left-0 bg-white dark:bg-slate-800 z-10 border-r border-gray-100 dark:border-slate-700/50" style={{ width: colWidths.dragHandle }}>
+                        <td className="p-2 align-middle text-center sticky left-0 bg-white dark:bg-slate-800 z-10 border-r border-gray-100 dark:border-slate-700/50" style={{ width: colWidths.dragHandle }}>
                             <div className="cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                                 <GripVertical size={16} className="mx-auto" />
                             </div>
@@ -1450,9 +1454,70 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         {/* Catalog Toolbar REMOVED */}
 
                         {/* Catalog Table */}
-                        <div className="flex-1 overflow-auto overflow-x-auto">
-                            <table className="text-left border-collapse table-fixed" style={{ width: totalTableWidth, minWidth: '100%' }}>
+                        <div ref={headerRef} className="overflow-hidden border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/90 backdrop-blur-sm z-10">
+                            <table className="text-left border-collapse table-fixed bg-gray-50 dark:bg-slate-700/90" style={{ width: totalTableWidth + 'px', minWidth: '100%' }}>
+                                <colgroup>
+                                    {visibleColumns.brand && <col style={{ width: colWidths.brand }} />}
+                                    {visibleColumns.axsku && <col style={{ width: colWidths.axsku }} />}
+                                    {visibleColumns.mpn && <col style={{ width: colWidths.mpn }} />}
+                                    {visibleColumns.group && <col style={{ width: colWidths.group }} />}
+                                    {visibleColumns.category && <col style={{ width: colWidths.category }} />}
+                                    {visibleColumns.item && <col style={{ width: colWidths.item }} />}
+                                    {visibleColumns.description && <col style={{ width: colWidths.description }} />}
+                                    {visibleColumns.uom && <col style={{ width: colWidths.uom }} />}
+                                    {visibleColumns.price && <col style={{ width: colWidths.price }} />}
+                                    {visibleColumns.qty && <col style={{ width: colWidths.qty }} />}
+                                    {visibleColumns.forex && <col style={{ width: colWidths.forex }} />}
+                                    {visibleColumns.sst && <col style={{ width: colWidths.sst }} />}
+                                    {visibleColumns.opta && <col style={{ width: colWidths.opta }} />}
+                                    {visibleColumns.rexScDdp && <col style={{ width: colWidths.rexScDdp }} />}
+                                    {visibleColumns.rexSp && <col style={{ width: colWidths.rexSp }} />}
+                                    {visibleColumns.rexRsp && <col style={{ width: colWidths.rexRsp }} />}
+                                    {visibleColumns.rexTsc && <col style={{ width: colWidths.rexTsc }} />}
+                                    {visibleColumns.rexTsp && <col style={{ width: colWidths.rexTsp }} />}
+                                    {visibleColumns.rexTrsp && <col style={{ width: colWidths.rexTrsp }} />}
+                                    {visibleColumns.rexGp && <col style={{ width: colWidths.rexGp }} />}
+                                    {visibleColumns.rexGpPercent && <col style={{ width: colWidths.rexGpPercent }} />}
+                                    {visibleColumns.action && <col style={{ width: colWidths.action }} />}
+                                </colgroup>
                                 {renderTableHeader()}
+                            </table>
+                        </div>
+
+                        <div
+                            ref={bodyRef}
+                            onScroll={(e) => {
+                                if (headerRef.current) {
+                                    headerRef.current.scrollLeft = (e.target as HTMLDivElement).scrollLeft;
+                                }
+                            }}
+                            className="flex-1 overflow-auto"
+                        >
+                            <table className="text-left border-collapse table-fixed" style={{ width: totalTableWidth + 'px', minWidth: '100%' }}>
+                                <colgroup>
+                                    {visibleColumns.brand && <col style={{ width: colWidths.brand }} />}
+                                    {visibleColumns.axsku && <col style={{ width: colWidths.axsku }} />}
+                                    {visibleColumns.mpn && <col style={{ width: colWidths.mpn }} />}
+                                    {visibleColumns.group && <col style={{ width: colWidths.group }} />}
+                                    {visibleColumns.category && <col style={{ width: colWidths.category }} />}
+                                    {visibleColumns.item && <col style={{ width: colWidths.item }} />}
+                                    {visibleColumns.description && <col style={{ width: colWidths.description }} />}
+                                    {visibleColumns.uom && <col style={{ width: colWidths.uom }} />}
+                                    {visibleColumns.price && <col style={{ width: colWidths.price }} />}
+                                    {visibleColumns.qty && <col style={{ width: colWidths.qty }} />}
+                                    {visibleColumns.forex && <col style={{ width: colWidths.forex }} />}
+                                    {visibleColumns.sst && <col style={{ width: colWidths.sst }} />}
+                                    {visibleColumns.opta && <col style={{ width: colWidths.opta }} />}
+                                    {visibleColumns.rexScDdp && <col style={{ width: colWidths.rexScDdp }} />}
+                                    {visibleColumns.rexSp && <col style={{ width: colWidths.rexSp }} />}
+                                    {visibleColumns.rexRsp && <col style={{ width: colWidths.rexRsp }} />}
+                                    {visibleColumns.rexTsc && <col style={{ width: colWidths.rexTsc }} />}
+                                    {visibleColumns.rexTsp && <col style={{ width: colWidths.rexTsp }} />}
+                                    {visibleColumns.rexTrsp && <col style={{ width: colWidths.rexTrsp }} />}
+                                    {visibleColumns.rexGp && <col style={{ width: colWidths.rexGp }} />}
+                                    {visibleColumns.rexGpPercent && <col style={{ width: colWidths.rexGpPercent }} />}
+                                    {visibleColumns.action && <col style={{ width: colWidths.action }} />}
+                                </colgroup>
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-700 text-sm">
                                     {renderTableRows(paginatedItems, 'catalog')}
                                 </tbody>
@@ -1493,11 +1558,52 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 )}
 
                 {/* === REVIEW VIEW === */}
+                {/* === REVIEW VIEW === */}
                 {bqViewMode === 'review' && (
                     <div className="flex flex-col h-full bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 overflow-hidden">
-                        <div className="flex-1 overflow-auto overflow-x-auto">
-                            <table className="text-left border-collapse table-fixed" style={{ width: totalTableWidth, minWidth: '100%' }}>
+
+                        <div ref={headerRef} className="overflow-hidden border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/90 backdrop-blur-sm z-10">
+                            <table className="text-left border-collapse table-fixed bg-gray-50 dark:bg-slate-700/90" style={{ width: totalTableWidth + 'px', minWidth: '100%' }}>
                                 {renderTableHeader()}
+                            </table>
+                        </div>
+
+                        <div
+                            ref={bodyRef}
+                            onScroll={(e) => {
+                                if (headerRef.current) {
+                                    headerRef.current.scrollLeft = (e.target as HTMLDivElement).scrollLeft;
+                                }
+                            }}
+                            className="flex-1 overflow-auto"
+                        >
+                            <table className="text-left border-collapse table-fixed" style={{ width: totalTableWidth + 'px', minWidth: '100%' }}>
+                                <colgroup>
+                                    {bqViewMode === 'review' && <col style={{ width: colWidths.dragHandle }} />}
+                                    {visibleColumns.brand && <col style={{ width: colWidths.brand }} />}
+                                    {visibleColumns.axsku && <col style={{ width: colWidths.axsku }} />}
+                                    {visibleColumns.mpn && <col style={{ width: colWidths.mpn }} />}
+                                    {visibleColumns.group && <col style={{ width: colWidths.group }} />}
+                                    {visibleColumns.category && <col style={{ width: colWidths.category }} />}
+                                    {visibleColumns.item && <col style={{ width: colWidths.item }} />}
+                                    {visibleColumns.description && <col style={{ width: colWidths.description }} />}
+                                    {visibleColumns.uom && <col style={{ width: colWidths.uom }} />}
+                                    {visibleColumns.price && <col style={{ width: colWidths.price }} />}
+                                    {visibleColumns.qty && <col style={{ width: colWidths.qty }} />}
+                                    {visibleColumns.forex && <col style={{ width: colWidths.forex }} />}
+                                    {visibleColumns.sst && <col style={{ width: colWidths.sst }} />}
+                                    {visibleColumns.opta && <col style={{ width: colWidths.opta }} />}
+                                    {visibleColumns.rexScDdp && <col style={{ width: colWidths.rexScDdp }} />}
+                                    {visibleColumns.rexSp && <col style={{ width: colWidths.rexSp }} />}
+                                    {visibleColumns.rexRsp && <col style={{ width: colWidths.rexRsp }} />}
+                                    {visibleColumns.rexTsc && <col style={{ width: colWidths.rexTsc }} />}
+                                    {visibleColumns.rexTsp && <col style={{ width: colWidths.rexTsp }} />}
+                                    {visibleColumns.rexTrsp && <col style={{ width: colWidths.rexTrsp }} />}
+                                    {visibleColumns.rexGp && <col style={{ width: colWidths.rexGp }} />}
+                                    {visibleColumns.rexGpPercent && <col style={{ width: colWidths.rexGpPercent }} />}
+                                    {visibleColumns.isOptional && <col style={{ width: colWidths.isOptional }} />}
+                                    {visibleColumns.action && <col style={{ width: colWidths.action }} />}
+                                </colgroup>
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-700 text-sm">
                                     {renderTableRows(activeItems, 'review')}
                                 </tbody>
