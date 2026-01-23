@@ -1,8 +1,14 @@
 # SwitftBQ
-> **Status**: Beta 2.0  
-> **Version**: 2.0.0
+> **Status**: Beta 2.1  
+> **Version**: 2.1.0
 
 SwitftBQ is a modern web application designed to streamline the process of creating Bills of Quantities (BQ) and managing quotations. Built with React, Vite, and Tailwind CSS, it offers a responsive and intuitive interface for construction and project management professionals.
+
+## 🚀 What's New in Beta 2.1
+- **Dynamic Pricing Strategies**: Implemented formula-based pricing (Recipes A-K) for DDP, SP, and RSP calculations.
+- **Matched Formulas Integration**: Automatically maps 430+ Master List items to their specific pricing formulas from documentation.
+- **Precision Calculation**: Enhanced math engine to handle floating-point precision (e.g. `850.8` instead of `850.800...4`).
+- **Type Safety**: Improved robustness in Master List and BQ Builder logic.
 
 ## Features
 

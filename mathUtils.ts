@@ -24,5 +24,15 @@ export const excelCeiling = (num: number, significance: number): number => {
     const precision = 1000000;
     const quotient = Math.round((num / significance) * precision) / precision;
 
-    return Math.ceil(quotient) * significance;
+    const result = Math.ceil(quotient) * significance;
+
+    // Fix final floating point precision (e.g. 850.800...004 -> 850.8)
+    // We determine decimals from significance (e.g. 0.1 has 1 decimal)
+    if (significance < 1 && significance > 0) {
+        const decimals = Math.ceil(-Math.log10(significance));
+        // Use a slight buffer in rounding to handle typical float errors
+        return Number(result.toFixed(Math.max(decimals, 0)));
+    }
+
+    return Number(result.toFixed(2)); // Default to 2 decimals for pricing context if sig >= 1 or weird
 };
