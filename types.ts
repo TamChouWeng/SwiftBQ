@@ -1,3 +1,10 @@
+/* Updated types.ts: add PriceField and use it for pricing columns */
+
+export interface PriceField {
+  value: number;
+  strategy: string; // e.g., 'DDP_FORMULA_A', 'MANUAL'
+  manualOverride?: number;
+}
 
 export enum AppTheme {
   LIGHT = 'light',
@@ -30,16 +37,21 @@ export interface MasterItem {
   category: string;
   itemName: string;
   description: string; // Type
-  price: number; // Default Selling Price (RSP)
+  // price numeric is kept for BQ snapshots/backwards compatibility (mirrors rexRsp.value)
+  price: number;
   uom: string;
+
   // Columns N-T
   rexScFob: number;
   forex: number;
   sst: number;
   opta: number;
-  rexScDdp: number;
-  rexSp: number;
-  rexRsp: number;
+
+  // Refactored: composite objects for the three dependent columns
+  rexScDdp: PriceField;
+  rexSp: PriceField;
+  rexRsp: PriceField;
+
   // Hidden field for calculation
   // spMargin removed
 }
@@ -73,7 +85,7 @@ export interface BQItem {
   itemName: string;
   description: string;
   quotationDescription?: string; // New: Specific description for quotation view
-  price: number; // This is REX RSP
+  price: number; // This is REX RSP (numeric snapshot)
   qty: number;
   uom: string;
   total: number; // This is REX TRSP
@@ -129,74 +141,4 @@ export interface Translations {
   clientName: string;
   date: string;
   quoteId: string;
-  category: string;
-  item: string;
-  description: string;
-  typeColumn: string;
-  price: string;
-  qty: string;
-  uom: string;
-  total: string;
-  actions: string;
-  addRow: string;
-  delete: string;
-  subtotal: string;
-  tax: string;
-  grandTotal: string;
-  companyName: string;
-  companyAddress: string;
-  currencySymbol: string;
-  exportPDF: string;
-  noData: string;
-  // New Column Headers
-  brand: string;
-  axsku: string;
-  mpn: string;
-  group: string;
-  rexScFob: string;
-  forex: string;
-  sst: string;
-  opta: string;
-  rexScDdp: string;
-  rexSp: string;
-  rexRsp: string;
-  // Project & BQ New Headers
-  projects: string;
-  addProject: string;
-  projectName: string;
-  validityPeriod: string;
-  backToProjects: string;
-  rexTsc: string;
-  rexTsp: string;
-  rexTrsp: string;
-  rexGp: string;
-  rexGpPercent: string;
-  createProject: string;
-  searchProjects: string;
-  // New Project Fields
-  clientContact: string;
-  clientAddress: string;
-  editDetails: string;
-  updateProject: string;
-  projectDetails: string;
-  // Profile Settings
-  profileSettings: string;
-  yourName: string;
-  yourContact: string;
-  profileRole: string;
-  confirm: string;
-  roleAdmin: string;
-  roleUser: string;
-  // Column Visibility
-  columns: string;
-  isOptional: string;
-  // Bank Info
-  bankName: string;
-  bankAccount: string;
 }
-
-export const LANGUAGES = [
-  { code: AppLanguage.ENGLISH, label: 'English', flag: '🇺🇸' },
-  { code: AppLanguage.MALAY, label: 'Bahasa Melayu', flag: '🇲🇾' },
-  { code: AppLanguage.CHINESE, label: '中文 (简体)', flag: '🇨🇳' },
-];
