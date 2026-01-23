@@ -4,8 +4,6 @@ import { Plus, Trash2, Search, ChevronLeft, ChevronRight, Filter, X, Eye, Layout
 import { useAppStore, calculateDerivedFields } from '../store';
 import { AppLanguage, MasterItem } from '../types';
 import { TRANSLATIONS } from '../constants';
-import SmartPriceCell from './SmartPriceCell';
-import { PriceField } from '../types';
 
 interface Props {
   currentLanguage: AppLanguage;
@@ -516,9 +514,9 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                       {visibleColumns.sst && <td className="p-1"><input type="number" value={display.sst} onChange={(e) => handleEdit(item.id, 'sst', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
                       {visibleColumns.opta && <td className="p-1"><input type="number" value={display.opta} onChange={(e) => handleEdit(item.id, 'opta', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
 
-                      {visibleColumns.rexScDdp && <td className="p-1"><SmartPriceCell row={item} fieldKey="rexScDdp" value={item.rexScDdp ?? { value: 0, strategy: 'MANUAL' } as PriceField} onChange={(id, updates) => updateMasterItem(id, updates)}/></td>}
-                      {visibleColumns.rexSp && <td className="p-1"><SmartPriceCell row={item} fieldKey="rexSp" value={item.rexSp ?? { value: 0, strategy: 'MANUAL' } as PriceField} onChange={(id, updates) => updateMasterItem(id, updates)}/></td>}
-                      {visibleColumns.rexRsp && <td className="p-1"><SmartPriceCell row={item} fieldKey="rexRsp" value={item.rexRsp ?? { value: 0, strategy: 'MANUAL' } as PriceField} onChange={(id, updates) => updateMasterItem(id, updates)}/></td>}
+                      {visibleColumns.rexScDdp && <td className="p-1"><input type="number" value={display.rexScDdp} onChange={(e) => handleEdit(item.id, 'rexScDdp', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
+                      {visibleColumns.rexSp && <td className="p-1"><input type="number" value={display.rexSp} onChange={(e) => handleEdit(item.id, 'rexSp', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
+                      {visibleColumns.rexRsp && <td className="p-1"><input type="number" value={display.rexRsp} onChange={(e) => handleEdit(item.id, 'rexRsp', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
 
                       {visibleColumns.action && <td className="p-1 text-center">
                         <button onClick={() => deleteMasterItem(item.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={16} /></button>
