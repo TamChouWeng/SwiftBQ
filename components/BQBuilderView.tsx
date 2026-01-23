@@ -7,6 +7,19 @@ import { TRANSLATIONS } from '../constants';
 import SmartPriceCell from './SmartPriceCell';
 import { DDP_STRATEGIES, SP_STRATEGIES, RSP_STRATEGIES } from '../pricingStrategies';
 
+
+const getPriceValue = (val: any) => {
+    if (typeof val === 'number') return val;
+    if (val && typeof val === 'object' && 'value' in val) return val.value;
+    return 0;
+};
+
+const getPriceField = (val: any): PriceField => {
+    if (val && typeof val === 'object' && 'strategy' in val) return val;
+    // Create a dummy wrapper for display if strictly number (should not happen after migration)
+    return { value: Number(val) || 0, strategy: 'MANUAL', manualOverride: Number(val) || 0 };
+};
+
 interface Props {
     currentLanguage: AppLanguage;
     isSidebarOpen: boolean;
@@ -263,8 +276,8 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     const totalItemsSelected = activeItems.reduce((acc, item) => acc + (Number(item.qty) || 0), 0);
 
     // --- Bottom Bar Calculations ---
-    const totalTSC = useMemo(() => activeItems.reduce((sum, item) => sum + (item.qty * (item.rexScDdp || 0)), 0), [activeItems]);
-    const totalTSP = useMemo(() => activeItems.reduce((sum, item) => sum + (item.qty * (item.rexSp || 0)), 0), [activeItems]);
+    const totalTSC = useMemo(() => activeItems.reduce((sum, item) => sum + (item.qty * (getPriceValue(item.rexScDdp) || 0)), 0), [activeItems]);
+    const totalTSP = useMemo(() => activeItems.reduce((sum, item) => sum + (item.qty * (getPriceValue(item.rexSp) || 0)), 0), [activeItems]);
     // Total TRSP is essentially the sum of Item Totals (Selling Price * Qty)
     const totalTRSP = useMemo(() => activeItems.reduce((sum, item) => sum + (item.total || 0), 0), [activeItems]);
     const totalGP = totalTRSP - totalTSC;
@@ -590,17 +603,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         { key: 'action', label: t.actions },
     ];
 
-    const getPriceValue = (val: any) => {
-        if (typeof val === 'number') return val;
-        if (val && typeof val === 'object' && 'value' in val) return val.value;
-        return 0;
-    };
 
-    const getPriceField = (val: any): PriceField => {
-        if (val && typeof val === 'object' && 'strategy' in val) return val;
-        // Create a dummy wrapper for display if strictly number (should not happen after migration)
-        return { value: Number(val) || 0, strategy: 'MANUAL', manualOverride: Number(val) || 0 };
-    };
 
     // --- UNIFIED ROW RENDERING LOGIC ---
     const renderTableRows = (items: (MasterItem | BQItem)[], mode: 'catalog' | 'review') => {
