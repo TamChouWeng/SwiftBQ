@@ -71,7 +71,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     uom: 50,
     rexScFob: 70,
     forex: 50,
-    sst: 45,
+    sst: 50,
     opta: 50,
     rexScDdp: 110,
     rexSp: 110,
@@ -170,6 +170,14 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
       setCurrentPage(newPage);
     }
   };
+
+  // Reset scroll on page change
+  useEffect(() => {
+    if (bodyRef.current) {
+      bodyRef.current.scrollTop = 0;
+      bodyRef.current.scrollLeft = 0;
+    }
+  }, [currentPage]);
 
   const toggleColumn = (key: keyof typeof visibleColumns) => {
     setVisibleColumns(prev => ({ ...prev, [key]: !prev[key] }));

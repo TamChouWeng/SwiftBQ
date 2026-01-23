@@ -166,7 +166,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         axsku: 70,
         mpn: 70,
         group: 60,
-        category: 100,
+        category: 110,
         item: 140,
         description: 180,
         uom: 50,
@@ -195,6 +195,14 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     // --- Scroll Sync Refs ---
     const headerRef = useRef<HTMLDivElement>(null);
     const bodyRef = useRef<HTMLDivElement>(null);
+
+    // Reset scroll on page change
+    useEffect(() => {
+        if (bodyRef.current) {
+            bodyRef.current.scrollTop = 0;
+            bodyRef.current.scrollLeft = 0;
+        }
+    }, [currentPage]);
 
     // Derived State
     const activeProject = useMemo(() =>
@@ -805,27 +813,27 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* Forex */}
-                    {visibleColumns.forex && <td className="p-1 align-top">
+                    {visibleColumns.forex && <td className="p-1 align-middle">
                         {isReview ? (
-                            <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmtSensitive((bqItem as BQItem)?.forex || 0)}</div>
+                            <div className="text-sm font-normal text-slate-600 dark:text-slate-500 text-right">{fmtSensitive((bqItem as BQItem)?.forex || 0)}</div>
                         ) : (
                             <input tabIndex={1} type="number" value={displayItem.forex} onChange={(e) => handleCatalogEdit(itemId, 'forex', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
                         )}
                     </td>}
 
                     {/* SST */}
-                    {visibleColumns.sst && <td className="p-1 align-top">
+                    {visibleColumns.sst && <td className="p-1 align-middle">
                         {isReview ? (
-                            <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmtSensitive((bqItem as BQItem)?.sst || 0)}</div>
+                            <div className="text-sm font-normal text-slate-600 dark:text-slate-500 text-right">{fmtSensitive((bqItem as BQItem)?.sst || 0)}</div>
                         ) : (
                             <input tabIndex={1} type="number" value={displayItem.sst} onChange={(e) => handleCatalogEdit(itemId, 'sst', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
                         )}
                     </td>}
 
                     {/* OPTA */}
-                    {visibleColumns.opta && <td className="p-1 align-top">
+                    {visibleColumns.opta && <td className="p-1 align-middle">
                         {isReview ? (
-                            <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmtSensitive((bqItem as BQItem)?.opta || 0)}</div>
+                            <div className="text-sm font-normal text-slate-600 dark:text-slate-500 text-right">{fmtSensitive((bqItem as BQItem)?.opta || 0)}</div>
                         ) : (
                             <input tabIndex={1} type="number" value={displayItem.opta} onChange={(e) => handleCatalogEdit(itemId, 'opta', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
                         )}
@@ -876,14 +884,14 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* Calculated Columns */}
-                    {visibleColumns.rexTsc && <td className="p-1 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexTsc)}</td>}
-                    {visibleColumns.rexTsp && <td className="p-1 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexTsp)}</td>}
-                    {visibleColumns.rexTrsp && <td className="p-1 align-top text-right text-slate-500 font-bold text-sm">{fmt(rowRexTrsp)}</td>}
-                    {visibleColumns.rexGp && <td className="p-1 align-top text-right text-slate-500 font-normal text-xs">{fmt(rowRexGp)}</td>}
-                    {visibleColumns.rexGpPercent && <td className="p-1 align-top text-right text-slate-500 font-normal text-xs">{fmtPct(rowRexGpPercent)}</td>}
+                    {visibleColumns.rexTsc && <td className="p-1 align-middle text-right text-slate-500 font-normal text-sm">{fmt(rowRexTsc)}</td>}
+                    {visibleColumns.rexTsp && <td className="p-1 align-middle text-right text-slate-500 font-normal text-sm">{fmt(rowRexTsp)}</td>}
+                    {visibleColumns.rexTrsp && <td className="p-1 align-middle text-right text-slate-500 font-bold text-sm">{fmt(rowRexTrsp)}</td>}
+                    {visibleColumns.rexGp && <td className="p-1 align-middle text-right text-slate-500 font-normal text-sm">{fmt(rowRexGp)}</td>}
+                    {visibleColumns.rexGpPercent && <td className="p-1 align-middle text-right text-slate-500 font-normal text-sm">{fmtPct(rowRexGpPercent)}</td>}
 
                     {/* Optional */}
-                    {visibleColumns.isOptional && isReview && <td className="p-1 align-top text-center">
+                    {visibleColumns.isOptional && isReview && <td className="p-1 align-middle text-center">
                         <input
                             type="checkbox"
                             checked={isOptional}
@@ -1491,7 +1499,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                     headerRef.current.scrollLeft = (e.target as HTMLDivElement).scrollLeft;
                                 }
                             }}
-                            className="flex-1 overflow-auto"
+                            className="flex-1 overflow-auto [&::-webkit-scrollbar-corner]:bg-transparent"
                         >
                             <table className="text-left border-collapse table-fixed" style={{ width: totalTableWidth + 'px', minWidth: '100%' }}>
                                 <colgroup>
@@ -1575,7 +1583,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                     headerRef.current.scrollLeft = (e.target as HTMLDivElement).scrollLeft;
                                 }
                             }}
-                            className="flex-1 overflow-auto"
+                            className="flex-1 overflow-auto [&::-webkit-scrollbar-corner]:bg-transparent"
                         >
                             <table className="text-left border-collapse table-fixed" style={{ width: totalTableWidth + 'px', minWidth: '100%' }}>
                                 <colgroup>
