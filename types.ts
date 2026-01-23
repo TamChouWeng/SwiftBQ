@@ -19,6 +19,12 @@ export enum ActiveTab {
 
 export type BQViewMode = 'catalog' | 'review';
 
+export interface PriceField {
+  value: number;
+  strategy: string; // Strategy ID (e.g., 'DDP_FORMULA_A', 'MANUAL')
+  manualOverride?: number; // Stores the user-entered value if strategy is 'MANUAL'
+}
+
 export interface MasterItem {
   id: string;
   // New Columns A-D
@@ -30,18 +36,18 @@ export interface MasterItem {
   category: string;
   itemName: string;
   description: string; // Type
-  price: number; // Default Selling Price (RSP)
+  price: number; // Default Selling Price (RSP) - Kept for backward compatibility, syncs with rexRsp.value
   uom: string;
   // Columns N-T
   rexScFob: number;
   forex: number;
   sst: number;
   opta: number;
-  rexScDdp: number;
-  rexSp: number;
-  rexRsp: number;
-  // Hidden field for calculation
-  // spMargin removed
+
+  // Dynamic Pricing Columns
+  rexScDdp: PriceField;
+  rexSp: PriceField;
+  rexRsp: PriceField;
 }
 
 export interface ProjectVersion {
@@ -90,9 +96,9 @@ export interface BQItem {
   sst: number;
   opta: number;
 
-  rexScDdp: number;
-  rexSp: number;
-  rexRsp: number;
+  rexScDdp: PriceField;
+  rexSp: PriceField;
+  rexRsp: PriceField;
 
   // New field
   isOptional?: boolean;

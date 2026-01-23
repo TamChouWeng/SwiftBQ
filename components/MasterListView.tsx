@@ -2,8 +2,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Trash2, Search, ChevronLeft, ChevronRight, Filter, X, Eye, LayoutTemplate, Check, EyeOff, Save } from 'lucide-react';
 import { useAppStore, calculateDerivedFields } from '../store';
-import { AppLanguage, MasterItem } from '../types';
+import { AppLanguage, MasterItem, PriceField } from '../types';
 import { TRANSLATIONS } from '../constants';
+import SmartPriceCell from './SmartPriceCell';
+import { DDP_STRATEGIES, SP_STRATEGIES, RSP_STRATEGIES } from '../pricingStrategies';
 
 interface Props {
   currentLanguage: AppLanguage;
@@ -159,7 +161,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     setCurrentPage(1);
   }, [selectedCategories, selectedTypes, searchQuery, itemsPerPage]);
 
-  const handleEdit = (id: string, field: keyof MasterItem, value: string | number) => {
+  const handleEdit = (id: string, field: keyof MasterItem, value: any) => {
     setMasterListEdit(id, field, value);
   };
 
@@ -245,15 +247,15 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
       category: newItem.category!,
       description: newItem.description || '',
       itemName: newItem.itemName!,
-      price: Number(newItem.rexRsp) || 0,
+      price: newItem.rexRsp?.value || 0,
       uom: newItem.uom || 'Unit',
       rexScFob: Number(newItem.rexScFob) || 0,
       forex: Number(newItem.forex) || 1,
       sst: Number(newItem.sst) || 1,
       opta: Number(newItem.opta) || 0.97,
-      rexScDdp: Number(newItem.rexScDdp) || 0,
-      rexSp: Number(newItem.rexSp) || 0,
-      rexRsp: Number(newItem.rexRsp) || 0,
+      rexScDdp: newItem.rexScDdp || { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+      rexSp: newItem.rexSp || { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+      rexRsp: newItem.rexRsp || { value: 0, strategy: 'MANUAL', manualOverride: 0 },
       // spMargin removed
     };
     addMasterItem(itemToAdd);
@@ -514,9 +516,28 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                       {visibleColumns.sst && <td className="p-1"><input type="number" value={display.sst} onChange={(e) => handleEdit(item.id, 'sst', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
                       {visibleColumns.opta && <td className="p-1"><input type="number" value={display.opta} onChange={(e) => handleEdit(item.id, 'opta', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
 
-                      {visibleColumns.rexScDdp && <td className="p-1"><input type="number" value={display.rexScDdp} onChange={(e) => handleEdit(item.id, 'rexScDdp', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
-                      {visibleColumns.rexSp && <td className="p-1"><input type="number" value={display.rexSp} onChange={(e) => handleEdit(item.id, 'rexSp', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
-                      {visibleColumns.rexRsp && <td className="p-1"><input type="number" value={display.rexRsp} onChange={(e) => handleEdit(item.id, 'rexRsp', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
+
+                      {visibleColumns.rexScDdp && <td className="p-1">
+                        <SmartPriceCell
+                          field={display.rexScDdp as PriceField}
+                          strategies={DDP_STRATEGIES}
+                          onChange={(updates) => handleEdit(item.id, 'rexScDdp', { ...display.rexScDdp, ...updates })}
+                        />
+                      </td>}
+                      {visibleColumns.rexSp && <td className="p-1">
+                        <SmartPriceCell
+                          field={display.rexSp as PriceField}
+                          strategies={SP_STRATEGIES}
+                          onChange={(updates) => handleEdit(item.id, 'rexSp', { ...display.rexSp, ...updates })}
+                        />
+                      </td>}
+                      {visibleColumns.rexRsp && <td className="p-1">
+                        <SmartPriceCell
+                          field={display.rexRsp as PriceField}
+                          strategies={RSP_STRATEGIES}
+                          onChange={(updates) => handleEdit(item.id, 'rexRsp', { ...display.rexRsp, ...updates })}
+                        />
+                      </td>}
 
                       {visibleColumns.action && <td className="p-1 text-center">
                         <button onClick={() => deleteMasterItem(item.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={16} /></button>
@@ -655,15 +676,15 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                 {/* Read Only Calculated Fields */}
                 <div>
                   <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{t.rexScDdp}</label>
-                  <input type="number" value={newItem.rexScDdp} readOnly className="w-full bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-500 dark:text-slate-400 cursor-not-allowed focus:outline-none" />
+                  <input type="number" value={newItem.rexScDdp?.value ?? ''} readOnly className="w-full bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-500 dark:text-slate-400 cursor-not-allowed focus:outline-none" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{t.rexSp}</label>
-                  <input type="number" value={newItem.rexSp} readOnly className="w-full bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-500 dark:text-slate-400 cursor-not-allowed focus:outline-none" />
+                  <input type="number" value={newItem.rexSp?.value ?? ''} readOnly className="w-full bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-500 dark:text-slate-400 cursor-not-allowed focus:outline-none" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 font-bold">{t.rexRsp}</label>
-                  <input type="number" value={newItem.rexRsp} readOnly className="w-full bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-300 font-bold cursor-not-allowed focus:outline-none" />
+                  <input type="number" value={newItem.rexRsp?.value ?? ''} readOnly className="w-full bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-300 font-bold cursor-not-allowed focus:outline-none" />
                 </div>
               </div>
             </div>

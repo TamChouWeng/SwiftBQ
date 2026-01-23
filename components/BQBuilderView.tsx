@@ -2,8 +2,10 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical, AlertTriangle, Copy, ChevronDown, Save, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
 import { useAppStore } from '../store';
-import { AppLanguage, Project, BQItem, MasterItem } from '../types';
+import { AppLanguage, Project, BQItem, MasterItem, PriceField } from '../types';
 import { TRANSLATIONS } from '../constants';
+import SmartPriceCell from './SmartPriceCell';
+import { DDP_STRATEGIES, SP_STRATEGIES, RSP_STRATEGIES } from '../pricingStrategies';
 
 interface Props {
     currentLanguage: AppLanguage;
@@ -577,6 +579,18 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         { key: 'action', label: t.actions },
     ];
 
+    const getPriceValue = (val: any) => {
+        if (typeof val === 'number') return val;
+        if (val && typeof val === 'object' && 'value' in val) return val.value;
+        return 0;
+    };
+
+    const getPriceField = (val: any): PriceField => {
+        if (val && typeof val === 'object' && 'strategy' in val) return val;
+        // Create a dummy wrapper for display if strictly number (should not happen after migration)
+        return { value: Number(val) || 0, strategy: 'MANUAL', manualOverride: Number(val) || 0 };
+    };
+
     // --- UNIFIED ROW RENDERING LOGIC ---
     const renderTableRows = (items: (MasterItem | BQItem)[], mode: 'catalog' | 'review') => {
         if (items.length === 0) {
@@ -616,8 +630,8 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             // Calculations
             let rowRexScDdp = 0, rowRexSp = 0;
             // Calculations should respect staged edits in Catalog
-            rowRexScDdp = displayItem.rexScDdp || 0;
-            rowRexSp = displayItem.rexSp || 0;
+            rowRexScDdp = getPriceValue(displayItem.rexScDdp);
+            rowRexSp = getPriceValue(displayItem.rexSp);
 
 
 
@@ -645,7 +659,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             if (isReview && bqItem) {
                 rowRexTrsp = bqItem.total;
             } else {
-                rowRexTrsp = numQty * (displayItem.rexRsp || 0);
+                rowRexTrsp = numQty * getPriceValue(displayItem.rexRsp);
             }
 
             const rowRexGp = rowRexTrsp - rowRexTsc;
@@ -817,21 +831,45 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     {/* REX SC DDP */}
                     {visibleColumns.rexScDdp && <td className="p-1 align-top">
                         {isReview ? (
-                            <div className="text-xs font-normal text-slate-600 dark:text-slate-400 text-right">{fmt(rowRexScDdp)}</div>
+                            <SmartPriceCell
+                                field={getPriceField(displayItem.rexScDdp)}
+                                strategies={DDP_STRATEGIES}
+                                onChange={(updates) => updateBQItem(itemId, 'rexScDdp', { ...getPriceField(displayItem.rexScDdp), ...updates })}
+                            // Review mode likely shouldn't edit DDP directly unless intended. 
+                            // Assuming yes for dynamic pricing within quote.
+                            />
                         ) : (
-                            <input tabIndex={1} type="number" value={displayItem.rexScDdp} onChange={(e) => handleCatalogEdit(itemId, 'rexScDdp', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
+                            <SmartPriceCell
+                                field={getPriceField(displayItem.rexScDdp)}
+                                strategies={DDP_STRATEGIES}
+                                onChange={(updates) => handleCatalogEdit(itemId, 'rexScDdp', { ...getPriceField(displayItem.rexScDdp), ...updates })}
+                            />
                         )}
 
                     </td>}
 
                     {/* REX SP */}
                     {visibleColumns.rexSp && <td className="p-1 align-top">
-                        <input tabIndex={1} type="number" value={displayItem.rexSp} onChange={(e) => handleCatalogEdit(itemId, 'rexSp', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
+                        <SmartPriceCell
+                            field={getPriceField(displayItem.rexSp)}
+                            strategies={SP_STRATEGIES}
+                            onChange={(updates) => isReview
+                                ? updateBQItem(itemId, 'rexSp', { ...getPriceField(displayItem.rexSp), ...updates })
+                                : handleCatalogEdit(itemId, 'rexSp', { ...getPriceField(displayItem.rexSp), ...updates })
+                            }
+                        />
                     </td>}
 
                     {/* REX RSP - Placeholder */}
                     {visibleColumns.rexRsp && <td className="p-1 align-top">
-                        <input tabIndex={1} type="number" value={displayItem.rexRsp} onChange={(e) => handleCatalogEdit(itemId, 'rexRsp', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
+                        <SmartPriceCell
+                            field={getPriceField(displayItem.rexRsp)}
+                            strategies={RSP_STRATEGIES}
+                            onChange={(updates) => isReview
+                                ? updateBQItem(itemId, 'rexRsp', { ...getPriceField(displayItem.rexRsp), ...updates })
+                                : handleCatalogEdit(itemId, 'rexRsp', { ...getPriceField(displayItem.rexRsp), ...updates })
+                            }
+                        />
                     </td>}
 
                     {/* Calculated Columns */}

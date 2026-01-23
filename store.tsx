@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { MasterItem, BQItem, Project, AppSettings, BQViewMode } from './types';
+import { MasterItem, BQItem, Project, AppSettings, BQViewMode, PriceField } from './types';
+import { DDP_STRATEGIES, SP_STRATEGIES, RSP_STRATEGIES } from './pricingStrategies';
 
 interface AppContextType {
   masterData: MasterItem[];
@@ -77,6 +78,7 @@ const calcCeiling = (val: number, significance: number) => {
 };
 
 // Calculate derived fields
+// Calculate derived fields with strategy support
 export const calculateDerivedFields = (item: Partial<MasterItem>): Partial<MasterItem> => {
   // Robustly handle string inputs from edits and avoid NaN
   const safeNum = (val: any, def: number) => {
@@ -90,25 +92,90 @@ export const calculateDerivedFields = (item: Partial<MasterItem>): Partial<Maste
   const sst = safeNum(item.sst, 1);
   const opta = safeNum(item.opta, 0.97);
 
-  // Heuristic for precision
-  const isHighValue = fob > 500;
-  const precisionDDP = isHighValue ? 1 : 0.01;
-  const precisionSP = isHighValue ? 1 : 0.1;
+  // --- DDP Calculation ---
+  // Default to Manual if undefined, or preserve existing.
+  // We handle migration from plain numbers here by checking type
+  let ddpField: PriceField = { value: 0, strategy: 'MANUAL', manualOverride: 0 };
 
-  // Formula for DDP: CEILING((FOB * Forex * SST) / OPTA, precisionDDP)
-  const ddp = opta !== 0 ? calcCeiling((fob * forex * sst) / opta, precisionDDP) : 0;
+  if (item.rexScDdp) {
+    if (typeof item.rexScDdp === 'number') {
+      ddpField = { value: item.rexScDdp, strategy: 'MANUAL', manualOverride: item.rexScDdp };
+    } else {
+      ddpField = item.rexScDdp;
+    }
+  }
 
-  // Formula for SP: CEILING(DDP / 0.71, precisionSP)
-  const sp = calcCeiling(ddp / 0.71, precisionSP);
 
-  // RSP = SP
-  const rsp = sp;
+  // Create context for DDP strategy
+  const ddpContext = { fob, forex, sst, opta };
+
+  // Find strategy
+  const ddpStrategy = DDP_STRATEGIES.find(s => s.id === ddpField.strategy);
+  let ddpValue = 0;
+
+  if (ddpField.strategy === 'MANUAL') {
+    ddpValue = ddpField.manualOverride ?? 0;
+  } else if (ddpStrategy) {
+    ddpValue = ddpStrategy.calculate(ddpContext);
+  }
+
+  const newDdpField: PriceField = { ...ddpField, value: ddpValue };
+
+
+  // --- SP Calculation ---
+  let spField: PriceField = { value: 0, strategy: 'MANUAL', manualOverride: 0 };
+
+  if (item.rexSp) {
+    if (typeof item.rexSp === 'number') {
+      spField = { value: item.rexSp, strategy: 'MANUAL', manualOverride: item.rexSp };
+    } else {
+      spField = item.rexSp;
+    }
+  }
+
+  const spContext = { ddp: ddpValue };
+
+  const spStrategy = SP_STRATEGIES.find(s => s.id === spField.strategy);
+  let spValue = 0;
+
+  if (spField.strategy === 'MANUAL') {
+    spValue = spField.manualOverride ?? 0;
+  } else if (spStrategy) {
+    spValue = spStrategy.calculate(spContext);
+  }
+
+  const newSpField: PriceField = { ...spField, value: spValue };
+
+
+  // --- RSP Calculation ---
+  let rspField: PriceField = { value: 0, strategy: 'MANUAL', manualOverride: 0 };
+
+  if (item.rexRsp) {
+    if (typeof item.rexRsp === 'number') {
+      rspField = { value: item.rexRsp, strategy: 'MANUAL', manualOverride: item.rexRsp };
+    } else {
+      rspField = item.rexRsp;
+    }
+  }
+
+  const rspContext = { sp: spValue };
+
+  const rspStrategy = RSP_STRATEGIES.find(s => s.id === rspField.strategy);
+  let rspValue = 0;
+
+  if (rspField.strategy === 'MANUAL') {
+    rspValue = rspField.manualOverride ?? 0;
+  } else if (rspStrategy) {
+    rspValue = rspStrategy.calculate(rspContext);
+  }
+
+  const newRspField: PriceField = { ...rspField, value: rspValue };
 
   return {
-    rexScDdp: ddp,
-    rexSp: sp,
-    rexRsp: rsp,
-    price: rsp // Update main price to match RSP
+    rexScDdp: newDdpField,
+    rexSp: newSpField,
+    rexRsp: newRspField,
+    price: rspValue // Update main price to match RSP
   };
 };
 
@@ -130,12 +197,34 @@ const createItem = (
   // spMargin removed
   overrideRSP: number | null = null
 ): MasterItem => {
-  const derived = calculateDerivedFields({
+
+  const initialDdp: PriceField = { value: 0, strategy: 'MANUAL', manualOverride: 0 };
+  const initialSp: PriceField = { value: 0, strategy: 'MANUAL', manualOverride: 0 };
+  const initialRsp: PriceField = { value: 0, strategy: 'MANUAL', manualOverride: 0 };
+
+  // Calculate generic manually to handle the numbers
+  // Note: We use the existing 'MANUAL' initialization because the input values (fob/forex/etc)
+  // are the source of truth, and we want to calculate the initial values based on them IF we had strategies.
+  // But for backward compatibility with the hardcoded list, we just trigger a calculation cycle.
+
+  const baseItem: Partial<MasterItem> = {
     rexScFob: fob,
-    forex,
-    sst,
-    opta,
-  });
+    forex, sst, opta,
+    rexScDdp: initialDdp,
+    rexSp: initialSp,
+    rexRsp: initialRsp
+  };
+
+  const derived = calculateDerivedFields(baseItem);
+
+  // If override RSP was provided in legacy list, enforce it
+  let finalRsp = derived.rexRsp as PriceField;
+  let finalPrice = derived.price || 0;
+
+  if (overrideRSP !== null) {
+    finalRsp = { value: overrideRSP, strategy: 'MANUAL', manualOverride: overrideRSP };
+    finalPrice = overrideRSP;
+  }
 
   return {
     id,
@@ -147,14 +236,14 @@ const createItem = (
     itemName: item,
     description: type,
     uom,
-    price: overrideRSP ?? derived.rexRsp ?? 0,
+    price: finalPrice,
     rexScFob: fob,
     forex,
     sst,
     opta,
-    rexScDdp: derived.rexScDdp ?? 0,
-    rexSp: derived.rexSp ?? 0,
-    rexRsp: overrideRSP ?? derived.rexRsp ?? 0,
+    rexScDdp: derived.rexScDdp as PriceField,
+    rexSp: derived.rexSp as PriceField,
+    rexRsp: finalRsp,
   };
 };
 
@@ -615,23 +704,51 @@ const INITIAL_SETTINGS: AppSettings = {
 };
 
 // Migration helpers
+const migrateMasterData = (data: any[]): MasterItem[] => {
+  return data.map(item => {
+    // Check if valid already (simplified check)
+    if (item.rexScDdp && typeof item.rexScDdp === 'object' && 'strategy' in item.rexScDdp) {
+      return item as MasterItem;
+    }
+
+    // Migration logic: values to manual
+    return {
+      ...item,
+      rexScDdp: { value: item.rexScDdp || 0, strategy: 'MANUAL', manualOverride: item.rexScDdp || 0 },
+      rexSp: { value: item.rexSp || 0, strategy: 'MANUAL', manualOverride: item.rexSp || 0 },
+      rexRsp: { value: item.rexRsp || 0, strategy: 'MANUAL', manualOverride: item.rexRsp || 0 },
+      price: item.price || item.rexRsp || 0
+    };
+  });
+};
+
 const migrateProjects = (projects: any[]): Project[] => {
   return projects.map(p => ({
     ...p,
     versions: (p.versions || [{ id: 'v1', name: 'version-1', createdAt: new Date().toISOString() }]).map((v: any) => ({
       ...v,
-      masterSnapshot: v.masterSnapshot || p.masterSnapshot || INITIAL_MASTER_DATA // Migrate old project snapshot to version or use initial
+      masterSnapshot: migrateMasterData(v.masterSnapshot || p.masterSnapshot || [])
     })),
     discount: p.discount || 0
   }));
 };
 
 const migrateItems = (items: any[]): BQItem[] => {
-  return items.map(i => ({
-    ...i,
-    versionId: i.versionId || 'v1',
-    quotationDescription: i.quotationDescription // Migrate existing field if present
-  }));
+  return items.map(i => {
+    // Migrate BQ Item snapshots
+    const ddp = typeof i.rexScDdp === 'number' ? { value: i.rexScDdp, strategy: 'MANUAL', manualOverride: i.rexScDdp } : i.rexScDdp;
+    const sp = typeof i.rexSp === 'number' ? { value: i.rexSp, strategy: 'MANUAL', manualOverride: i.rexSp } : i.rexSp;
+    const rsp = typeof i.rexRsp === 'number' ? { value: i.rexRsp, strategy: 'MANUAL', manualOverride: i.rexRsp } : i.rexRsp;
+
+    return {
+      ...i,
+      versionId: i.versionId || 'v1',
+      quotationDescription: i.quotationDescription,
+      rexScDdp: ddp,
+      rexSp: sp,
+      rexRsp: rsp
+    };
+  });
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -640,7 +757,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [masterData, setMasterData] = useState<MasterItem[]>(() => {
     try {
       const saved = localStorage.getItem('swiftbq_masterData_v1');
-      return saved ? JSON.parse(saved) : INITIAL_MASTER_DATA;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return migrateMasterData(parsed);
+      }
+      return INITIAL_MASTER_DATA;
     } catch (e) {
       return INITIAL_MASTER_DATA;
     }
@@ -730,11 +851,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMasterData((prev) =>
       prev.map((item) => {
         if (item.id === id) {
-          const isCalculationNeeded =
-            'rexScFob' in updates || 'forex' in updates || 'sst' in updates || 'opta' in updates;
+          const calcTriggers: (keyof MasterItem)[] = ['rexScFob', 'forex', 'sst', 'opta', 'rexScDdp', 'rexSp', 'rexRsp'];
+          const isCalculationNeeded = calcTriggers.some(key => key in updates);
 
           if (isCalculationNeeded) {
             const merged = { ...item, ...updates };
+            // Ensure derived fields are calculated based on the merged state
             const derived = calculateDerivedFields(merged);
             return { ...merged, ...derived };
           }
@@ -764,7 +886,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const mergedForCalc = { ...currentItem, ...existingEdits, [field]: value };
 
       let derivedUpdates = {};
-      if (['rexScFob', 'forex', 'sst', 'opta'].includes(field as string)) {
+      if (['rexScFob', 'forex', 'sst', 'opta', 'rexScDdp', 'rexSp', 'rexRsp'].includes(field as string)) {
         derivedUpdates = calculateDerivedFields(mergedForCalc);
       }
 
@@ -780,17 +902,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setMasterData(prev => prev.map(item => {
       if (masterListEdits[item.id]) {
-        const edits = masterListEdits[item.id];
-        const numericFields: (keyof MasterItem)[] = ['price', 'rexScFob', 'forex', 'sst', 'opta', 'rexScDdp', 'rexSp', 'rexRsp'];
-        const sanitizedEdits = { ...edits };
-
-        numericFields.forEach(field => {
-          if (sanitizedEdits[field] !== undefined) {
-            (sanitizedEdits[field] as any) = Number(sanitizedEdits[field]) || 0;
-          }
-        });
-
-        return { ...item, ...sanitizedEdits };
+        // masterListEdits contains proper PriceField objects now thanks to calculateDerivedFields
+        return { ...item, ...masterListEdits[item.id] };
       }
       return item;
     }));
@@ -1011,9 +1124,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       forex: 1,
       sst: 1,
       opta: 1,
-      rexScDdp: 0,
-      rexSp: 0,
-      rexRsp: 0,
+      rexScDdp: { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+      rexSp: { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+      rexRsp: { value: 0, strategy: 'MANUAL', manualOverride: 0 },
       isOptional: false,
     };
     setBqItems([...bqItems, newItem]);
@@ -1056,9 +1169,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           group: masterItem.group,
 
           // Costing Snapshot
-          price: masterItem.rexRsp, // Default Price is RSP
+          price: masterItem.rexRsp.value, // Default Price is RSP value
           qty: qty,
-          total: masterItem.rexRsp * qty,
+          total: masterItem.rexRsp.value * qty,
 
           rexScFob: masterItem.rexScFob,
           forex: masterItem.forex,
