@@ -66,16 +66,16 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     mpn: 60,
     group: 50,
     category: 100,
-    description: 120, // Type
+    description: 120,
     itemName: 160,
     uom: 50,
     rexScFob: 70,
     forex: 50,
     sst: 45,
     opta: 50,
-    rexScDdp: 70,
-    rexSp: 70,
-    rexRsp: 70,
+    rexScDdp: 110,
+    rexSp: 110,
+    rexRsp: 110,
     action: 50
   });
 

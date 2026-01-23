@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { MasterItem, BQItem, Project, AppSettings, BQViewMode, PriceField } from './types';
 import { DDP_STRATEGIES, SP_STRATEGIES, RSP_STRATEGIES } from './pricingStrategies';
+import { ITEM_STRATEGIES } from './initialDataStrategies';
 
 interface AppContextType {
   masterData: MasterItem[];
@@ -248,7 +249,7 @@ const createItem = (
 };
 
 // Parsed Data from CSV with robust calculations
-const INITIAL_MASTER_DATA: MasterItem[] = [
+const RAW_MASTER_DATA: MasterItem[] = [
   // --- EV CHARGER ---
   createItem('1', "SIEMENS", "", "CPC50CC-M", "50", "EV CHARGER", "ALPITRONIC", "50 KW HYC50", "Unit", 99000, 1, 1.08, 1),
   createItem('2', "SIEMENS", "", "CPC50CC-M", "50", "EV CHARGER", "ALPITRONIC", "200KW HYC200", "Unit", 249000, 1, 1.08, 1),
@@ -690,6 +691,50 @@ const INITIAL_MASTER_DATA: MasterItem[] = [
   createItem('429', "", "", "", "", "OTHERS", "MISCELLANEOUS", "STICKER + INSTALLATION (SCAPEMEDIA) - 180kW", "Unit", 1836, 1, 1, 1),
   createItem('430', "", "", "", "", "OTHERS", "MISCELLANEOUS", "STICKER + INSTALLATION OUTSTATION (OUTSIDE KV) - VOOH", "Unit", 1324.08, 1, 1, 1),
 ];
+
+const mapStrategy = (raw: string, type: 'DDP' | 'SP' | 'RSP'): PriceField => {
+  if (!raw) return { value: 0, strategy: 'MANUAL', manualOverride: 0 };
+
+  // Clean string
+  const clean = raw.trim();
+
+  // Handle Numbers
+  const num = Number(clean);
+  if (!isNaN(num)) {
+    return { value: num, strategy: 'MANUAL', manualOverride: num };
+  }
+
+  // Handle "Formula X"
+  const match = clean.match(/Formula\s+([A-Z])/i);
+  if (match) {
+    const letter = match[1].toUpperCase();
+    return { value: 0, strategy: `${type}_FORMULA_${letter}`, manualOverride: 0 };
+  }
+
+  // Default fallback
+  return { value: 0, strategy: 'MANUAL', manualOverride: 0 };
+};
+
+const INITIAL_MASTER_DATA: MasterItem[] = RAW_MASTER_DATA.map((item, index) => {
+  const strategy = ITEM_STRATEGIES[index];
+  if (!strategy) return item;
+
+  const newDdp = mapStrategy(strategy.ddp, 'DDP');
+  const newSp = mapStrategy(strategy.sp, 'SP');
+  const newRsp = mapStrategy(strategy.rsp, 'RSP');
+
+  // We need to re-calculate values based on these strategies
+  // We can treat the item as Partial<MasterItem> with the new strategies
+  const base: Partial<MasterItem> = {
+    ...item,
+    rexScDdp: newDdp,
+    rexSp: newSp,
+    rexRsp: newRsp
+  };
+
+  const derived = calculateDerivedFields(base);
+  return { ...item, ...derived } as MasterItem;
+});
 
 const INITIAL_SETTINGS: AppSettings = {
   companyName: 'Recharge Xolutions Sdn Bhd (0295251X)',
