@@ -1,6 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { MasterItem, BQItem, Project, AppSettings, BQViewMode } from './types';
+import { PriceField, MasterItem } from './types';
+import { DDP_STRATEGIES, SP_STRATEGIES, RSP_STRATEGIES, PricingContext } from './pricing/pricingLogic';
 
 interface AppContextType {
   masterData: MasterItem[];
@@ -726,12 +728,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMasterData(prev => [...prev, item]);
   };
 
+const createDefaultPriceField = (overrides?: Partial<PriceField>): PriceField => ({
+  value: 0,
+  strategy: 'MANUAL',
+  manualOverride: undefined,
+  ...overrides
+});
+
+export const calculateDerivedFields = (item: MasterItem): Partial<MasterItem> => {
+  const baseCtx: PricingContext = {
+    fob: item.rexScFob ?? 0,
+    forex: item.forex ?? 1,
+    sst: item.sst ?? 1,
+    opta: item.opta ?? 1
+  };
+
+  const ddpField: PriceField = item.rexScDdp ?? createDefaultPriceField();
+  const spField: PriceField = item.rexSp ?? createDefaultPriceField();
+  const rspField: PriceField = item.rexRsp ?? createDefaultPriceField();
+
+  let ddpValue: number;
+  if (ddpField.strategy === 'MANUAL') ddpValue = ddpField.manualOverride ?? ddpField.value ?? 0;
+  else ddpValue = DDP_STRATEGIES[ddpField.strategy]?.calculate(baseCtx) ?? ddpField.value ?? 0;
+  const newDdpField: PriceField = { ...ddpField, value: ddpValue };
+
+  const ctxWithDdp: PricingContext = { ...baseCtx, ddp: ddpValue };
+  let spValue: number;
+  if (spField.strategy === 'MANUAL') spValue = spField.manualOverride ?? spField.value ?? 0;
+  else spValue = SP_STRATEGIES[spField.strategy]?.calculate(ctxWithDdp) ?? spField.value ?? 0;
+  const newSpField: PriceField = { ...spField, value: spValue };
+
+  const ctxWithSp: PricingContext = { ...ctxWithDdp, sp: spValue };
+  let rspValue: number;
+  if (rspField.strategy === 'MANUAL') rspValue = rspField.manualOverride ?? rspField.value ?? 0;
+  else rspValue = RSP_STRATEGIES[rspField.strategy]?.calculate(ctxWithSp) ?? rspField.value ?? 0;
+  const newRspField: PriceField = { ...rspField, value: rspValue };
+
+  return {
+    rexScDdp: newDdpField,
+    rexSp: newSpField,
+    rexRsp: newRspField,
+    price: newRspField.value
+  };
+};
+  
   const updateMasterItem = (id: string, updates: Partial<MasterItem>) => {
     setMasterData((prev) =>
       prev.map((item) => {
         if (item.id === id) {
           const isCalculationNeeded =
-            'rexScFob' in updates || 'forex' in updates || 'sst' in updates || 'opta' in updates;
+  'rexScFob' in updates ||
+  'forex' in updates ||
+  'sst' in updates ||
+  'opta' in updates ||
+  'rexScDdp' in updates ||
+  'rexSp' in updates ||
+  'rexRsp' in updates;
 
           if (isCalculationNeeded) {
             const merged = { ...item, ...updates };
@@ -745,6 +797,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+// Example normalization when parsing saved masterData:
+const normalized = parsed.map((m: any) => ({
+  ...m,
+  rexScDdp: m.rexScDdp && typeof m.rexScDdp === 'object' ? m.rexScDdp : createDefaultPriceField({ value: Number(m.rexScDdp) || 0 }),
+  rexSp: m.rexSp && typeof m.rexSp === 'object' ? m.rexSp : createDefaultPriceField({ value: Number(m.rexSp) || 0 }),
+  rexRsp: m.rexRsp && typeof m.rexRsp === 'object' ? m.rexRsp : createDefaultPriceField({ value: Number(m.rexRsp) || 0 }),
+}));
+  
   const deleteMasterItem = (id: string) => {
     setMasterData(prev => prev.filter((item) => item.id !== id));
     if (masterListEdits[id]) {
