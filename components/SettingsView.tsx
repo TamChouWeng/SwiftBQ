@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Moon, Sun, Globe, Info, Check, Building, User, ShieldCheck, Trash2, Upload } from 'lucide-react';
+import { Moon, Sun, Globe, Info, Check, Building, User, ShieldCheck, Trash2, Upload, LogOut } from 'lucide-react';
 import { AppLanguage, AppTheme, LANGUAGES } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { useAppStore } from '../store';
@@ -132,17 +132,30 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                             </div>
                             <h3 className="font-semibold text-slate-900 dark:text-white">{t.profileSettings}</h3>
                         </div>
-                        <button
-                            onClick={handleProfileSave}
-                            disabled={!isProfileDirty}
-                            className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${isProfileDirty
-                                ? 'bg-green-500 border-green-600 text-white shadow-lg shadow-green-500/30 hover:bg-green-600'
-                                : 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-400 dark:text-slate-500 cursor-not-allowed'
-                                }`}
-                            title="Save Profile Changes"
-                        >
-                            <Check size={20} strokeWidth={3} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => {
+                                    if (window.confirm('Are you sure you want to sign out?')) {
+                                        logout();
+                                    }
+                                }}
+                                className="w-10 h-10 flex items-center justify-center rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all"
+                                title="Sign Out"
+                            >
+                                <LogOut size={20} strokeWidth={2} />
+                            </button>
+                            <button
+                                onClick={handleProfileSave}
+                                disabled={!isProfileDirty}
+                                className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${isProfileDirty
+                                    ? 'bg-green-500 border-green-600 text-white shadow-lg shadow-green-500/30 hover:bg-green-600'
+                                    : 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-400 dark:text-slate-500 cursor-not-allowed'
+                                    }`}
+                                title="Save Profile Changes"
+                            >
+                                <Check size={20} strokeWidth={3} />
+                            </button>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

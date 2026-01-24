@@ -86,10 +86,6 @@ const LoginView: React.FC = () => {
                         {loading ? 'Signing in...' : 'Sign in'}
                     </button>
                 </form>
-
-                <div className="mt-4 text-center text-xs text-slate-400">
-                    <p>Default: Teoh Chi Yang / 12345</p>
-                </div>
             </div>
         </div>
     );
