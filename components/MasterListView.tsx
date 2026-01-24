@@ -240,14 +240,16 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
       brand: '', axsku: '', mpn: '', group: '',
       category: '', description: '', itemName: '',
       price: 0, uom: 'Unit', rexScFob: 0, forex: 1, sst: 1, opta: 0.97,
-      rexScDdp: 0, rexSp: 0, rexRsp: 0 // spMargin removed
+      rexScDdp: { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+      rexSp: { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+      rexRsp: { value: 0, strategy: 'MANUAL', manualOverride: 0 }
     });
     setIsModalOpen(true);
   };
 
   const saveNewItem = () => {
-    if (!newItem.category || !newItem.itemName) {
-      alert("Category and Item Name are required.");
+    if (!newItem.category || !newItem.itemName || !newItem.description) {
+      alert("Category, Item Name, and Description are required.");
       return;
     }
     const itemToAdd: MasterItem = {
@@ -464,12 +466,13 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
           </div>
 
           {/* Add Button */}
+          {/* Add Button */}
           <button
             onClick={openModal}
-            className="flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition-colors shadow-lg shadow-primary-500/30 whitespace-nowrap h-10"
+            className="w-10 h-10 flex items-center justify-center bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors shadow-lg shadow-primary-500/30"
+            title={t.addRow}
           >
-            <Plus size={18} />
-            <span>{t.addRow}</span>
+            <Plus size={20} />
           </button>
         </div>
       </div>
@@ -689,22 +692,22 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
 
               {/* Category */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.category}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.category} <span className="text-red-500">*</span></label>
                 <input list="category-options" value={newItem.category} onChange={(e) => setNewItem({ ...newItem, category: e.target.value })} placeholder="Select or type new category" className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
                 <datalist id="category-options">{allUniqueCategories.map(c => <option key={c} value={c} />)}</datalist>
               </div>
 
-              {/* Type */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.typeColumn}</label>
-                <input list="type-options" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} placeholder="Select or type new type" className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
-                <datalist id="type-options">{alluniqueItems.map(t => <option key={t} value={t} />)}</datalist>
-              </div>
-
               {/* Item Name */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.item}</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.item} <span className="text-red-500">*</span></label>
                 <input type="text" value={newItem.itemName} onChange={(e) => setNewItem({ ...newItem, itemName: e.target.value })} placeholder="Item name" className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+              </div>
+
+              {/* Description (Formerly Type) */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.description} <span className="text-red-500">*</span></label>
+                <input list="type-options" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} placeholder="Select or type description" className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                <datalist id="type-options">{alluniqueItems.map(t => <option key={t} value={t} />)}</datalist>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -736,18 +739,30 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
               </div>
 
               <div className="grid grid-cols-3 gap-4 border-t border-gray-100 dark:border-slate-700 pt-4">
-                {/* Read Only Calculated Fields */}
+                {/* Calculated Fields with Smart Price Formulas */}
                 <div>
                   <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{t.rexScDdp}</label>
-                  <input type="number" value={newItem.rexScDdp?.value ?? ''} readOnly className="w-full bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-500 dark:text-slate-400 cursor-not-allowed focus:outline-none" />
+                  <SmartPriceCell
+                    field={newItem.rexScDdp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }}
+                    strategies={DDP_STRATEGIES}
+                    onChange={(updates) => setNewItem({ ...newItem, rexScDdp: { ...(newItem.rexScDdp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }), ...updates } })}
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{t.rexSp}</label>
-                  <input type="number" value={newItem.rexSp?.value ?? ''} readOnly className="w-full bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-500 dark:text-slate-400 cursor-not-allowed focus:outline-none" />
+                  <SmartPriceCell
+                    field={newItem.rexSp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }}
+                    strategies={SP_STRATEGIES}
+                    onChange={(updates) => setNewItem({ ...newItem, rexSp: { ...(newItem.rexSp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }), ...updates } })}
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 font-bold">{t.rexRsp}</label>
-                  <input type="number" value={newItem.rexRsp?.value ?? ''} readOnly className="w-full bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-300 font-bold cursor-not-allowed focus:outline-none" />
+                  <SmartPriceCell
+                    field={newItem.rexRsp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }}
+                    strategies={RSP_STRATEGIES}
+                    onChange={(updates) => setNewItem({ ...newItem, rexRsp: { ...(newItem.rexRsp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }), ...updates } })}
+                  />
                 </div>
               </div>
             </div>
