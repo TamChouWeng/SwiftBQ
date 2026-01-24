@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical, AlertTriangle, Copy, ChevronDown, Save, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
-import { useAppStore } from '../store';
+import { useAppStore, calculateDerivedFields } from '../store';
 import { AppLanguage, Project, BQItem, MasterItem, PriceField } from '../types';
 import { TRANSLATIONS } from '../constants';
 import SmartPriceCell from './SmartPriceCell';
@@ -395,15 +395,23 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     const handleCatalogEdit = (id: string, field: keyof MasterItem, value: any) => {
         setStagedEdits(prev => {
             const currentStaged = prev[id] || {};
-            const newStaged = { ...prev, [id]: { ...currentStaged, [field]: value } };
+
+            // Calculate derived fields (DDP, SP, RSP) based on updates
+            // We need the base item to have complete context for calculation
+            const baseItem = catalogSource.find(m => m.id === id);
+            const itemContext = { ...(baseItem || {}), ...currentStaged, [field]: value } as Partial<MasterItem>;
+            const derived = calculateDerivedFields(itemContext);
+
+            const newStagedItem = { ...currentStaged, [field]: value, ...derived };
+            const newStaged = { ...prev, [id]: newStagedItem };
 
             // If item is already added (Qty > 0), live update the BQ Item to reflect changes
             const currentQty = getQtyForMasterItem(id);
             if (currentQty && Number(currentQty) > 0 && activeProject && currentVersionId) {
                 // Use catalogSource (Snapshot) as base
-                const masterItem = catalogSource.find(m => m.id === id);
+                const masterItem = baseItem; // Reused from above
                 if (masterItem) {
-                    const mergedItem = { ...masterItem, ...newStaged[id] } as MasterItem;
+                    const mergedItem = { ...masterItem, ...newStagedItem } as MasterItem;
                     // Defer sync to avoid state update conflict/race
                     const qtyVal = Number(currentQty);
                     setTimeout(() => {
@@ -687,7 +695,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             return (
                 <tr
                     key={itemId}
-                    className={`transition-colors group ${isDragging ? 'opacity-50 bg-primary-50 dark:bg-primary-900/20' : 'hover:bg-gray-50 dark:hover:bg-slate-700/30'} ${(!isReview && stagedEdits[itemId]) ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : ''}`}
+                    className={`transition-colors group hover:bg-gray-50 dark:hover:bg-slate-700/30 ${(!isReview && stagedEdits[itemId]) ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : ''}`}
                     draggable={isReview}
                     onDragStart={isReview ? (e) => handleDragStart(e, index) : undefined}
                     onDragOver={isReview ? handleDragOver : undefined}
@@ -849,6 +857,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                 field={getPriceField(displayItem.rexScDdp)}
                                 strategies={DDP_STRATEGIES}
                                 onChange={(updates) => updateBQItem(itemId, 'rexScDdp', { ...getPriceField(displayItem.rexScDdp), ...updates })}
+                                disabled={true}
                             // Review mode likely shouldn't edit DDP directly unless intended. 
                             // Assuming yes for dynamic pricing within quote.
                             />
@@ -871,6 +880,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                 ? updateBQItem(itemId, 'rexSp', { ...getPriceField(displayItem.rexSp), ...updates })
                                 : handleCatalogEdit(itemId, 'rexSp', { ...getPriceField(displayItem.rexSp), ...updates })
                             }
+                            disabled={isReview}
                         />
                     </td>}
 
@@ -883,6 +893,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                 ? updateBQItem(itemId, 'rexRsp', { ...getPriceField(displayItem.rexRsp), ...updates })
                                 : handleCatalogEdit(itemId, 'rexRsp', { ...getPriceField(displayItem.rexRsp), ...updates })
                             }
+                            disabled={isReview}
                         />
                     </td>}
 
