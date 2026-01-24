@@ -423,7 +423,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                             </div>
                         </div>
                         <div className="px-3 py-1 bg-gray-100 dark:bg-slate-700 rounded-full border border-gray-200 dark:border-slate-600">
-                            <span className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">Beta 2.1</span>
+                            <span className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">Beta 2.2</span>
                         </div>
                     </div>
                 </div>
