@@ -266,9 +266,9 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 const tableCells = clone.querySelectorAll('td');
                 tableCells.forEach(td => {
                     // Ensure padding is sufficient for text
-                    td.style.paddingTop = '2px';
-                    td.style.paddingBottom = '2px';
-                    td.style.verticalAlign = 'top';
+                    td.style.paddingTop = '6px';
+                    td.style.paddingBottom = '6px';
+                    td.style.verticalAlign = 'middle';
                 });
 
                 document.body.appendChild(clone);
