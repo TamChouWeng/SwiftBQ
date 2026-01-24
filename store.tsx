@@ -1088,10 +1088,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (update) {
           const newItem = { ...item, ...update };
           if (update.price !== undefined || update.rexRsp !== undefined) {
-            const newPrice = update.rexRsp ?? update.price ?? item.price;
-            newItem.price = newPrice;
-            newItem.rexRsp = newPrice;
-            newItem.total = newPrice * item.qty;
+            let rRsp = undefined;
+            if (update.rexRsp) {
+              // Handle PriceField object vs number vs legacy
+              if (typeof update.rexRsp === 'object' && 'value' in update.rexRsp) {
+                rRsp = update.rexRsp.value;
+              } else if (typeof update.rexRsp === 'number') {
+                rRsp = update.rexRsp;
+              }
+            }
+
+            const newPrice = rRsp ?? update.price ?? item.price;
+            const safePrice = isNaN(newPrice) ? 0 : newPrice;
+            newItem.price = safePrice;
+            // Ensure rexRsp on BQItem is also the full object if available, merging carefully
+            if (update.rexRsp && typeof update.rexRsp === 'object') {
+              newItem.rexRsp = { ...item.rexRsp, ...update.rexRsp };
+            } else if (typeof update.rexRsp === 'number') {
+              // If somehow number, wrap it (shouldn't happen with new logic but safe fallback)
+              newItem.rexRsp = { value: update.rexRsp, strategy: 'MANUAL', manualOverride: update.rexRsp };
+            }
+
+            newItem.total = safePrice * item.qty;
           }
           return newItem as BQItem;
         }
@@ -1189,12 +1207,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (existingIndex > -1) {
         const newItems = [...prev];
         const currentItem = newItems[existingIndex];
-        const updatedTotal = currentItem.price * qty;
+        // Safety check for price
+        const safePrice = isNaN(currentItem.price) ? 0 : currentItem.price;
+        const safeQty = isNaN(qty) ? 0 : qty;
+        const updatedTotal = safePrice * safeQty;
 
         newItems[existingIndex] = {
           ...currentItem,
-          qty: qty,
-          total: updatedTotal
+          qty: safeQty,
+          total: isNaN(updatedTotal) ? 0 : updatedTotal
         };
         return newItems;
       } else {
@@ -1216,7 +1237,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           // Costing Snapshot
           price: masterItem.rexRsp.value, // Default Price is RSP value
           qty: qty,
-          total: masterItem.rexRsp.value * qty,
+          total: (masterItem.rexRsp.value || 0) * (qty || 0),
 
           rexScFob: masterItem.rexScFob,
           forex: masterItem.forex,
@@ -1254,7 +1275,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (field === 'price' || field === 'qty') {
             const p = field === 'price' ? processedValue : item.price;
             const q = field === 'qty' ? processedValue : item.qty;
-            updated.total = p * q;
+            const safeP = isNaN(p) ? 0 : p;
+            const safeQ = isNaN(q) ? 0 : q;
+            updated.total = safeP * safeQ;
           }
           return updated;
         }
@@ -1281,9 +1304,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const project = projects.find(p => p.id === projectId);
     const discount = project?.discount || 0;
     const projectItems = bqItems.filter(i => i.projectId === projectId && i.versionId === versionId && !i.isOptional);
-    const subtotal = projectItems.reduce((acc, item) => acc + item.total, 0);
+
+    // Summation of REX TRSP (which is stored in item.total)
+    const subtotal = projectItems.reduce((acc, item) => acc + (isNaN(item.total) ? 0 : item.total), 0);
+
     const tax = 0;
-    const grandTotal = subtotal + tax - discount;
+    // Grand Total is Subtotal - Discount
+    const grandTotal = subtotal + tax - (isNaN(discount) ? 0 : discount);
+
     return { subtotal, tax, grandTotal, discount };
   };
 
