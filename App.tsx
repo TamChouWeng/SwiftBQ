@@ -6,11 +6,19 @@ import MasterListView from './components/MasterListView';
 import BQBuilderView from './components/BQBuilderView';
 import QuotationView from './components/QuotationView';
 import { AppTheme, AppLanguage, ActiveTab } from './types';
-import { AppProvider } from './store';
+import { AppProvider, useAppStore } from './store';
+import LoginView from './components/LoginView';
+
 
 const AppContent: React.FC = () => {
   // --- State ---
-  
+  const { user } = useAppStore();
+
+  if (!user) {
+    return <LoginView />;
+  }
+
+
   // Persist Sidebar State
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     return localStorage.getItem('swiftbq_sidebarOpen') === 'true';
@@ -21,7 +29,7 @@ const AppContent: React.FC = () => {
     const saved = localStorage.getItem('swiftbq_activeTab');
     return (saved as ActiveTab) || ActiveTab.MASTER_LIST;
   });
-  
+
   // Theme State (Persisted)
   const [theme, setTheme] = useState<AppTheme>(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -63,7 +71,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 transition-colors duration-300 font-sans flex overflow-hidden">
-      
+
       {/* Sidebar Component */}
       <Sidebar
         isOpen={isSidebarOpen}
@@ -74,10 +82,9 @@ const AppContent: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <div 
-        className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out ${
-           isSidebarOpen ? 'md:ml-72' : 'ml-0'
-        }`}
+      <div
+        className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'md:ml-72' : 'ml-0'
+          }`}
       >
         {/* Mobile Header / Sidebar Toggle */}
         <div className="sticky top-0 z-30 flex items-center p-4 md:hidden bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-100 dark:border-slate-800">
@@ -90,19 +97,19 @@ const AppContent: React.FC = () => {
           </button>
           <span className="ml-3 font-semibold text-slate-800 dark:text-white md:hidden">SwitftBQ</span>
         </div>
-        
+
         {/* Desktop Toggle Button (Floating) - Only visible when closed */}
         {!isSidebarOpen && (
-            <div className="hidden md:block fixed top-6 left-6 z-30">
-                 <button
-                    onClick={() => setIsSidebarOpen(true)}
-                    className="p-3 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full shadow-lg border border-gray-100 dark:border-slate-700 hover:text-primary-500 dark:hover:text-primary-400 hover:scale-110 transition-all duration-200"
-                    aria-label="Open sidebar"
-                    title="Open Sidebar"
-                >
-                    <Menu size={24} />
-                </button>
-            </div>
+          <div className="hidden md:block fixed top-6 left-6 z-30">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-3 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full shadow-lg border border-gray-100 dark:border-slate-700 hover:text-primary-500 dark:hover:text-primary-400 hover:scale-110 transition-all duration-200"
+              aria-label="Open sidebar"
+              title="Open Sidebar"
+            >
+              <Menu size={24} />
+            </button>
+          </div>
         )}
 
         {/* Content Wrapper */}

@@ -21,8 +21,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({
     isSidebarOpen,
 }) => {
     const t = TRANSLATIONS[currentLanguage];
-    const { appSettings, setAppSettings } = useAppStore();
+    const { appSettings, setAppSettings, logout, user } = useAppStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
+
 
     // Local state for profile form to defer updates until confirmation
     const [profileForm, setProfileForm] = useState({
@@ -177,6 +178,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                                 <ShieldCheck className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                             </div>
                         </div>
+
                     </div>
                 </div>
             </section>

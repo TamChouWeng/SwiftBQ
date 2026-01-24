@@ -1,8 +1,180 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { MasterItem, BQItem, Project, AppSettings, BQViewMode, PriceField } from './types';
+import { MasterItem, BQItem, Project, AppSettings, BQViewMode, PriceField, ProjectVersion } from './types';
 import { DDP_STRATEGIES, SP_STRATEGIES, RSP_STRATEGIES } from './pricingStrategies';
 import { ITEM_STRATEGIES } from './initialDataStrategies';
+import { createClient } from '@supabase/supabase-js';
+
+// --- Supabase Client ---
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('Supabase URL or Anon Key is missing. Please check your .env.local file.');
+}
+
+export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+
+
+// --- Mappers ---
+/* Copy of Mappers from mappers.ts */
+
+// --- Master Item Mappers ---
+export const mapMasterItemFromDB = (dbItem: any): MasterItem => ({
+  id: dbItem.id,
+  brand: dbItem.brand,
+  axsku: dbItem.axsku,
+  mpn: dbItem.mpn,
+  group: dbItem.group,
+  category: dbItem.category,
+  itemName: dbItem.item_name,
+  description: dbItem.description,
+  uom: dbItem.uom,
+  price: Number(dbItem.price) || 0,
+  rexScFob: Number(dbItem.rex_sc_fob) || 0,
+  forex: Number(dbItem.forex) || 1,
+  sst: Number(dbItem.sst) || 1,
+  opta: Number(dbItem.opta) || 0.97,
+  rexScDdp: dbItem.rex_sc_ddp || { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+  rexSp: dbItem.rex_sp || { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+  rexRsp: dbItem.rex_rsp || { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+});
+
+export const mapMasterItemToDB = (item: Partial<MasterItem>) => {
+  const dbItem: any = {};
+  if (item.id) dbItem.id = item.id;
+  if (item.brand !== undefined) dbItem.brand = item.brand;
+  if (item.axsku !== undefined) dbItem.axsku = item.axsku;
+  if (item.mpn !== undefined) dbItem.mpn = item.mpn;
+  if (item.group !== undefined) dbItem.group = item.group;
+  if (item.category !== undefined) dbItem.category = item.category;
+  if (item.itemName !== undefined) dbItem.item_name = item.itemName;
+  if (item.description !== undefined) dbItem.description = item.description;
+  if (item.uom !== undefined) dbItem.uom = item.uom;
+  if (item.price !== undefined) dbItem.price = item.price;
+  if (item.rexScFob !== undefined) dbItem.rex_sc_fob = item.rexScFob;
+  if (item.forex !== undefined) dbItem.forex = item.forex;
+  if (item.sst !== undefined) dbItem.sst = item.sst;
+  if (item.opta !== undefined) dbItem.opta = item.opta;
+  if (item.rexScDdp !== undefined) dbItem.rex_sc_ddp = item.rexScDdp;
+  if (item.rexSp !== undefined) dbItem.rex_sp = item.rexSp;
+  if (item.rexRsp !== undefined) dbItem.rex_rsp = item.rexRsp;
+  return dbItem;
+};
+
+// --- Project Mappers ---
+export const mapProjectFromDB = (dbProject: any, versions: ProjectVersion[] = []): Project => ({
+  id: dbProject.id,
+  projectName: dbProject.project_name,
+  clientName: dbProject.client_name,
+  clientContact: dbProject.client_contact || '',
+  clientAddress: dbProject.client_address || '',
+  date: dbProject.date,
+  validityPeriod: dbProject.validity_period,
+  quoteId: dbProject.quote_id,
+  discount: Number(dbProject.discount) || 0,
+  versions: versions,
+});
+
+export const mapProjectToDB = (project: Partial<Project>) => {
+  const dbProject: any = {};
+  if (project.id) dbProject.id = project.id;
+  if (project.projectName !== undefined) dbProject.project_name = project.projectName;
+  if (project.clientName !== undefined) dbProject.client_name = project.clientName;
+  if (project.clientContact !== undefined) dbProject.client_contact = project.clientContact;
+  if (project.clientAddress !== undefined) dbProject.client_address = project.clientAddress;
+  if (project.date !== undefined) dbProject.date = project.date;
+  if (project.validityPeriod !== undefined) dbProject.validity_period = project.validityPeriod;
+  if (project.quoteId !== undefined) dbProject.quote_id = project.quoteId;
+  if (project.discount !== undefined) dbProject.discount = project.discount;
+  return dbProject;
+};
+
+// --- Version Mappers ---
+export const mapVersionFromDB = (dbVersion: any): ProjectVersion => ({
+  id: dbVersion.id,
+  name: dbVersion.version_name,
+  createdAt: dbVersion.created_at,
+  masterSnapshot: dbVersion.master_list_snapshot || [],
+});
+
+export const mapVersionToDB = (version: Partial<ProjectVersion>, projectId: string) => {
+  const dbVersion: any = {
+    project_id: projectId
+  };
+  if (version.id) dbVersion.id = version.id;
+  if (version.name) dbVersion.version_name = version.name;
+  if (version.masterSnapshot) dbVersion.master_list_snapshot = version.masterSnapshot;
+  return dbVersion;
+};
+
+// --- BQ Item Mappers ---
+export const mapBQItemFromDB = (dbItem: any): BQItem => ({
+  id: dbItem.id,
+  projectId: dbItem.project_id,
+  versionId: dbItem.version_id,
+  masterId: dbItem.master_id,
+
+  category: dbItem.category,
+  itemName: dbItem.item_name,
+  description: dbItem.description,
+  quotationDescription: dbItem.quotation_description,
+  uom: dbItem.uom,
+  qty: Number(dbItem.qty) || 0,
+  price: Number(dbItem.price) || 0,
+  total: Number(dbItem.total) || 0,
+
+  brand: dbItem.brand,
+  axsku: dbItem.axsku,
+  mpn: dbItem.mpn,
+  group: dbItem.group,
+
+  rexScFob: Number(dbItem.rex_sc_fob) || 0,
+  forex: Number(dbItem.forex) || 1,
+  sst: Number(dbItem.sst) || 1,
+  opta: Number(dbItem.opta) || 0.97,
+
+  rexScDdp: dbItem.rex_sc_ddp || { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+  rexSp: dbItem.rex_sp || { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+  rexRsp: dbItem.rex_rsp || { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+
+  isOptional: dbItem.is_optional,
+});
+
+export const mapBQItemToDB = (item: Partial<BQItem>) => {
+  const dbItem: any = {};
+  if (item.id) dbItem.id = item.id;
+  if (item.projectId) dbItem.project_id = item.projectId;
+  if (item.versionId) dbItem.version_id = item.versionId;
+  if (item.masterId) dbItem.master_id = item.masterId;
+
+  if (item.category !== undefined) dbItem.category = item.category;
+  if (item.itemName !== undefined) dbItem.item_name = item.itemName;
+  if (item.description !== undefined) dbItem.description = item.description;
+  if (item.quotationDescription !== undefined) dbItem.quotation_description = item.quotationDescription;
+  if (item.uom !== undefined) dbItem.uom = item.uom;
+  if (item.qty !== undefined) dbItem.qty = item.qty;
+  if (item.price !== undefined) dbItem.price = item.price;
+  if (item.total !== undefined) dbItem.total = item.total;
+
+  if (item.brand !== undefined) dbItem.brand = item.brand;
+  if (item.axsku !== undefined) dbItem.axsku = item.axsku;
+  if (item.mpn !== undefined) dbItem.mpn = item.mpn;
+  if (item.group !== undefined) dbItem.group = item.group;
+
+  if (item.rexScFob !== undefined) dbItem.rex_sc_fob = item.rexScFob;
+  if (item.forex !== undefined) dbItem.forex = item.forex;
+  if (item.sst !== undefined) dbItem.sst = item.sst;
+  if (item.opta !== undefined) dbItem.opta = item.opta;
+
+  if (item.rexScDdp !== undefined) dbItem.rex_sc_ddp = item.rexScDdp;
+  if (item.rexSp !== undefined) dbItem.rex_sp = item.rexSp;
+  if (item.rexRsp !== undefined) dbItem.rex_rsp = item.rexRsp;
+
+  if (item.isOptional !== undefined) dbItem.is_optional = item.isOptional;
+  return dbItem;
+};
+
 
 interface AppContextType {
   masterData: MasterItem[];
@@ -62,11 +234,19 @@ interface AppContextType {
   commitMasterListEdits: () => void;
   discardMasterListEdits: () => void;
 
-  // Global Unsaved State
   hasUnsavedChanges: boolean;
   saveAllChanges: () => void;
   discardAllChanges: () => void;
+
+  /* Authentication */
+  user: any | null; // Profile object
+  login: (username: string, pwd: string) => Promise<boolean>;
+  logout: () => void;
 }
+
+
+
+
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -799,40 +979,127 @@ const migrateItems = (items: any[]): BQItem[] => {
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // --- Initialize State ---
 
-  const [masterData, setMasterData] = useState<MasterItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('swiftbq_masterData_v1');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return migrateMasterData(parsed);
-      }
-      return INITIAL_MASTER_DATA;
-    } catch (e) {
-      return INITIAL_MASTER_DATA;
-    }
+  // Auth State
+  const [user, setUser] = useState<any | null>(() => {
+    const saved = localStorage.getItem('swiftbq_user');
+    return saved ? JSON.parse(saved) : null;
   });
 
-  const [projects, setProjects] = useState<Project[]>(() => {
-    try {
-      const saved = localStorage.getItem('swiftbq_projects');
-      if (saved) {
-        const parsed = migrateProjects(JSON.parse(saved));
-        return parsed;
-      }
-      return [];
-    } catch (e) {
-      return [];
-    }
-  });
+  const login = async (username: string, pwd: string) => {
+    // Simple query
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('username', username)
+      .eq('password', pwd) // Plain text for POC
+      .maybeSingle();
 
-  const [bqItems, setBqItems] = useState<BQItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('swiftbq_bqItems');
-      return saved ? migrateItems(JSON.parse(saved)) : [];
-    } catch (e) {
-      return [];
+    if (data) {
+      setUser(data);
+      localStorage.setItem('swiftbq_user', JSON.stringify(data));
+      return true;
     }
-  });
+    return false;
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('swiftbq_user');
+  };
+
+
+
+
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [masterData, setMasterData] = useState<MasterItem[]>([]);
+
+  // --- Initial Data Fetch ---
+  useEffect(() => {
+    fetchMasterData();
+  }, []);
+
+  const fetchMasterData = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('master_list_items')
+        .select('*')
+        .eq('is_deleted', false); // Only fetch non-deleted
+
+      if (error) {
+        console.error('Error fetching master data:', error);
+        return;
+      }
+
+      if (data) {
+        const mapped = data.map(mapMasterItemFromDB);
+        setMasterData(mapped);
+      }
+    } catch (err) {
+      console.error('Unexpected error fetching master data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
+  /* Projects State - Supabase */
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    const { data: projectsData, error } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        project_versions (
+          *
+        )
+      `)
+      .neq('status', 'deleted')
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching projects:', error);
+      return;
+    }
+
+    if (projectsData) {
+      const mappedProjects = projectsData.map(p => {
+        // Map versions
+        const mappedVersions = (p.project_versions || [])
+          .filter((v: any) => !v.is_deleted) // Assuming logical delete or just filter
+          .map(mapVersionFromDB);
+        return mapProjectFromDB(p, mappedVersions);
+      });
+      setProjects(mappedProjects);
+    }
+  };
+
+  /* BQ Items State - Supabase */
+  // Fetching ALL for POC simplicity, but ideally should be per project
+  const [bqItems, setBqItems] = useState<BQItem[]>([]);
+
+  useEffect(() => {
+    fetchBQItems();
+  }, []);
+
+  const fetchBQItems = async () => {
+    const { data, error } = await supabase
+      .from('bq_items')
+      .select('*');
+
+    if (error) console.error('Error fetching BQ items:', error);
+    if (data) {
+      setBqItems(data.map(mapBQItemFromDB));
+    }
+  };
+
+
 
   const [appSettings, setAppSettings] = useState<AppSettings>(() => {
     try {
@@ -866,9 +1133,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
   // --- Persistence Effects ---
-  useEffect(() => { localStorage.setItem('swiftbq_masterData_v1', JSON.stringify(masterData)); }, [masterData]);
-  useEffect(() => { localStorage.setItem('swiftbq_projects', JSON.stringify(projects)); }, [projects]);
-  useEffect(() => { localStorage.setItem('swiftbq_bqItems', JSON.stringify(bqItems)); }, [bqItems]);
+  // --- Persistence Effects (LocalStorage Removed for Master Data) ---
+  // useEffect(() => { localStorage.setItem('swiftbq_masterData_v1', JSON.stringify(masterData)); }, [masterData]);
+
+  // --- Persistence Effects ---
+  // Removed LocalStorage for MasterData, Projects, BQItems
+  // useEffect(() => { localStorage.setItem('swiftbq_masterData_v1', JSON.stringify(masterData)); }, [masterData]);
+  // useEffect(() => { localStorage.setItem('swiftbq_projects', JSON.stringify(projects)); }, [projects]);
+  // useEffect(() => { localStorage.setItem('swiftbq_bqItems', JSON.stringify(bqItems)); }, [bqItems]);
   useEffect(() => { localStorage.setItem('swiftbq_appSettings', JSON.stringify(appSettings)); }, [appSettings]);
 
   // Session Persistence Effects
@@ -876,6 +1148,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (currentProjectId) localStorage.setItem('swiftbq_currentProjectId', currentProjectId);
     else localStorage.removeItem('swiftbq_currentProjectId');
   }, [currentProjectId]);
+
 
   useEffect(() => {
     if (currentVersionId) localStorage.setItem('swiftbq_currentVersionId', currentVersionId);
@@ -887,39 +1160,93 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [bqViewMode]);
 
 
-  // --- Master Data Actions ---
-  const addMasterItem = (item: MasterItem) => {
+  // --- Master Data Actions (DB Integrated) ---
+  const addMasterItem = async (item: MasterItem) => {
+    // Optimistic Update
     setMasterData(prev => [...prev, item]);
+
+    // DB Insert
+    try {
+      const dbItem = mapMasterItemToDB(item);
+      // Remove ID to let DB generate it? Or use client-generated ID?
+      // Schema says default uuid_generate_v4().
+      // Frontend generates ID. Let's use frontend ID for consistency or let DB handle it.
+      // Ideally, let DB handle, but for optimistic UI, we need an ID.
+      // Strategy: Use the ID generated by `Date.now()` (as per current code) for now, 
+      // but strictly UUID is better. 
+      // Current ID is string "Date.now()". Pass it as ID? 
+      // Supabase ID is UUID. "Date.now()" will FAIL UUID validation.
+      // FIX: We need robust UUID generation on frontend or let DB return it.
+      // For now, let's omit ID and let DB Generate, then update state with real ID?
+      // Or easier: fetch list again?
+
+      const { id, ...itemWithoutId } = dbItem; // Let DB gen ID
+      const { data, error } = await supabase
+        .from('master_list_items')
+        .insert(itemWithoutId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error adding item:', error);
+        // Rollback?
+      } else if (data) {
+        const newItem = mapMasterItemFromDB(data);
+        // Replace the optimistic item (which had temp ID) with real item
+        setMasterData(prev => prev.map(i => i.id === item.id ? newItem : i));
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const updateMasterItem = (id: string, updates: Partial<MasterItem>) => {
+  const updateMasterItem = async (id: string, updates: Partial<MasterItem>) => {
     setMasterData((prev) =>
       prev.map((item) => {
         if (item.id === id) {
           const calcTriggers: (keyof MasterItem)[] = ['rexScFob', 'forex', 'sst', 'opta', 'rexScDdp', 'rexSp', 'rexRsp'];
           const isCalculationNeeded = calcTriggers.some(key => key in updates);
 
+          let finalItem = { ...item, ...updates };
           if (isCalculationNeeded) {
-            const merged = { ...item, ...updates };
-            // Ensure derived fields are calculated based on the merged state
-            const derived = calculateDerivedFields(merged);
-            return { ...merged, ...derived };
+            const derived = calculateDerivedFields(finalItem);
+            finalItem = { ...finalItem, ...derived };
           }
-          return { ...item, ...updates };
+
+          // DB Update Trigger
+          // Fire and forget (or handle error)
+          const dbUpdates = mapMasterItemToDB(finalItem);
+          delete dbUpdates.id; // Don't update ID
+
+          supabase.from('master_list_items').update(dbUpdates).eq('id', id).then(({ error }) => {
+            if (error) console.error('Error updating item:', error);
+          });
+
+          return finalItem;
         }
         return item;
       })
     );
   };
 
-  const deleteMasterItem = (id: string) => {
+  const deleteMasterItem = async (id: string) => {
+    // Optimistic
     setMasterData(prev => prev.filter((item) => item.id !== id));
     if (masterListEdits[id]) {
       const newEdits = { ...masterListEdits };
       delete newEdits[id];
       setMasterListEdits(newEdits);
     }
+
+    // DB Soft Delete
+    const { error } = await supabase
+      .from('master_list_items')
+      .update({ is_deleted: true })
+      .eq('id', id);
+
+    if (error) console.error('Error deleting item (soft):', error);
   };
+
 
   // --- Master List Transactional Logic ---
   const setMasterListEdit = (id: string, field: keyof MasterItem, value: any) => {
@@ -961,108 +1288,200 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
   // --- Project Actions ---
-  const addProject = (project: Project) => {
-    const newProject = {
-      ...project,
-      versions: [{
-        id: 'v1',
-        name: 'version-1',
-        createdAt: new Date().toISOString(),
-        masterSnapshot: [...masterData] // Snapshot for v1
-      }],
-      // masterSnapshot removed from Project
+  const addProject = async (project: Project) => {
+    // Optimistic
+    // setProjects(prev => [...prev, project]); // Skip optimistic for projects to ensure ID from DB
+
+    const dbProject = mapProjectToDB(project);
+    delete dbProject.id;
+
+    // 1. Create Project
+    const { data: pData, error: pError } = await supabase
+      .from('projects')
+      .insert(dbProject)
+      .select()
+      .single();
+
+    if (pError || !pData) {
+      console.error('Error creating project:', pError);
+      return;
+    }
+
+    // 2. Create Initial Version
+    const defaultVersion = {
+      project_id: pData.id,
+      version_name: 'v1',
+      master_list_snapshot: masterData, // Snapshot current master list
     };
-    setProjects(prev => [...prev, newProject]);
+
+    const { data: vData, error: vError } = await supabase
+      .from('project_versions')
+      .insert(defaultVersion)
+      .select()
+      .single();
+
+    if (vError) console.error('Error creating default version:', vError);
+
+    // 3. Update State
+    const newProject = mapProjectFromDB(pData, vData ? [mapVersionFromDB(vData)] : []);
+    setProjects(prev => [newProject, ...prev]);
     setCurrentProjectId(newProject.id);
-    setCurrentVersionId('v1');
+    if (newProject.versions.length > 0) setCurrentVersionId(newProject.versions[0].id);
   };
 
-  const updateProject = (id: string, updates: Partial<Project>) => {
+  const updateProject = async (id: string, updates: Partial<Project>) => {
+    // Optimistic
     setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+
+    // DB
+    const dbUpdates = mapProjectToDB(updates);
+    delete dbUpdates.id; // ensure ID not changed
+    if (Object.keys(dbUpdates).length > 0) {
+      await supabase.from('projects').update(dbUpdates).eq('id', id);
+    }
   };
 
-  const deleteProject = (id: string) => {
+  const deleteProject = async (id: string) => {
+    // Optimistic
     setProjects(prev => prev.filter(p => p.id !== id));
     setBqItems(prev => prev.filter(item => item.projectId !== id));
     if (currentProjectId === id) {
       setCurrentProjectId(null);
       setCurrentVersionId(null);
     }
+
+    // DB Soft Delete
+    await supabase.from('projects').update({ status: 'deleted' }).eq('id', id);
   };
 
-  const duplicateProject = (id: string) => {
+  const duplicateProject = async (id: string) => {
+    // Fetch full project data to duplicate? or use local state?
     const sourceProject = projects.find(p => p.id === id);
     if (!sourceProject) return;
 
-    const newProjectId = Date.now().toString();
+    const newProjectName = `${sourceProject.projectName} (Copy)`;
 
-    // Generate unique name: Name (1), Name (2) etc.
-    let newName = `${sourceProject.projectName} (1)`;
-    let counter = 1;
-    while (projects.some(p => p.projectName === newName)) {
-      counter++;
-      newName = `${sourceProject.projectName} (${counter})`;
+    // 1. Create New Project
+    const dbProject = mapProjectToDB({
+      ...sourceProject,
+      projectName: newProjectName,
+      date: new Date().toISOString()
+    });
+    delete dbProject.id; // Let DB generate
+
+    const { data: pData, error } = await supabase.from('projects').insert(dbProject).select().single();
+    if (error || !pData) return;
+
+    // 2. Duplicate Versions and BQ Items
+    // This is complex. For now, duplication might just copy the LATEST version or ALL versions?
+    // Let's implement copying ALL versions.
+
+    const newVersions: ProjectVersion[] = [];
+
+    for (const ver of sourceProject.versions) {
+      // Create Version
+      const dbVer = mapVersionToDB({
+        ...ver,
+        name: ver.name,
+        masterSnapshot: ver.masterSnapshot // Copy snapshot
+      }, pData.id);
+      delete dbVer.id;
+
+      const { data: vData } = await supabase.from('project_versions').insert(dbVer).select().single();
+      if (vData) {
+        const newVer = mapVersionFromDB(vData);
+        newVersions.push(newVer);
+
+        // Copy BQ Items for this version
+        const sourceItems = bqItems.filter(i => i.projectId === id && i.versionId === ver.id);
+        if (sourceItems.length > 0) {
+          const dbItems = sourceItems.map(i => {
+            const mapped = mapBQItemToDB(i);
+            mapped.project_id = pData.id;
+            mapped.version_id = vData.id;
+            delete mapped.id;
+            return mapped;
+          });
+          // Bulk insert
+          const { data: newBqItemsData } = await supabase.from('bq_items').insert(dbItems).select();
+
+          if (newBqItemsData) {
+            const mappedNewItems = newBqItemsData.map(mapBQItemFromDB);
+            setBqItems(prev => [...prev, ...mappedNewItems]);
+          }
+        }
+      }
     }
 
-    const newProject: Project = {
-      ...sourceProject,
-      id: newProjectId,
-      projectName: newName,
-      quoteId: `Q-${new Date().getFullYear()}-${projects.length + 1001 + Math.floor(Math.random() * 1000)}`, // New unique quote ID
-      versions: sourceProject.versions.map(v => ({
-        ...v,
-        masterSnapshot: v.masterSnapshot ? [...v.masterSnapshot] : [...masterData] // Deep copy snapshot
-      })),
-      // masterSnapshot removed
-    };
-
-    // Duplicate Items
-    const sourceItems = bqItems.filter(item => item.projectId === id);
-    const newItems = sourceItems.map(item => ({
-      ...item,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // Use robust random ID
-      projectId: newProjectId
-    }));
-
-    setProjects(prev => [...prev, newProject]);
-    setBqItems(prev => [...prev, ...newItems]);
+    const newProject = mapProjectFromDB(pData, newVersions);
+    setProjects(prev => [newProject, ...prev]);
   };
 
   // --- Version Actions ---
-  const createVersion = (projectId: string, sourceVersionId: string, newVersionName: string, explicitNewVersionId?: string) => {
-    const newVersionId = explicitNewVersionId || Date.now().toString();
+  // --- Version Actions ---
+  const createVersion = async (projectId: string, sourceVersionId: string, newVersionName: string, explicitNewVersionId?: string) => {
+    // DB First to get ID? Or Optimistic?
+    // Let's go with Optimistic rendering but wait for DB to confirm ID if possible?
+    // Actually, for versions, ID consistency is important.
+    // We'll optimistically use a temp ID, but fetch real one? No, too complex.
+    // We will run DB first, then update state.
 
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
+
+    const sourceVersion = project.versions.find(v => v.id === sourceVersionId);
+    if (!sourceVersion) return; // Should not happen
+
+    const sourceSnapshot = sourceVersion.masterSnapshot || [];
+
+    // 1. Create Version in DB
+    const dbVer = mapVersionToDB({
+      name: newVersionName,
+      masterSnapshot: sourceSnapshot
+    }, projectId);
+    delete dbVer.id;
+
+    const { data: vData, error: vError } = await supabase.from('project_versions').insert(dbVer).select().single();
+
+    if (vError || !vData) {
+      console.error('Error creating version:', vError);
+      return;
+    }
+
+    const newVer = mapVersionFromDB(vData);
+
+    // 2. Clone BQ Items
+    const sourceItems = bqItems.filter(item => item.projectId === projectId && item.versionId === sourceVersionId);
+    const newBqItems: BQItem[] = [];
+
+    if (sourceItems.length > 0) {
+      const dbItems = sourceItems.map(i => {
+        const mapped = mapBQItemToDB(i);
+        mapped.project_id = projectId;
+        mapped.version_id = newVer.id;
+        delete mapped.id;
+        return mapped;
+      });
+
+      const { data: bqData, error: bqError } = await supabase.from('bq_items').insert(dbItems).select();
+      if (bqData) {
+        bqData.forEach(d => newBqItems.push(mapBQItemFromDB(d)));
+      }
+    }
+
+    // 3. Update State
     setProjects(prev => prev.map(p => {
       if (p.id === projectId) {
-        const sourceVersion = p.versions.find(v => v.id === sourceVersionId);
-        const sourceSnapshot = sourceVersion?.masterSnapshot || INITIAL_MASTER_DATA;
-
-        return {
-          ...p,
-          versions: [...p.versions, {
-            id: newVersionId,
-            name: newVersionName,
-            createdAt: new Date().toISOString(),
-            masterSnapshot: [...sourceSnapshot] // Deep copy snapshot
-          }]
-        };
+        return { ...p, versions: [...p.versions, newVer] };
       }
       return p;
     }));
-
-    const sourceItems = bqItems.filter(item => item.projectId === projectId && item.versionId === sourceVersionId);
-    const newItems = sourceItems.map(item => ({
-      ...item,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-      versionId: newVersionId
-    }));
-
-    setBqItems(prev => [...prev, ...newItems]);
-    setCurrentVersionId(newVersionId);
+    setBqItems(prev => [...prev, ...newBqItems]);
+    setCurrentVersionId(newVer.id);
   };
 
-  const updateProjectSnapshot = (projectId: string, versionId: string, snapshotUpdates: Partial<MasterItem>[]) => {
-    // 1. Update Version Snapshot
+  const updateProjectSnapshot = async (projectId: string, versionId: string, snapshotUpdates: Partial<MasterItem>[]) => {
+    // 1. Update Version Snapshot State (Optimistic)
     setProjects(prev => prev.map(p => {
       if (p.id === projectId) {
         const newVersions = p.versions.map(v => {
@@ -1076,49 +1495,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
           return v;
         });
+        // DB Update for snapshot
+        // We need to construct the FULL snapshot to update.
+        const targetVersion = newVersions.find(v => v.id === versionId);
+        if (targetVersion && targetVersion.masterSnapshot) {
+          supabase.from('project_versions')
+            .update({ master_list_snapshot: targetVersion.masterSnapshot })
+            .eq('id', versionId)
+            .then(res => { if (res.error) console.error(res.error) });
+        }
+
         return { ...p, versions: newVersions };
       }
       return p;
     }));
 
     // 2. Sync BQ Items (Review View) -> Only for this version!
+    // We need to update items in DB too
+    const updatesToProcess: BQItem[] = [];
+
     setBqItems(prev => prev.map(item => {
       if (item.projectId === projectId && item.versionId === versionId && item.masterId) {
         const update = snapshotUpdates.find(u => u.id === item.masterId);
         if (update) {
           const newItem = { ...item, ...update };
           if (update.price !== undefined || update.rexRsp !== undefined) {
+            // ... logic from original ...
             let rRsp = undefined;
             if (update.rexRsp) {
-              // Handle PriceField object vs number vs legacy
-              if (typeof update.rexRsp === 'object' && 'value' in update.rexRsp) {
-                rRsp = update.rexRsp.value;
-              } else if (typeof update.rexRsp === 'number') {
-                rRsp = update.rexRsp;
-              }
+              if (typeof update.rexRsp === 'object' && 'value' in update.rexRsp) rRsp = update.rexRsp.value;
+              else if (typeof update.rexRsp === 'number') rRsp = update.rexRsp;
             }
-
             const newPrice = rRsp ?? update.price ?? item.price;
             const safePrice = isNaN(newPrice) ? 0 : newPrice;
             newItem.price = safePrice;
-            // Ensure rexRsp on BQItem is also the full object if available, merging carefully
-            if (update.rexRsp && typeof update.rexRsp === 'object') {
-              newItem.rexRsp = { ...item.rexRsp, ...update.rexRsp };
-            } else if (typeof update.rexRsp === 'number') {
-              // If somehow number, wrap it (shouldn't happen with new logic but safe fallback)
-              newItem.rexRsp = { value: update.rexRsp, strategy: 'MANUAL', manualOverride: update.rexRsp };
-            }
-
+            if (update.rexRsp && typeof update.rexRsp === 'object') newItem.rexRsp = { ...item.rexRsp, ...update.rexRsp };
+            else if (typeof update.rexRsp === 'number') newItem.rexRsp = { value: update.rexRsp, strategy: 'MANUAL', manualOverride: update.rexRsp };
             newItem.total = safePrice * item.qty;
+
+            updatesToProcess.push(newItem);
           }
           return newItem as BQItem;
         }
       }
       return item;
     }));
+
+    // DB Updates for BQ Items
+    // Batch update? Supabase doesn't support bulk update easily unless upsert with PK.
+    // We iterate.
+    for (const item of updatesToProcess) {
+      const dbItem = mapBQItemToDB(item);
+      delete dbItem.id; // Usually we update by ID
+      await supabase.from('bq_items').update(dbItem).eq('id', item.id);
+    }
   };
 
-  const updateVersionName = (projectId: string, versionId: string, name: string) => {
+  const updateVersionName = async (projectId: string, versionId: string, name: string) => {
     setProjects(prev => prev.map(p => {
       if (p.id === projectId) {
         return {
@@ -1128,48 +1561,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return p;
     }));
+
+    await supabase.from('project_versions').update({ version_name: name }).eq('id', versionId);
   };
 
-  const deleteVersion = (projectId: string, versionId: string) => {
+  const deleteVersion = async (projectId: string, versionId: string) => {
     setProjects(prev => prev.map(p => {
       if (p.id === projectId) {
-        return {
-          ...p,
-          versions: p.versions.filter(v => v.id !== versionId)
-        };
+        return { ...p, versions: p.versions.filter(v => v.id !== versionId) };
       }
       return p;
     }));
 
     setBqItems(prev => prev.filter(item => !(item.projectId === projectId && item.versionId === versionId)));
 
+    await supabase.from('project_versions').update({ is_deleted: true }).eq('id', versionId); // Soft delete version
+
     if (currentProjectId === projectId && currentVersionId === versionId) {
-      const project = projects.find(p => p.id === projectId);
-      if (project) {
-        const remaining = project.versions.filter(v => v.id !== versionId);
-        if (remaining.length > 0) {
-          setCurrentVersionId(remaining[0].id);
-        } else {
-          const newDefaultId = Date.now().toString();
-          setProjects(prev => prev.map(p => {
-            if (p.id === projectId) {
-              return {
-                ...p,
-                versions: [{ id: newDefaultId, name: 'version-1', createdAt: new Date().toISOString() }]
-              };
-            }
-            return p;
-          }));
-          setCurrentVersionId(newDefaultId);
-        }
-      }
+      // Logic to switch version
+      // We can just rely on state update for currentVersionId switch if we want
+      // But original code has logic to switch to valid one.
+      // Re-implement simplified:
+      const project = projects.find(p => p.id === projectId); // This reads OLD state reference?
+      // React state update is async.
+      // Safe bet: set CurrentVersionId to null or first available?
+      // Let's just set to null for now.
+      setCurrentVersionId(null);
     }
   };
 
+
   // --- BQ Items Actions ---
-  const addBQItem = (projectId: string, versionId: string) => {
+  // --- BQ Items Actions ---
+  const addBQItem = async (projectId: string, versionId: string) => {
+    const tempId = Date.now().toString();
     const newItem: BQItem = {
-      id: Date.now().toString(),
+      id: tempId,
       projectId: projectId,
       versionId: versionId,
       category: '',
@@ -1192,22 +1619,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       rexRsp: { value: 0, strategy: 'MANUAL', manualOverride: 0 },
       isOptional: false,
     };
+
+    // Optimistic
     setBqItems([...bqItems, newItem]);
+
+    // DB
+    const dbItem = mapBQItemToDB(newItem);
+    delete dbItem.id;
+
+    const { data, error } = await supabase.from('bq_items').insert(dbItem).select().single();
+    if (data) {
+      // Update with Real ID
+      setBqItems(prev => prev.map(i => i.id === tempId ? { ...i, id: data.id } : i));
+    } else if (error) {
+      console.error('Error adding BQ item:', error);
+    }
   };
 
-  const syncMasterToBQ = (projectId: string, versionId: string, masterItem: MasterItem, qty: number) => {
+  const syncMasterToBQ = async (projectId: string, versionId: string, masterItem: MasterItem, qty: number) => {
+    let action: 'insert' | 'update' | 'delete' | 'none' = 'none';
+    let targetId: string | undefined;
+    let tempId: string | undefined;
+
     setBqItems(prev => {
       const existingIndex = prev.findIndex(item => item.projectId === projectId && item.versionId === versionId && item.masterId === masterItem.id);
 
       if (qty <= 0) {
-        if (existingIndex > -1) return prev.filter((_, index) => index !== existingIndex);
+        if (existingIndex > -1) {
+          action = 'delete';
+          targetId = prev[existingIndex].id;
+          return prev.filter((_, index) => index !== existingIndex);
+        }
         return prev;
       }
 
       if (existingIndex > -1) {
+        action = 'update';
+        targetId = prev[existingIndex].id;
+
         const newItems = [...prev];
         const currentItem = newItems[existingIndex];
-        // Safety check for price
         const safePrice = isNaN(currentItem.price) ? 0 : currentItem.price;
         const safeQty = isNaN(qty) ? 0 : qty;
         const updatedTotal = safePrice * safeQty;
@@ -1219,8 +1670,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
         return newItems;
       } else {
+        action = 'insert';
+        tempId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+
         const newItem: BQItem = {
-          id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+          id: tempId,
           projectId,
           versionId,
           masterId: masterItem.id,
@@ -1235,7 +1689,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           group: masterItem.group,
 
           // Costing Snapshot
-          price: masterItem.rexRsp.value, // Default Price is RSP value
+          price: masterItem.rexRsp.value,
           qty: qty,
           total: (masterItem.rexRsp.value || 0) * (qty || 0),
 
@@ -1252,23 +1706,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return [...prev, newItem];
       }
     });
+
+    // Handle DB Async
+    if (action === 'delete' && targetId) {
+      await supabase.from('bq_items').delete().eq('id', targetId);
+    } else if (action === 'update' && targetId) {
+      // We need valid total. Calculate again logic?
+      // Fetch existing record to get price logic?
+      // For speed, we just recalc safely with MasterItem price? 
+      // NO, BQ Item price might differ if edited.
+      // We should fetch 'price' for this 'targetId'.
+      const { data: current } = await supabase.from('bq_items').select('price').eq('id', targetId).single();
+      if (current) {
+        const t = (current.price || 0) * qty;
+        await supabase.from('bq_items').update({ qty: qty, total: t }).eq('id', targetId);
+      }
+    } else if (action === 'insert' && tempId) {
+      // Reconstruct item for DB
+      const newItemObj = {
+        projectId,
+        versionId,
+        masterId: masterItem.id,
+        category: masterItem.category,
+        itemName: masterItem.itemName,
+        description: masterItem.description,
+        uom: masterItem.uom,
+        brand: masterItem.brand,
+        axsku: masterItem.axsku,
+        mpn: masterItem.mpn,
+        group: masterItem.group,
+        price: masterItem.rexRsp.value,
+        qty: qty,
+        total: (masterItem.rexRsp.value || 0) * (qty || 0),
+        rexScFob: masterItem.rexScFob,
+        forex: masterItem.forex,
+        sst: masterItem.sst,
+        opta: masterItem.opta,
+        rexScDdp: masterItem.rexScDdp,
+        rexSp: masterItem.rexSp,
+        rexRsp: masterItem.rexRsp,
+        isOptional: false,
+      };
+      const dbItem = mapBQItemToDB(newItemObj);
+      delete dbItem.id;
+
+      const { data } = await supabase.from('bq_items').insert(dbItem).select().single();
+      if (data) {
+        setBqItems(prev => prev.map(i => i.id === tempId ? { ...i, id: data.id } : i));
+      }
+    }
   };
 
-  const removeBQItem = (id: string) => {
+  const removeBQItem = async (id: string) => {
     setBqItems(bqItems.filter((item) => item.id !== id));
+    await supabase.from('bq_items').delete().eq('id', id);
   };
 
-  const updateBQItem = (id: string, field: keyof BQItem, value: any) => {
+  const updateBQItem = async (id: string, field: keyof BQItem, value: any) => {
+    let processedValue = value;
+    if (field === 'qty' || field === 'price') {
+      processedValue = Number(value);
+    }
+
+    // Handle Qty <= 0 Delete
+    if (field === 'qty' && processedValue <= 0) {
+      setBqItems(prev => prev.filter(item => item.id !== id));
+      await supabase.from('bq_items').delete().eq('id', id);
+      return;
+    }
+
     setBqItems((prev) => {
-      let processedValue = value;
-      if (field === 'qty' || field === 'price') {
-        processedValue = Number(value);
-      }
-
-      if (field === 'qty' && processedValue <= 0) {
-        return prev.filter(item => item.id !== id);
-      }
-
       return prev.map((item) => {
         if (item.id === id) {
           const updated = { ...item, [field]: processedValue };
@@ -1284,6 +1791,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return item;
       })
     });
+
+    // DB Update
+    // Calculate total if price/qty changed
+    let dbUpdate: any = { [field]: processedValue };
+    if (field === 'price' || field === 'qty') {
+      // We need to calculate total. 
+      // Reuse logic?
+      // Just find the item in 'prev' state is hard. 
+      // We can fetch from DB, update total.
+      // Or cleaner: Calculate total based on what we have.
+      // We only have the CHANGED field.
+      // We need the OTHER field.
+      const existing = bqItems.find(i => i.id === id);
+      if (existing) {
+        const p = field === 'price' ? processedValue : existing.price;
+        const q = field === 'qty' ? processedValue : existing.qty;
+        const total = p * q;
+        dbUpdate = { [field]: processedValue, total };
+        // Need to map key from camelCase to snake_case?
+        // mapBQItemToDB handles most keys for us.
+        const mapped = mapBQItemToDB({ ...existing, ...dbUpdate });
+        // Filter to only updated fields?
+        // or just update all?
+        // Supabase update takes partial object.
+        // mapBQItemToDB returns full object usually if input is full.
+        // We only want to update changed fields.
+        // Let's manually construct clean update object.
+        const cleanUpdate: any = {};
+        if (field === 'qty') cleanUpdate.qty = processedValue;
+        if (field === 'price') cleanUpdate.price = processedValue;
+        if (field === 'itemName') cleanUpdate.item_name = processedValue; // manual map needed
+        if (field === 'description') cleanUpdate.description = processedValue;
+        // ... this is tedious.
+        // Better: Use mapBQItemToDB on the Merged object, then strip ID.
+        const merged = { ...existing, ...dbUpdate };
+        const toSave = mapBQItemToDB(merged);
+        delete toSave.id;
+        await supabase.from('bq_items').update(toSave).eq('id', id);
+      }
+    } else {
+      // Non-calc field update
+      // Map the single field? 
+      // Just update the whole item using mapBQItemToDB is safer.
+      const existing = bqItems.find(i => i.id === id);
+      if (existing) {
+        const merged = { ...existing, [field]: processedValue };
+        const toSave = mapBQItemToDB(merged);
+        delete toSave.id;
+        await supabase.from('bq_items').update(toSave).eq('id', id);
+      }
+    }
   };
 
   const reorderBQItems = (projectId: string, versionId: string, sourceIndex: number, destinationIndex: number) => {
@@ -1297,6 +1855,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       return [...otherItems, ...newProjectItems];
     });
+    // TODO: Persist order to DB (requires order_index column)
   };
 
   // --- Calculations ---
@@ -1363,7 +1922,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         quotationEdits, setQuotationEdit, commitQuotationEdits, discardQuotationEdits,
         masterListEdits, setMasterListEdit, commitMasterListEdits, discardMasterListEdits,
         hasUnsavedChanges, saveAllChanges, discardAllChanges,
+        user, login, logout
       }}
+
+
+
     >
       {children}
     </AppContext.Provider>
