@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { MasterItem, BQItem, Project, AppSettings, BQViewMode, PriceField, ProjectVersion } from './types';
@@ -1637,93 +1638,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const syncMasterToBQ = async (projectId: string, versionId: string, masterItem: MasterItem, qty: number) => {
+    // 1. Determine Action based on CURRENT state (bqItems)
+    // Note: We rely on 'bqItems' from closure. In high-concurrency this might be slightly stale but acceptable for UI.
+    const existingIndex = bqItems.findIndex(item => item.projectId === projectId && item.versionId === versionId && item.masterId === masterItem.id);
+    const existingItem = existingIndex > -1 ? bqItems[existingIndex] : null;
+
     let action: 'insert' | 'update' | 'delete' | 'none' = 'none';
-    let targetId: string | undefined;
-    let tempId: string | undefined;
 
-    setBqItems(prev => {
-      const existingIndex = prev.findIndex(item => item.projectId === projectId && item.versionId === versionId && item.masterId === masterItem.id);
+    if (qty <= 0) {
+      if (existingItem) action = 'delete';
+    } else {
+      if (existingItem) action = 'update';
+      else action = 'insert';
+    }
 
-      if (qty <= 0) {
-        if (existingIndex > -1) {
-          action = 'delete';
-          targetId = prev[existingIndex].id;
-          return prev.filter((_, index) => index !== existingIndex);
-        }
-        return prev;
-      }
+    if (action === 'none') return;
 
-      if (existingIndex > -1) {
-        action = 'update';
-        targetId = prev[existingIndex].id;
+    // 2. Perform Optimistic Update & Prepare DB Ops
+    if (action === 'delete' && existingItem) {
+      // Optimistic
+      setBqItems(prev => prev.filter(i => i.id !== existingItem.id));
+      // DB
+      await supabase.from('bq_items').delete().eq('id', existingItem.id);
 
-        const newItems = [...prev];
-        const currentItem = newItems[existingIndex];
-        const safePrice = isNaN(currentItem.price) ? 0 : currentItem.price;
-        const safeQty = isNaN(qty) ? 0 : qty;
-        const updatedTotal = safePrice * safeQty;
+    } else if (action === 'update' && existingItem) {
+      const safePrice = isNaN(existingItem.price) ? 0 : existingItem.price;
+      const safeQty = isNaN(qty) ? 0 : qty;
+      const updatedTotal = safePrice * safeQty;
 
-        newItems[existingIndex] = {
-          ...currentItem,
-          qty: safeQty,
-          total: isNaN(updatedTotal) ? 0 : updatedTotal
-        };
-        return newItems;
-      } else {
-        action = 'insert';
-        tempId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+      // Optimistic
+      setBqItems(prev => prev.map(i => i.id === existingItem.id ? { ...i, qty: safeQty, total: updatedTotal } : i));
 
-        const newItem: BQItem = {
-          id: tempId,
-          projectId,
-          versionId,
-          masterId: masterItem.id,
-          // Snapshot Master Data
-          category: masterItem.category,
-          itemName: masterItem.itemName,
-          description: masterItem.description,
-          uom: masterItem.uom,
-          brand: masterItem.brand,
-          axsku: masterItem.axsku,
-          mpn: masterItem.mpn,
-          group: masterItem.group,
+      // DB
+      // Fetch fresh price to be safe? Or just update Qty?
+      // User might have edited price manually. We should preserve that price (existingItem.price).
+      // So we update Qty and Total.
+      await supabase.from('bq_items').update({ qty: safeQty, total: updatedTotal }).eq('id', existingItem.id);
 
-          // Costing Snapshot
-          price: masterItem.rexRsp.value,
-          qty: qty,
-          total: (masterItem.rexRsp.value || 0) * (qty || 0),
+    } else if (action === 'insert') {
+      const tempId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
 
-          rexScFob: masterItem.rexScFob,
-          forex: masterItem.forex,
-          sst: masterItem.sst,
-          opta: masterItem.opta,
-          rexScDdp: masterItem.rexScDdp,
-          rexSp: masterItem.rexSp,
-          rexRsp: masterItem.rexRsp,
-
-          isOptional: false,
-        };
-        return [...prev, newItem];
-      }
-    });
-
-    // Handle DB Async
-    if (action === 'delete' && targetId) {
-      await supabase.from('bq_items').delete().eq('id', targetId);
-    } else if (action === 'update' && targetId) {
-      // We need valid total. Calculate again logic?
-      // Fetch existing record to get price logic?
-      // For speed, we just recalc safely with MasterItem price? 
-      // NO, BQ Item price might differ if edited.
-      // We should fetch 'price' for this 'targetId'.
-      const { data: current } = await supabase.from('bq_items').select('price').eq('id', targetId).single();
-      if (current) {
-        const t = (current.price || 0) * qty;
-        await supabase.from('bq_items').update({ qty: qty, total: t }).eq('id', targetId);
-      }
-    } else if (action === 'insert' && tempId) {
-      // Reconstruct item for DB
-      const newItemObj = {
+      const newItem: BQItem = {
+        id: tempId,
         projectId,
         versionId,
         masterId: masterItem.id,
@@ -1747,12 +1703,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rexRsp: masterItem.rexRsp,
         isOptional: false,
       };
-      const dbItem = mapBQItemToDB(newItemObj);
-      delete dbItem.id;
 
-      const { data } = await supabase.from('bq_items').insert(dbItem).select().single();
+      // Optimistic
+      setBqItems(prev => [...prev, newItem]);
+
+      // DB
+      const dbItemObj = mapBQItemToDB(newItem);
+      delete dbItemObj.id; // Let DB generate
+
+      const { data, error } = await supabase.from('bq_items').insert(dbItemObj).select().single();
+
       if (data) {
+        // Replace Temp ID
         setBqItems(prev => prev.map(i => i.id === tempId ? { ...i, id: data.id } : i));
+      } else if (error) {
+        console.error("Error inserting BQ Item:", error);
+        // Revert? For now just log.
       }
     }
   };
@@ -1809,22 +1775,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const q = field === 'qty' ? processedValue : existing.qty;
         const total = p * q;
         dbUpdate = { [field]: processedValue, total };
-        // Need to map key from camelCase to snake_case?
-        // mapBQItemToDB handles most keys for us.
-        const mapped = mapBQItemToDB({ ...existing, ...dbUpdate });
-        // Filter to only updated fields?
-        // or just update all?
-        // Supabase update takes partial object.
-        // mapBQItemToDB returns full object usually if input is full.
-        // We only want to update changed fields.
-        // Let's manually construct clean update object.
-        const cleanUpdate: any = {};
-        if (field === 'qty') cleanUpdate.qty = processedValue;
-        if (field === 'price') cleanUpdate.price = processedValue;
-        if (field === 'itemName') cleanUpdate.item_name = processedValue; // manual map needed
-        if (field === 'description') cleanUpdate.description = processedValue;
-        // ... this is tedious.
-        // Better: Use mapBQItemToDB on the Merged object, then strip ID.
+
+        // Perform Update
         const merged = { ...existing, ...dbUpdate };
         const toSave = mapBQItemToDB(merged);
         delete toSave.id;
