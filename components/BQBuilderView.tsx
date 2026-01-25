@@ -1061,10 +1061,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     {t.opta}
                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'opta')} />
                 </th>}
-                {/* {visibleColumns.rexScFob && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexScFob }}>
-                    {t.rexScFob}
-                    <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexScFob')} />
-                </th>} */}
+
                 {visibleColumns.rexScDdp && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.rexScDdp }}>
                     {t.rexScDdp}
                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'rexScDdp')} />

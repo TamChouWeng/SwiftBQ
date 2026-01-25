@@ -277,13 +277,7 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Helper for robust calculation (Ceiling logic from excel)
-const calcCeiling = (val: number, significance: number) => {
-  if (significance === 0) return val;
-  // Fix floating point errors (e.g. 30000 * 1.08 = 32400.000000000004) by rounding slightly before ceiling
-  const sanitizedVal = Number(val.toFixed(6));
-  return Math.ceil(sanitizedVal / significance) * significance;
-};
+
 
 // Calculate derived fields
 // Calculate derived fields with strategy support
@@ -399,53 +393,7 @@ const INITIAL_SETTINGS: AppSettings = {
   profileRole: 'admin',
 };
 
-// Migration helpers
-const migrateMasterData = (data: any[]): MasterItem[] => {
-  return data.map(item => {
-    // Check if valid already (simplified check)
-    if (item.rexScDdp && typeof item.rexScDdp === 'object' && 'strategy' in item.rexScDdp) {
-      return item as MasterItem;
-    }
 
-    // Migration logic: values to manual
-    return {
-      ...item,
-      rexScDdp: { value: item.rexScDdp || 0, strategy: 'MANUAL', manualOverride: item.rexScDdp || 0 },
-      rexSp: { value: item.rexSp || 0, strategy: 'MANUAL', manualOverride: item.rexSp || 0 },
-      rexRsp: { value: item.rexRsp || 0, strategy: 'MANUAL', manualOverride: item.rexRsp || 0 },
-      price: item.price || item.rexRsp || 0
-    };
-  });
-};
-
-const migrateProjects = (projects: any[]): Project[] => {
-  return projects.map(p => ({
-    ...p,
-    versions: (p.versions || [{ id: 'v1', name: 'version-1', createdAt: new Date().toISOString() }]).map((v: any) => ({
-      ...v,
-      masterSnapshot: migrateMasterData(v.masterSnapshot || p.masterSnapshot || [])
-    })),
-    discount: p.discount || 0
-  }));
-};
-
-const migrateItems = (items: any[]): BQItem[] => {
-  return items.map(i => {
-    // Migrate BQ Item snapshots
-    const ddp = typeof i.rexScDdp === 'number' ? { value: i.rexScDdp, strategy: 'MANUAL', manualOverride: i.rexScDdp } : i.rexScDdp;
-    const sp = typeof i.rexSp === 'number' ? { value: i.rexSp, strategy: 'MANUAL', manualOverride: i.rexSp } : i.rexSp;
-    const rsp = typeof i.rexRsp === 'number' ? { value: i.rexRsp, strategy: 'MANUAL', manualOverride: i.rexRsp } : i.rexRsp;
-
-    return {
-      ...i,
-      versionId: i.versionId || 'v1',
-      quotationDescription: i.quotationDescription,
-      rexScDdp: ddp,
-      rexSp: sp,
-      rexRsp: rsp
-    };
-  });
-};
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // --- Initialize State ---
@@ -734,14 +682,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
   // --- Persistence Effects ---
-  // --- Persistence Effects (LocalStorage Removed for Master Data) ---
-  // useEffect(() => { localStorage.setItem('swiftbq_masterData_v1', JSON.stringify(masterData)); }, [masterData]);
 
-  // --- Persistence Effects ---
-  // Removed LocalStorage for MasterData, Projects, BQItems
-  // useEffect(() => { localStorage.setItem('swiftbq_masterData_v1', JSON.stringify(masterData)); }, [masterData]);
-  // useEffect(() => { localStorage.setItem('swiftbq_projects', JSON.stringify(projects)); }, [projects]);
-  // useEffect(() => { localStorage.setItem('swiftbq_bqItems', JSON.stringify(bqItems)); }, [bqItems]);
   useEffect(() => { localStorage.setItem('swiftbq_appSettings', JSON.stringify(appSettings)); }, [appSettings]);
 
   // Session Persistence Effects
