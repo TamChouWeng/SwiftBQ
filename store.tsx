@@ -66,6 +66,7 @@ export const mapMasterItemToDB = (item: Partial<MasterItem>) => {
 // --- Project Mappers ---
 export const mapProjectFromDB = (dbProject: any, versions: ProjectVersion[] = []): Project => ({
   id: dbProject.id,
+  userId: dbProject.user_id,
   projectName: dbProject.project_name,
   clientName: dbProject.client_name,
   clientContact: dbProject.client_contact || '',
@@ -80,6 +81,7 @@ export const mapProjectFromDB = (dbProject: any, versions: ProjectVersion[] = []
 export const mapProjectToDB = (project: Partial<Project>) => {
   const dbProject: any = {};
   if (project.id) dbProject.id = project.id;
+  if (project.userId) dbProject.user_id = project.userId;
   if (project.projectName !== undefined) dbProject.project_name = project.projectName;
   if (project.clientName !== undefined) dbProject.client_name = project.clientName;
   if (project.clientContact !== undefined) dbProject.client_contact = project.clientContact;
@@ -112,6 +114,7 @@ export const mapVersionToDB = (version: Partial<ProjectVersion>, projectId: stri
 // --- BQ Item Mappers ---
 export const mapBQItemFromDB = (dbItem: any): BQItem => ({
   id: dbItem.id,
+  userId: dbItem.user_id,
   projectId: dbItem.project_id,
   versionId: dbItem.version_id,
   masterId: dbItem.master_id,
@@ -145,6 +148,7 @@ export const mapBQItemFromDB = (dbItem: any): BQItem => ({
 export const mapBQItemToDB = (item: Partial<BQItem>) => {
   const dbItem: any = {};
   if (item.id) dbItem.id = item.id;
+  if (item.userId) dbItem.user_id = item.userId;
   if (item.projectId) dbItem.project_id = item.projectId;
   if (item.versionId) dbItem.version_id = item.versionId;
   if (item.masterId) dbItem.master_id = item.masterId;
@@ -180,15 +184,18 @@ export const mapBQItemToDB = (item: Partial<BQItem>) => {
 export const mapProfileToSettings = (profile: any): Partial<AppSettings> => {
   if (!profile) return {};
   const settings: Partial<AppSettings> = {};
-  if (profile.company_name) settings.companyName = profile.company_name;
-  if (profile.company_address) settings.companyAddress = profile.company_address;
-  if (profile.currency_symbol) settings.currencySymbol = profile.currency_symbol;
-  if (profile.company_logo) settings.companyLogo = profile.company_logo;
-  if (profile.bank_name) settings.bankName = profile.bank_name;
-  if (profile.bank_account) settings.bankAccount = profile.bank_account;
-  if (profile.profile_name) settings.profileName = profile.profile_name;
-  if (profile.phone) settings.profileContact = profile.phone;
-  if (profile.role) settings.profileRole = profile.role;
+
+  // Strict fallback to "" to ensure UI shows empty instead of initial defaults
+  settings.companyName = profile.company_name || "";
+  settings.companyAddress = profile.company_address || "";
+  settings.currencySymbol = profile.currency_symbol || "";
+  settings.companyLogo = profile.company_logo || "";
+  settings.bankName = profile.bank_name || "";
+  settings.bankAccount = profile.bank_account || "";
+  settings.profileName = profile.profile_name || "";
+  settings.profileContact = profile.phone || "";
+  settings.profileRole = profile.role || "user";
+
   return settings;
 };
 
@@ -628,10 +635,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [projects, setProjects] = useState<Project[]>([]);
 
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    if (user && user.id) {
+      fetchProjects();
+    } else {
+      setProjects([]); // Clear projects if logged out
+    }
+  }, [user?.id]); // Refetch when user changes
 
   const fetchProjects = async () => {
+    if (!user || !user.id) return;
+
     const { data: projectsData, error } = await supabase
       .from('projects')
       .select(`
@@ -640,6 +653,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           *
         )
       `)
+      .eq('user_id', user.id) // Filter by User
       .neq('status', 'deleted')
       .order('date', { ascending: false });
 
@@ -665,13 +679,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [bqItems, setBqItems] = useState<BQItem[]>([]);
 
   useEffect(() => {
-    fetchBQItems();
-  }, []);
+    if (user && user.id) {
+      fetchBQItems();
+    } else {
+      setBqItems([]);
+    }
+  }, [user?.id]);
 
   const fetchBQItems = async () => {
+    if (!user || !user.id) return;
+
     const { data, error } = await supabase
       .from('bq_items')
-      .select('*');
+      .select('*')
+      .eq('user_id', user.id); // Filter by User
 
     if (error) console.error('Error fetching BQ items:', error);
     if (data) {
@@ -869,44 +890,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // --- Project Actions ---
   const addProject = async (project: Project) => {
-    // Optimistic
-    // setProjects(prev => [...prev, project]); // Skip optimistic for projects to ensure ID from DB
-
-    const dbProject = mapProjectToDB(project);
-    delete dbProject.id;
-
-    // 1. Create Project
-    const { data: pData, error: pError } = await supabase
-      .from('projects')
-      .insert(dbProject)
-      .select()
-      .single();
-
-    if (pError || !pData) {
-      console.error('Error creating project:', pError);
+    // Inject User ID
+    if (!user || !user.id) {
+      console.error("Cannot add project: No user logged in");
       return;
     }
+    const projectWithUser = { ...project, userId: user.id };
 
-    // 2. Create Initial Version
-    const defaultVersion = {
-      project_id: pData.id,
-      version_name: 'v1',
-      master_list_snapshot: masterData, // Snapshot current master list
+    // Initial Version
+    const initialVersion: ProjectVersion = {
+      id: self.crypto.randomUUID(),
+      name: 'Version 1',
+      createdAt: new Date().toISOString(),
+      masterSnapshot: masterData // Snapshot current master list
     };
 
-    const { data: vData, error: vError } = await supabase
-      .from('project_versions')
-      .insert(defaultVersion)
-      .select()
-      .single();
+    // Attach version to project for optimistic UI
+    const projectWithVersion = { ...projectWithUser, versions: [initialVersion] };
 
-    if (vError) console.error('Error creating default version:', vError);
+    // Optimistic Update
+    setProjects(prev => [projectWithVersion, ...prev]);
+    setCurrentProjectId(project.id);
+    setCurrentVersionId(initialVersion.id); // Set active version immediately
 
-    // 3. Update State
-    const newProject = mapProjectFromDB(pData, vData ? [mapVersionFromDB(vData)] : []);
-    setProjects(prev => [newProject, ...prev]);
-    setCurrentProjectId(newProject.id);
-    if (newProject.versions.length > 0) setCurrentVersionId(newProject.versions[0].id);
+    // DB Insert
+    try {
+      const dbProject = mapProjectToDB(projectWithUser);
+      // ... db call ...
+      const { data, error } = await supabase
+        .from('projects')
+        .insert(dbProject)
+        .select()
+        .single();
+
+      if (error) console.error('Error adding project:', error);
+
+      // Create initial version in DB too
+      const dbVersion = mapVersionToDB(initialVersion, project.id);
+      await supabase.from('project_versions').insert(dbVersion);
+
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const updateProject = async (id: string, updates: Partial<Project>) => {
@@ -930,8 +955,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentVersionId(null);
     }
 
-    // DB Soft Delete
-    await supabase.from('projects').update({ status: 'deleted' }).eq('id', id);
+    // DB Hard Delete with Cascade
+    try {
+      // 1. Delete BQ Items
+      await supabase.from('bq_items').delete().eq('project_id', id);
+
+      // 2. Delete Versions
+      await supabase.from('project_versions').delete().eq('project_id', id);
+
+      // 3. Delete Project
+      await supabase.from('projects').delete().eq('id', id);
+    } catch (error) {
+      console.error("Error deleting project:", error);
+    }
   };
 
   const duplicateProject = async (id: string) => {
@@ -1174,46 +1210,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // --- BQ Items Actions ---
   // --- BQ Items Actions ---
   const addBQItem = async (projectId: string, versionId: string) => {
-    const tempId = Date.now().toString();
+    if (!user || !user.id) return;
+
     const newItem: BQItem = {
-      id: tempId,
-      projectId: projectId,
-      versionId: versionId,
-      category: '',
-      itemName: '',
-      description: '',
-      uom: '',
-      brand: '',
-      axsku: '',
-      mpn: '',
-      group: '',
-      price: 0,
+      id: self.crypto.randomUUID(),
+      userId: user.id, // Ownership
+      projectId,
+      versionId,
+      category: 'New Category',
+      itemName: 'New Item',
+      description: 'Description',
+      uom: 'unit',
       qty: 1,
+      price: 0,
       total: 0,
-      rexScFob: 0,
-      forex: 1,
-      sst: 1,
-      opta: 1,
+
+      // Defaults from master/empty
+      brand: '', axsku: '', mpn: '', group: '',
+      rexScFob: 0, forex: 1, sst: 1, opta: 0.97,
       rexScDdp: { value: 0, strategy: 'MANUAL', manualOverride: 0 },
       rexSp: { value: 0, strategy: 'MANUAL', manualOverride: 0 },
-      rexRsp: { value: 0, strategy: 'MANUAL', manualOverride: 0 },
-      isOptional: false,
+      rexRsp: { value: 0, strategy: 'MANUAL', manualOverride: 0 }
     };
 
-    // Optimistic
-    setBqItems([...bqItems, newItem]);
+    setBqItems(prev => [...prev, newItem]);
 
-    // DB
+    // DB Insert
     const dbItem = mapBQItemToDB(newItem);
-    delete dbItem.id;
-
-    const { data, error } = await supabase.from('bq_items').insert(dbItem).select().single();
-    if (data) {
-      // Update with Real ID
-      setBqItems(prev => prev.map(i => i.id === tempId ? { ...i, id: data.id } : i));
-    } else if (error) {
-      console.error('Error adding BQ item:', error);
-    }
+    await supabase.from('bq_items').insert(dbItem);
   };
 
   const syncMasterToBQ = async (projectId: string, versionId: string, masterItem: MasterItem, qty: number) => {
@@ -1255,10 +1279,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await supabase.from('bq_items').update({ qty: safeQty, total: updatedTotal }).eq('id', existingItem.id);
 
     } else if (action === 'insert') {
-      const tempId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+      const tempId = self.crypto.randomUUID();
 
       const newItem: BQItem = {
         id: tempId,
+        userId: user?.id || 'unknown',
         projectId,
         versionId,
         masterId: masterItem.id,

@@ -482,7 +482,8 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             });
         } else {
             const project: Project = {
-                id: Date.now().toString(),
+                id: self.crypto.randomUUID(),
+                userId: '', // Will be set by store
                 projectName: projectForm.projectName!,
                 clientName: projectForm.clientName || '',
                 clientContact: projectForm.clientContact || '',
@@ -516,7 +517,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             newName = `version-${counter}`;
         }
 
-        const newVersionId = Date.now().toString();
+        const newVersionId = self.crypto.randomUUID();
         createVersion(activeProject.id, currentVersionId, newName, newVersionId);
         // Immediate switch
         setCurrentVersionId(newVersionId);

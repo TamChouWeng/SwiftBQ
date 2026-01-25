@@ -59,6 +59,7 @@ export interface ProjectVersion {
 
 export interface Project {
   id: string;
+  userId: string; // Owner ID
   projectName: string;
   clientName: string;
   clientContact: string;
@@ -72,6 +73,7 @@ export interface Project {
 
 export interface BQItem {
   id: string;
+  userId: string; // Owner ID
   projectId: string; // Linked project
   versionId: string; // New: Linked version
   masterId?: string;
