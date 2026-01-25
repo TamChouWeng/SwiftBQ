@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Settings, X, ChevronLeft, List, Hammer, FileText, AlertCircle } from 'lucide-react';
+import { Settings, X, ChevronLeft, List, Hammer, FileText, AlertCircle, LogOut } from 'lucide-react';
 import { ActiveTab, AppLanguage } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { useAppStore } from '../store';
@@ -21,8 +21,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentLanguage,
 }) => {
   const t = TRANSLATIONS[currentLanguage];
-  const { appSettings, hasUnsavedChanges, saveAllChanges, discardAllChanges } = useAppStore();
-  
+  const { appSettings, hasUnsavedChanges, saveAllChanges, discardAllChanges, logout } = useAppStore();
+
   // Navigation Guard State
   const [pendingTab, setPendingTab] = useState<ActiveTab | null>(null);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
@@ -31,10 +31,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (tab === activeTab) return;
 
     if (hasUnsavedChanges) {
-        setPendingTab(tab);
-        setShowUnsavedModal(true);
+      setPendingTab(tab);
+      setShowUnsavedModal(true);
     } else {
-        performNavigation(tab);
+      performNavigation(tab);
     }
   };
 
@@ -46,15 +46,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleSaveAndContinue = () => {
-      saveAllChanges();
-      setShowUnsavedModal(false);
-      if (pendingTab) performNavigation(pendingTab);
+    saveAllChanges();
+    setShowUnsavedModal(false);
+    if (pendingTab) performNavigation(pendingTab);
   };
 
   const handleDiscardAndContinue = () => {
-      discardAllChanges();
-      setShowUnsavedModal(false);
-      if (pendingTab) performNavigation(pendingTab);
+    discardAllChanges();
+    setShowUnsavedModal(false);
+    if (pendingTab) performNavigation(pendingTab);
   };
 
   const menuItems = [
@@ -68,17 +68,15 @@ const Sidebar: React.FC<SidebarProps> = ({
     <>
       {/* Overlay Backdrop */}
       <div
-        className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 md:hidden ${
-          isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
+        className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 md:hidden ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
         onClick={() => setIsOpen(false)}
       />
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed top-0 left-0 z-50 h-full w-72 bg-white dark:bg-slate-800 shadow-2xl transform transition-transform duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        } flex flex-col`}
+        className={`fixed top-0 left-0 z-50 h-full w-72 bg-white dark:bg-slate-800 shadow-2xl transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'
+          } flex flex-col`}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-slate-700">
@@ -97,11 +95,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             <X size={20} />
           </button>
           <button
-             onClick={() => setIsOpen(false)}
-             className="hidden md:block p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
-             aria-label="Collapse sidebar"
+            onClick={() => setIsOpen(false)}
+            className="hidden md:block p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
+            aria-label="Collapse sidebar"
           >
-             <ChevronLeft size={20} />
+            <ChevronLeft size={20} />
           </button>
         </div>
 
@@ -111,17 +109,15 @@ const Sidebar: React.FC<SidebarProps> = ({
             <button
               key={item.tab}
               onClick={() => handleTabClick(item.tab)}
-              className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group ${
-                activeTab === item.tab
+              className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group ${activeTab === item.tab
                   ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 font-medium'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
+                }`}
             >
               <item.icon
                 size={22}
-                className={`${
-                  activeTab === item.tab ? 'text-primary-500 dark:text-primary-400' : 'text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300'
-                }`}
+                className={`${activeTab === item.tab ? 'text-primary-500 dark:text-primary-400' : 'text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300'
+                  }`}
               />
               {item.label}
             </button>
@@ -129,54 +125,65 @@ const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-100 dark:border-slate-700">
-           <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-700/50">
-             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-               {appSettings.profileName.charAt(0).toUpperCase()}
-             </div>
-             <div className="flex-1 min-w-0">
-               <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{appSettings.profileName}</p>
-               <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{appSettings.profileRole || 'Admin'}</p>
-             </div>
-           </div>
+        <div className="p-4 border-t border-gray-100 dark:border-slate-700">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-700/50 group hover:shadow-md transition-all duration-300">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm">
+              {appSettings.profileName.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-slate-800 dark:text-gray-100 truncate">{appSettings.profileName}</p>
+              <p className="text-xs text-indigo-500 dark:text-indigo-400 font-medium truncate capitalize">
+                {appSettings.profileRole || 'User'}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                if (window.confirm('Sign out?')) logout();
+              }}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+              title="Sign Out"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* Unsaved Changes Modal */}
       {showUnsavedModal && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6 transform transition-all scale-100 border border-gray-100 dark:border-slate-700">
-                 <div className="flex flex-col items-center text-center mb-6">
-                    <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/20 text-amber-500 rounded-full flex items-center justify-center mb-4">
-                        <AlertCircle size={24} />
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Unsaved Changes</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                        You have unsaved changes. Do you want to save them before leaving?
-                    </p>
-                 </div>
-                 <div className="flex flex-col gap-2">
-                     <button 
-                        onClick={handleSaveAndContinue}
-                        className="w-full px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl shadow-lg shadow-primary-500/30 transition-colors"
-                     >
-                        Save & Continue
-                     </button>
-                     <button 
-                        onClick={handleDiscardAndContinue}
-                        className="w-full px-4 py-2.5 bg-gray-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
-                     >
-                        Discard Changes
-                     </button>
-                     <button 
-                        onClick={() => setShowUnsavedModal(false)}
-                        className="w-full px-4 py-2.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-sm font-medium transition-colors"
-                     >
-                        Cancel
-                     </button>
-                 </div>
-             </div>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-sm p-6 transform transition-all scale-100 border border-gray-100 dark:border-slate-700">
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/20 text-amber-500 rounded-full flex items-center justify-center mb-4">
+                <AlertCircle size={24} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Unsaved Changes</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                You have unsaved changes. Do you want to save them before leaving?
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleSaveAndContinue}
+                className="w-full px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-xl shadow-lg shadow-primary-500/30 transition-colors"
+              >
+                Save & Continue
+              </button>
+              <button
+                onClick={handleDiscardAndContinue}
+                className="w-full px-4 py-2.5 bg-gray-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
+              >
+                Discard Changes
+              </button>
+              <button
+                onClick={() => setShowUnsavedModal(false)}
+                className="w-full px-4 py-2.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
+        </div>
       )}
     </>
   );
