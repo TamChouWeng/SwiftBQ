@@ -243,6 +243,8 @@ interface AppContextType {
   user: any | null; // Profile object
   login: (username: string, pwd: string) => Promise<boolean>;
   logout: () => void;
+  updateUserProfile: (updates: Partial<AppSettings>) => Promise<void>;
+  updateCompanyProfile: (updates: Partial<AppSettings>) => Promise<void>;
 }
 
 
@@ -1006,6 +1008,70 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('swiftbq_user');
+  };
+
+  const updateUserProfile = async (updates: Partial<AppSettings>) => {
+    // 1. Update Local App Settings
+    setAppSettings(prev => ({ ...prev, ...updates }));
+
+    // 2. Sync to DB if logged in
+    if (user && user.id) {
+      const dbUpdates: any = {};
+      if (updates.profileName !== undefined) dbUpdates.profile_name = updates.profileName;
+      if (updates.profileContact !== undefined) dbUpdates.phone = updates.profileContact;
+      if (updates.profileRole !== undefined) dbUpdates.role = updates.profileRole;
+
+      if (Object.keys(dbUpdates).length > 0) {
+        const { error } = await supabase
+          .from('profiles')
+          .update(dbUpdates)
+          .eq('id', user.id);
+
+        if (error) {
+          console.error("Failed to sync profile to DB:", error);
+        } else {
+          // Update user state too to reflect changes
+          setUser((prev: any) => ({ ...prev, ...dbUpdates }));
+          // Update local storage for user
+          const updatedUser = { ...user, ...dbUpdates };
+          localStorage.setItem('swiftbq_user', JSON.stringify(updatedUser));
+        }
+      }
+    }
+  };
+
+  const updateCompanyProfile = async (updates: Partial<AppSettings>) => {
+    // 1. Update Local App Settings
+    setAppSettings(prev => ({ ...prev, ...updates }));
+
+    // 2. Sync to DB if logged in
+    if (user && user.id) {
+      const dbUpdates: any = {};
+      if (updates.companyName !== undefined) dbUpdates.company_name = updates.companyName;
+      if (updates.companyAddress !== undefined) dbUpdates.company_address = updates.companyAddress;
+      if (updates.currencySymbol !== undefined) dbUpdates.currency_symbol = updates.currencySymbol;
+      if (updates.bankName !== undefined) dbUpdates.bank_name = updates.bankName;
+      if (updates.bankAccount !== undefined) dbUpdates.bank_account = updates.bankAccount;
+      // Note: companyLogo is base64, too large for simple text column usually. 
+      // If needed, we'd upload to storage bucket and save URL. For now, skipping logo sync to DB text column.
+
+      if (Object.keys(dbUpdates).length > 0) {
+        const { error } = await supabase
+          .from('profiles')
+          .update(dbUpdates)
+          .eq('id', user.id);
+
+        if (error) {
+          console.error("Failed to sync company info to DB:", error);
+        } else {
+          // Update user state too
+          setUser((prev: any) => ({ ...prev, ...dbUpdates }));
+          // Update local storage for user
+          const updatedUser = { ...user, ...dbUpdates };
+          localStorage.setItem('swiftbq_user', JSON.stringify(updatedUser));
+        }
+      }
+    }
   };
 
 
@@ -1874,7 +1940,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         quotationEdits, setQuotationEdit, commitQuotationEdits, discardQuotationEdits,
         masterListEdits, setMasterListEdit, commitMasterListEdits, discardMasterListEdits,
         hasUnsavedChanges, saveAllChanges, discardAllChanges,
-        user, login, logout
+        user, login, logout, updateUserProfile, updateCompanyProfile
       }}
 
 

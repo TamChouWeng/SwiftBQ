@@ -21,7 +21,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
     isSidebarOpen,
 }) => {
     const t = TRANSLATIONS[currentLanguage];
-    const { appSettings, setAppSettings, logout, user } = useAppStore();
+    const { appSettings, setAppSettings, logout, user, updateUserProfile, updateCompanyProfile } = useAppStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -71,8 +71,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
 
     const handleProfileSave = () => {
         if (!isProfileDirty) return;
-        setAppSettings({
-            ...appSettings,
+        updateUserProfile({
             profileName: profileForm.name,
             profileContact: profileForm.contact,
             profileRole: profileForm.role
@@ -81,8 +80,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
 
     const handleCompanySave = () => {
         if (!isCompanyDirty) return;
-        setAppSettings({
-            ...appSettings,
+        updateCompanyProfile({
             companyName: companyForm.name,
             companyAddress: companyForm.address,
             currencySymbol: companyForm.currency,
@@ -134,17 +132,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                         </div>
                         <div className="flex items-center gap-2">
                             <button
-                                onClick={() => {
-                                    if (window.confirm('Are you sure you want to sign out?')) {
-                                        logout();
-                                    }
-                                }}
-                                className="w-10 h-10 flex items-center justify-center rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all"
-                                title="Sign Out"
-                            >
-                                <LogOut size={20} strokeWidth={2} />
-                            </button>
-                            <button
                                 onClick={handleProfileSave}
                                 disabled={!isProfileDirty}
                                 className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${isProfileDirty
@@ -154,6 +141,17 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                                 title="Save Profile Changes"
                             >
                                 <Check size={20} strokeWidth={3} />
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (window.confirm('Are you sure you want to sign out?')) {
+                                        logout();
+                                    }
+                                }}
+                                className="w-10 h-10 flex items-center justify-center rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all"
+                                title="Sign Out"
+                            >
+                                <LogOut size={20} strokeWidth={2} />
                             </button>
                         </div>
                     </div>
@@ -173,7 +171,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                             <input
                                 type="text"
                                 value={profileForm.contact}
-                                onChange={(e) => setProfileForm({ ...profileForm, contact: e.target.value })}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (/^[0-9+\-\s]*$/.test(val)) {
+                                        setProfileForm({ ...profileForm, contact: val });
+                                    }
+                                }}
                                 className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
                             />
                         </div>
@@ -438,7 +441,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                             </div>
                         </div>
                         <div className="px-3 py-1 bg-gray-100 dark:bg-slate-700 rounded-full border border-gray-200 dark:border-slate-600">
-                            <span className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">Beta 2.2</span>
+                            <span className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">Beta 3.0</span>
                         </div>
                     </div>
                 </div>

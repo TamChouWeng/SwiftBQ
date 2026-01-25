@@ -1,22 +1,22 @@
 # SwitftBQ
-> **Status**: Beta 2.2
-> **Version**: 2.2.0
+> **Status**: Beta 3.0
+> **Version**: 3.0.0
 
 SwitftBQ is a modern web application designed to streamline the process of creating Bills of Quantities (BQ) and managing quotations. Built with React, Vite, and Tailwind CSS, it offers a responsive and intuitive interface for construction and project management professionals.
 
-## 🚀 What's New in Beta 2.2
+## 🚀 What's New in Beta 3.0
+- **Cloud Synchronization**:
+    - **User Profile Sync**: Name, Contact, and Role changes in Settings are now seamlessly synced to the cloud database.
+    - **Company Info Sync**: Company Name, Address, and Bank details are now persisted across sessions via the database.
+- **Robust Data Handling**: Fixed database column mappings (e.g., `phone`) to ensure reliable data storage.
+- **Input Validation**: Added strict input validation for Contact Numbers (digits, +, -, spaces only) to maintain data quality.
 - **Enhanced Add Item UI**: New modal with "Save & Add Another" workflow and smart price inputs directly in the creation flow.
 - **Formulas Live Update**: Catalog changes now immediately trigger price recalculations (DDP, SP, RSP) without refresh.
 - **Smart BQ Linkage**: Saving changes in the Catalog now instantly updates all linked items in the BQ Review list.
-- **Review View Enhancements**:
-    - Synchronized UI styles (fonts, alignment) with Catalog view.
-    - Disabled direct editing of formula-derived columns to prevent inconsistencies.
-    - Fixed drag-and-drop reordering UI.
 - **Reliable Calculations**:
     - Fixed "Grand Total NaN" issues by adding robust safety checks.
     - Updated Grand Total logic to strictly sum the item TRSP column for accuracy.
 - **PDF Export Polish**: Fixed vertical alignment issues in generated PDF tables to ensure professional centering.
-- **UX Improvements**: Added confirmation prompts when deleting Master items to prevent accidental data loss.
 
 ## Features
 
