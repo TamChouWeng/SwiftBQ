@@ -176,6 +176,22 @@ export const mapBQItemToDB = (item: Partial<BQItem>) => {
   return dbItem;
 };
 
+// --- Profile / Settings Mapper ---
+export const mapProfileToSettings = (profile: any): Partial<AppSettings> => {
+  if (!profile) return {};
+  const settings: Partial<AppSettings> = {};
+  if (profile.company_name) settings.companyName = profile.company_name;
+  if (profile.company_address) settings.companyAddress = profile.company_address;
+  if (profile.currency_symbol) settings.currencySymbol = profile.currency_symbol;
+  if (profile.company_logo) settings.companyLogo = profile.company_logo;
+  if (profile.bank_name) settings.bankName = profile.bank_name;
+  if (profile.bank_account) settings.bankAccount = profile.bank_account;
+  if (profile.profile_name) settings.profileName = profile.profile_name;
+  if (profile.phone) settings.profileContact = profile.phone;
+  if (profile.role) settings.profileRole = profile.role;
+  return settings;
+};
+
 
 interface AppContextType {
   masterData: MasterItem[];
@@ -245,6 +261,7 @@ interface AppContextType {
   logout: () => void;
   updateUserProfile: (updates: Partial<AppSettings>) => Promise<void>;
   updateCompanyProfile: (updates: Partial<AppSettings>) => Promise<void>;
+  uploadCompanyLogo: (file: File) => Promise<string | null>;
 }
 
 
@@ -444,6 +461,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (data) {
       setUser(data);
       localStorage.setItem('swiftbq_user', JSON.stringify(data));
+
+      // Sync App Settings from DB Profile
+      const dbSettings = mapProfileToSettings(data);
+      setAppSettings(prev => ({ ...prev, ...dbSettings }));
+
       return true;
     }
     return false;
@@ -498,8 +520,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (updates.currencySymbol !== undefined) dbUpdates.currency_symbol = updates.currencySymbol;
       if (updates.bankName !== undefined) dbUpdates.bank_name = updates.bankName;
       if (updates.bankAccount !== undefined) dbUpdates.bank_account = updates.bankAccount;
-      // Note: companyLogo is base64, too large for simple text column usually. 
-      // If needed, we'd upload to storage bucket and save URL. For now, skipping logo sync to DB text column.
+      if (updates.companyLogo !== undefined) dbUpdates.company_logo = updates.companyLogo;
 
       if (Object.keys(dbUpdates).length > 0) {
         const { error } = await supabase
@@ -517,6 +538,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           localStorage.setItem('swiftbq_user', JSON.stringify(updatedUser));
         }
       }
+    }
+  };
+
+  // --- Sync Profile on Load/Changes ---
+  useEffect(() => {
+    const syncProfile = async () => {
+      if (user && user.id) {
+        const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        if (data) {
+          const dbSettings = mapProfileToSettings(data);
+          setAppSettings(prev => ({ ...prev, ...dbSettings }));
+
+          // Update user object if DB has changed (e.g. role updated elsewhere)
+          // We use a simple check to avoid infinite loops if objects are identical
+          if (user.company_logo !== data.company_logo || user.company_name !== data.company_name) {
+            setUser(data);
+            localStorage.setItem('swiftbq_user', JSON.stringify(data));
+          }
+        }
+      }
+    };
+    syncProfile();
+  }, [user?.id]); // Run when user ID changes (login or load)
+
+  const uploadCompanyLogo = async (file: File): Promise<string | null> => {
+    if (!user || !user.id) return null;
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('logos')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error('Error uploading logo:', uploadError);
+        return null;
+      }
+
+      const { data } = supabase.storage.from('logos').getPublicUrl(filePath);
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Unexpected error uploading logo:', error);
+      return null;
     }
   };
 
@@ -1386,7 +1453,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         quotationEdits, setQuotationEdit, commitQuotationEdits, discardQuotationEdits,
         masterListEdits, setMasterListEdit, commitMasterListEdits, discardMasterListEdits,
         hasUnsavedChanges, saveAllChanges, discardAllChanges,
-        user, login, logout, updateUserProfile, updateCompanyProfile
+        user, login, logout, updateUserProfile, updateCompanyProfile, uploadCompanyLogo
       }}
 
 

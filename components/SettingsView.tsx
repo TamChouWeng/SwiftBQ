@@ -21,7 +21,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
     isSidebarOpen,
 }) => {
     const t = TRANSLATIONS[currentLanguage];
-    const { appSettings, setAppSettings, logout, user, updateUserProfile, updateCompanyProfile } = useAppStore();
+    const { appSettings, setAppSettings, logout, user, updateUserProfile, updateCompanyProfile, uploadCompanyLogo } = useAppStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -57,6 +57,16 @@ const SettingsView: React.FC<SettingsViewProps> = ({
         });
     }, [appSettings]);
 
+
+
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
+    // Initial sync
+    useEffect(() => {
+        setLogoPreview(appSettings.companyLogo || null);
+    }, [appSettings.companyLogo]);
+
     const isProfileDirty =
         profileForm.name !== appSettings.profileName ||
         profileForm.contact !== appSettings.profileContact ||
@@ -67,7 +77,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({
         companyForm.address !== appSettings.companyAddress ||
         companyForm.currency !== appSettings.currencySymbol ||
         companyForm.bankName !== appSettings.bankName ||
-        companyForm.bankAccount !== appSettings.bankAccount;
+        companyForm.bankAccount !== appSettings.bankAccount ||
+        logoFile !== null ||
+        (logoPreview !== (appSettings.companyLogo || null)); // Handle removal case
 
     const handleProfileSave = () => {
         if (!isProfileDirty) return;
@@ -78,30 +90,49 @@ const SettingsView: React.FC<SettingsViewProps> = ({
         });
     };
 
-    const handleCompanySave = () => {
+    const handleCompanySave = async () => {
         if (!isCompanyDirty) return;
+
+        let finalLogoUrl = appSettings.companyLogo;
+
+        // Handle Logo Upload if pending
+        if (logoFile) {
+            const url = await uploadCompanyLogo(logoFile);
+            if (url) {
+                finalLogoUrl = url;
+                // Update local preview to match uploaded URL to prevent flicker/dirty state issues?
+                // Actually, just save.
+            }
+        } else if (logoPreview === null && appSettings.companyLogo) {
+            // Handle removal
+            finalLogoUrl = '';
+        }
+
         updateCompanyProfile({
             companyName: companyForm.name,
             companyAddress: companyForm.address,
             currencySymbol: companyForm.currency,
             bankName: companyForm.bankName,
-            bankAccount: companyForm.bankAccount
+            bankAccount: companyForm.bankAccount,
+            companyLogo: finalLogoUrl
         });
+
+        // Reset local logo file state
+        setLogoFile(null);
     };
 
     const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setAppSettings({ ...appSettings, companyLogo: reader.result as string });
-            };
-            reader.readAsDataURL(file);
+            setLogoFile(file);
+            const objectUrl = URL.createObjectURL(file);
+            setLogoPreview(objectUrl);
         }
     };
 
     const handleRemoveLogo = () => {
-        setAppSettings({ ...appSettings, companyLogo: '' });
+        setLogoFile(null);
+        setLogoPreview(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -280,9 +311,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                             <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Company Logo</label>
                             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                                 <div className="relative group">
-                                    {appSettings.companyLogo ? (
+                                    {logoPreview ? (
                                         <div className="w-20 h-20 border border-gray-200 dark:border-slate-600 rounded-lg overflow-hidden bg-white flex items-center justify-center relative">
-                                            <img src={appSettings.companyLogo} alt="Logo Preview" className="max-w-full max-h-full object-contain" />
+                                            <img src={logoPreview} alt="Logo Preview" className="max-w-full max-h-full object-contain" />
                                         </div>
                                     ) : (
                                         <div className="w-20 h-20 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg flex items-center justify-center text-slate-400 bg-gray-50 dark:bg-slate-700/30">
@@ -304,7 +335,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                                                 className="hidden"
                                             />
                                         </label>
-                                        {appSettings.companyLogo && (
+                                        {logoPreview && (
                                             <button
                                                 onClick={handleRemoveLogo}
                                                 className="flex items-center justify-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors text-sm font-medium"
