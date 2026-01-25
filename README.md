@@ -1,8 +1,22 @@
 # SwitftBQ
-> **Status**: Beta 3.0
-> **Version**: 3.0.0
+> **Status**: Beta 3.1
+> **Version**: 3.1.0
 
 SwitftBQ is a modern web application designed to streamline the process of creating Bills of Quantities (BQ) and managing quotations. Built with React, Vite, and Tailwind CSS, it offers a responsive and intuitive interface for construction and project management professionals.
+
+## 🚀 What's New in Beta 3.1
+- **🔒 Data Isolation & Security**:
+    - **User-Specific Data**: Projects and BQ Items are now strictly isolated per user account. Using custom UUID logic, we ensure zero data leakage between users.
+    - **Robust Auth**: App settings and profile data are now consistently hydrated from the database on login.
+- **🗑️ Cascading Delete**:
+    - **Clean Database**: Deleting a project now permanently removes all associated BQ Items and Project Versions, preventing orphaned data and saving space.
+- **⚡ Optimistic UI Updates**:
+    - **Instant Feedback**: Creating projects now instantly updates the UI without requiring a page refresh.
+    - **Version Handling**: Initial Empty Versions are properly attached on creation for immediate access.
+- **🐛 Critical Bug Fixes**:
+    - **UUID Compatibility**: Fixed "invalid input syntax for type uuid" by implementing standard UUID generation across the app.
+    - **Empty Catalog Fix**: Resolved an issue where new projects started with an empty master list; they now correctly snapshot the current master data.
+    - **Settings UI**: Fixed visual bugs where empty profile fields showed default text instead of blanks.
 
 ## 🚀 What's New in Beta 3.0
 - **Cloud Synchronization**:
