@@ -928,7 +928,7 @@ const INITIAL_SETTINGS: AppSettings = {
   bankAccount: 'xxxxx',
   profileName: 'Teoh Chi Yang',
   profileContact: '+6012 528 0665',
-  profileRole: 'Admin',
+  profileRole: 'admin',
 };
 
 // Migration helpers
@@ -1019,7 +1019,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const dbUpdates: any = {};
       if (updates.profileName !== undefined) dbUpdates.profile_name = updates.profileName;
       if (updates.profileContact !== undefined) dbUpdates.phone = updates.profileContact;
-      if (updates.profileRole !== undefined) dbUpdates.role = updates.profileRole;
+      // Note: 'role' might be protected or not exist in some schemas, but assuming it exists based on previous code.
+      // Force lowercase to satisfy check constraint (profiles_role_check)
+      if (updates.profileRole !== undefined) dbUpdates.role = updates.profileRole.toLowerCase();
 
       if (Object.keys(dbUpdates).length > 0) {
         const { error } = await supabase

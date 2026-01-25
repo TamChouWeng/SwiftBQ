@@ -29,7 +29,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
     const [profileForm, setProfileForm] = useState({
         name: appSettings.profileName,
         contact: appSettings.profileContact,
-        role: appSettings.profileRole || 'Admin'
+        role: appSettings.profileRole || 'admin'
     });
 
     // Local state for company form to detect changes
@@ -46,7 +46,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
         setProfileForm({
             name: appSettings.profileName,
             contact: appSettings.profileContact,
-            role: appSettings.profileRole || 'Admin'
+            role: appSettings.profileRole || 'admin'
         });
         setCompanyForm({
             name: appSettings.companyName,
@@ -60,7 +60,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
     const isProfileDirty =
         profileForm.name !== appSettings.profileName ||
         profileForm.contact !== appSettings.profileContact ||
-        profileForm.role !== (appSettings.profileRole || 'Admin');
+        profileForm.role !== (appSettings.profileRole || 'admin');
 
     const isCompanyDirty =
         companyForm.name !== appSettings.companyName ||
@@ -188,8 +188,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                                     onChange={(e) => setProfileForm({ ...profileForm, role: e.target.value })}
                                     className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none appearance-none cursor-pointer"
                                 >
-                                    <option value="Admin">{t.roleAdmin}</option>
-                                    <option value="User">{t.roleUser}</option>
+                                    <option value="admin">{t.roleAdmin}</option>
+                                    <option value="user">{t.roleUser}</option>
                                 </select>
                                 <ShieldCheck className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                             </div>
@@ -258,7 +258,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                             <input
                                 type="text"
                                 value={companyForm.bankAccount}
-                                onChange={(e) => setCompanyForm({ ...companyForm, bankAccount: e.target.value })}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (/^[0-9]*$/.test(val)) {
+                                        setCompanyForm({ ...companyForm, bankAccount: val });
+                                    }
+                                }}
                                 className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
                             />
                         </div>
