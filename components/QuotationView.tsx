@@ -710,8 +710,10 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                                     <span className="font-bold border-b border-black pb-1 inline-block">TERMS & CONDITIONS:</span>
                                                 </div>
                                                 <ul className="list-disc list-outside ml-4 space-y-1 text-black">
-                                                    <li>Payment : 50% deposit, balance before delivery.</li>
-                                                    <li>Delivery : 10 - 14 weeks upon order confirmation and deposit paid.</li>
+                                                    <li>(1) No cancellation, suspension or variation of an accepted customer's order shall be valid unless agreed in writing by our company.</li>
+                                                    <li>(2) Any goods return request shall be reported within 30 days from date of invoice and we reserve the right to decide on the acceptance of the case.</li>
+                                                    <li>(3) Dates of delivery are approximate. We are neither responsible nor liable for losses or damages incurred by reason of delay or inability to delivery caused by unforeseen circumstances.</li>
+                                                    <li>(4) Prices quoted are based on the stated quantities. Should the overall required quantities vary by more than 5% when compared to the overall quantities quoted, we reserve the right to revise the pricing.</li>
                                                 </ul>
                                                 <p className="mt-3 italic text-[10px] text-black">
                                                     (1) No cancellation, suspension or variation of an accepted customer's order shall be valid unless agreed in writing by our company.
