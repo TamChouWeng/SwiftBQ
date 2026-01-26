@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Plus, Trash2, Search, ChevronLeft, ChevronRight, Filter, X, Eye, LayoutTemplate, Check, EyeOff, Save } from 'lucide-react';
+import { Plus, Trash2, Search, ChevronLeft, ChevronRight, Filter, X, Eye, LayoutTemplate, Check, EyeOff, Save, Edit2 } from 'lucide-react';
 import { useAppStore, calculateDerivedFields } from '../store';
 import { AppLanguage, MasterItem, PriceField } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -113,6 +113,29 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
       }
     }
   }, [newItem.rexScFob, newItem.forex, newItem.sst, newItem.opta, isModalOpen]);
+
+
+  // Description Modal State
+  const [descriptionModal, setDescriptionModal] = useState<{ isOpen: boolean; itemId: string; content: string; field: keyof MasterItem }>({
+    isOpen: false,
+    itemId: '',
+    content: '',
+    field: 'description'
+  });
+
+  const openDescriptionModal = (itemId: string, content: string, field: keyof MasterItem = 'description') => {
+    setDescriptionModal({
+      isOpen: true,
+      itemId,
+      content: content || '',
+      field
+    });
+  };
+
+  const handleSaveDescriptionModal = () => {
+    handleEdit(descriptionModal.itemId, descriptionModal.field, descriptionModal.content);
+    setDescriptionModal(prev => ({ ...prev, isOpen: false }));
+  };
 
   // --- Derived Data ---
 
@@ -574,7 +597,24 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
 
                       {visibleColumns.category && <td className="p-1"><input type="text" value={display.category} onChange={(e) => handleEdit(item.id, 'category', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
                       {visibleColumns.itemName && <td className="p-1"><input type="text" value={display.itemName} onChange={(e) => handleEdit(item.id, 'itemName', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate font-bold" /></td>}
-                      {visibleColumns.description && <td className="p-1"><input type="text" value={display.description} onChange={(e) => handleEdit(item.id, 'description', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+
+
+                      {/* Description */}
+                      {visibleColumns.description && <td className="p-1">
+                        <div className="flex items-center gap-1 p-1">
+                          <div className="flex-1 px-2 py-1.5 bg-transparent border border-transparent rounded text-slate-800 dark:text-slate-200 text-sm truncate">
+                            {display.description || ''}
+                          </div>
+                          <button
+                            onClick={() => openDescriptionModal(item.id, display.description || '', 'description')}
+                            className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition-colors"
+                            title="Edit Description"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                        </div>
+                      </td>}
+
                       {visibleColumns.uom && <td className="p-1"><input type="text" value={display.uom} onChange={(e) => handleEdit(item.id, 'uom', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-center text-slate-800 dark:text-slate-200 text-sm" /></td>}
 
                       {visibleColumns.rexScFob && <td className="p-1"><input type="number" value={display.rexScFob} onChange={(e) => handleEdit(item.id, 'rexScFob', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
@@ -770,6 +810,57 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
             <div className="p-6 bg-gray-50 dark:bg-slate-700/30 flex justify-end gap-3 shrink-0">
               <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-lg transition-colors">Cancel</button>
               <button onClick={saveNewItem} className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg shadow-lg shadow-primary-500/30 transition-colors font-medium">Save Item</button>
+            </div>
+          </div>
+        </div>
+
+      )}
+
+      {/* Description Modal */}
+      {descriptionModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border border-gray-100 dark:border-slate-700">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-slate-700">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Edit2 size={20} className="text-primary-500" />
+                Edit Description
+              </h3>
+              <button
+                onClick={() => setDescriptionModal(prev => ({ ...prev, isOpen: false }))}
+                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">
+                  Description (Supports multiple lines)
+                </label>
+                <textarea
+                  autoFocus
+                  value={descriptionModal.content}
+                  onChange={(e) => setDescriptionModal(prev => ({ ...prev, content: e.target.value }))}
+                  rows={10}
+                  className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-xl px-4 py-3 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none resize-none font-mono text-sm leading-relaxed"
+                  placeholder="Enter detailed description..."
+                />
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setDescriptionModal(prev => ({ ...prev, isOpen: false }))}
+                  className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors font-medium text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveDescriptionModal}
+                  className="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg shadow-sm hover:shadow-md transition-all font-medium text-sm flex items-center gap-2"
+                >
+                  <Save size={16} />
+                  Save Changes
+                </button>
+              </div>
             </div>
           </div>
         </div>
