@@ -21,8 +21,9 @@ const SettingsView: React.FC<SettingsViewProps> = ({
     isSidebarOpen,
 }) => {
     const t = TRANSLATIONS[currentLanguage];
-    const { appSettings, setAppSettings, logout, user, updateUserProfile, updateCompanyProfile, uploadCompanyLogo } = useAppStore();
+    const { appSettings, setAppSettings, logout, user, updateUserProfile, updateCompanyProfile, uploadCompanyLogo, uploadProfileSignature } = useAppStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const sigInputRef = useRef<HTMLInputElement>(null);
 
 
     // Local state for profile form to defer updates until confirmation
@@ -37,6 +38,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
         name: appSettings.companyName,
         address: appSettings.companyAddress,
         currency: appSettings.currencySymbol,
+        email: appSettings.companyEmail || '',
         bankName: appSettings.bankName,
         bankAccount: appSettings.bankAccount
     });
@@ -52,6 +54,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
             name: appSettings.companyName,
             address: appSettings.companyAddress,
             currency: appSettings.currencySymbol,
+            email: appSettings.companyEmail || '',
             bankName: appSettings.bankName,
             bankAccount: appSettings.bankAccount
         });
@@ -62,32 +65,53 @@ const SettingsView: React.FC<SettingsViewProps> = ({
     const [logoFile, setLogoFile] = useState<File | null>(null);
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
+    // Signature State
+    const [sigFile, setSigFile] = useState<File | null>(null);
+    const [sigPreview, setSigPreview] = useState<string | null>(null);
+
     // Initial sync
     useEffect(() => {
         setLogoPreview(appSettings.companyLogo || null);
-    }, [appSettings.companyLogo]);
+        setSigPreview(appSettings.profileSignature || null);
+    }, [appSettings.companyLogo, appSettings.profileSignature]);
 
     const isProfileDirty =
         profileForm.name !== appSettings.profileName ||
         profileForm.contact !== appSettings.profileContact ||
-        profileForm.role !== (appSettings.profileRole || 'admin');
+        profileForm.role !== (appSettings.profileRole || 'admin') ||
+        sigFile !== null ||
+        (sigPreview !== (appSettings.profileSignature || null));
 
     const isCompanyDirty =
         companyForm.name !== appSettings.companyName ||
         companyForm.address !== appSettings.companyAddress ||
         companyForm.currency !== appSettings.currencySymbol ||
+        companyForm.email !== (appSettings.companyEmail || '') ||
         companyForm.bankName !== appSettings.bankName ||
         companyForm.bankAccount !== appSettings.bankAccount ||
         logoFile !== null ||
         (logoPreview !== (appSettings.companyLogo || null)); // Handle removal case
 
-    const handleProfileSave = () => {
+    const handleProfileSave = async () => {
         if (!isProfileDirty) return;
+
+        let finalSigUrl = appSettings.profileSignature;
+        // Upload Signature if needed
+        if (sigFile) {
+            const url = await uploadProfileSignature(sigFile);
+            if (url) finalSigUrl = url;
+        } else if (sigPreview === null) {
+            finalSigUrl = '';
+        }
+
         updateUserProfile({
             profileName: profileForm.name,
             profileContact: profileForm.contact,
-            profileRole: profileForm.role
+            profileRole: profileForm.role,
+            profileSignature: finalSigUrl
         });
+
+        setSigFile(null);
     };
 
     const handleCompanySave = async () => {
@@ -112,6 +136,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
             companyName: companyForm.name,
             companyAddress: companyForm.address,
             currencySymbol: companyForm.currency,
+            companyEmail: companyForm.email,
             bankName: companyForm.bankName,
             bankAccount: companyForm.bankAccount,
             companyLogo: finalLogoUrl
@@ -135,6 +160,23 @@ const SettingsView: React.FC<SettingsViewProps> = ({
         setLogoPreview(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
+        }
+    };
+
+    const handleSigUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setSigFile(file);
+            const objectUrl = URL.createObjectURL(file);
+            setSigPreview(objectUrl);
+        }
+    };
+
+    const handleRemoveSig = () => {
+        setSigFile(null);
+        setSigPreview(null);
+        if (sigInputRef.current) {
+            sigInputRef.current.value = '';
         }
     };
 
@@ -227,6 +269,55 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                         </div>
 
                     </div>
+
+                    <div className="border-t border-gray-100 dark:border-slate-700 my-4"></div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2">Signature</label>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                <div className="relative group">
+                                    {sigPreview ? (
+                                        <div className="w-32 h-16 border border-gray-200 dark:border-slate-600 rounded-lg overflow-hidden bg-white flex items-center justify-center relative">
+                                            <img src={sigPreview} alt="Signature" className="max-w-full max-h-full object-contain" />
+                                        </div>
+                                    ) : (
+                                        <div className="w-32 h-16 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg flex items-center justify-center text-slate-400 bg-gray-50 dark:bg-slate-700/30">
+                                            <span className="text-xs">No Signature</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex-1 space-y-2">
+                                    <div className="flex gap-2">
+                                        <label className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-600 transition-colors text-sm font-medium text-slate-700 dark:text-slate-300">
+                                            <Upload size={16} />
+                                            Upload Signature
+                                            <input
+                                                ref={sigInputRef}
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleSigUpload}
+                                                className="hidden"
+                                            />
+                                        </label>
+                                        {sigPreview && (
+                                            <button
+                                                onClick={handleRemoveSig}
+                                                className="flex items-center justify-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors text-sm font-medium"
+                                            >
+                                                <Trash2 size={16} />
+                                                Remove
+                                            </button>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-slate-400">
+                                        Upload your signature image for official documents.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -263,6 +354,15 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                                 type="text"
                                 value={companyForm.name}
                                 onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })}
+                                className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Company Email</label>
+                            <input
+                                type="email"
+                                value={companyForm.email}
+                                onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })}
                                 className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none"
                             />
                         </div>

@@ -730,7 +730,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                                     <div className="border-t border-black pt-1">
                                                         <div className="text-[10px] space-y-1">
                                                             <p className="font-bold text-xs">{appSettings.companyName}</p>
-                                                            <p className="text-blue-600 underline">xxx@rexharge.net</p>
+                                                            <p className="text-blue-600 underline">{appSettings.companyEmail || 'email@example.com'}</p>
                                                             <div className="mt-2">
                                                                 <p className="italic mb-1">All cheques should be crossed and made to :</p>
                                                                 <p className="font-bold">{appSettings.companyName}</p>

@@ -118,6 +118,8 @@ export interface AppSettings {
   profileName: string;
   profileContact: string;
   profileRole: string;
+  profileSignature?: string; // New: Signature Image URL
+  companyEmail?: string; // New: Company Email
 }
 
 export interface Translations {

@@ -195,6 +195,8 @@ export const mapProfileToSettings = (profile: any): Partial<AppSettings> => {
   settings.profileName = profile.profile_name || "";
   settings.profileContact = profile.phone || "";
   settings.profileRole = profile.role || "user";
+  settings.profileSignature = profile.signature || "";
+  settings.companyEmail = profile.company_email || "";
 
   return settings;
 };
@@ -269,6 +271,7 @@ interface AppContextType {
   updateUserProfile: (updates: Partial<AppSettings>) => Promise<void>;
   updateCompanyProfile: (updates: Partial<AppSettings>) => Promise<void>;
   uploadCompanyLogo: (file: File) => Promise<string | null>;
+  uploadProfileSignature: (file: File) => Promise<string | null>;
 }
 
 
@@ -391,6 +394,8 @@ const INITIAL_SETTINGS: AppSettings = {
   profileName: 'Teoh Chi Yang',
   profileContact: '+6012 528 0665',
   profileRole: 'admin',
+  profileSignature: '',
+  companyEmail: '',
 };
 
 
@@ -443,6 +448,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Note: 'role' might be protected or not exist in some schemas, but assuming it exists based on previous code.
       // Force lowercase to satisfy check constraint (profiles_role_check)
       if (updates.profileRole !== undefined) dbUpdates.role = updates.profileRole.toLowerCase();
+      if (updates.profileSignature !== undefined) dbUpdates.signature = updates.profileSignature;
 
       if (Object.keys(dbUpdates).length > 0) {
         const { error } = await supabase
@@ -476,6 +482,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (updates.bankName !== undefined) dbUpdates.bank_name = updates.bankName;
       if (updates.bankAccount !== undefined) dbUpdates.bank_account = updates.bankAccount;
       if (updates.companyLogo !== undefined) dbUpdates.company_logo = updates.companyLogo;
+      if (updates.companyEmail !== undefined) dbUpdates.company_email = updates.companyEmail;
 
       if (Object.keys(dbUpdates).length > 0) {
         const { error } = await supabase
@@ -538,6 +545,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return data.publicUrl;
     } catch (error) {
       console.error('Unexpected error uploading logo:', error);
+      return null;
+    }
+  };
+
+  const uploadProfileSignature = async (file: File): Promise<string | null> => {
+    if (!user || !user.id) return null;
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      // Use different prefix/naming to distinguish if needed, or just same bucket
+      const fileName = `sig_${user.id}_${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('logos') // Reusing 'logos' bucket for convenience as per "just like Company Logo" prompt, or could use new bucket
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error('Error uploading signature:', uploadError);
+        return null;
+      }
+
+      const { data } = supabase.storage.from('logos').getPublicUrl(filePath);
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Unexpected error uploading signature:', error);
       return null;
     }
   };
@@ -811,9 +844,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const commitMasterListEdits = () => {
+
+  const commitMasterListEdits = async () => {
     if (Object.keys(masterListEdits).length === 0) return;
 
+    // 1. Optimistic Update
     setMasterData(prev => prev.map(item => {
       if (masterListEdits[item.id]) {
         // masterListEdits contains proper PriceField objects now thanks to calculateDerivedFields
@@ -821,7 +856,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return item;
     }));
-    setMasterListEdits({});
+
+    // 2. DB Update
+    const editsToSave = { ...masterListEdits }; // Snapshot
+    setMasterListEdits({}); // Clear local state immediately
+
+    for (const [id, changes] of Object.entries(editsToSave)) {
+      const dbUpdates = mapMasterItemToDB(changes);
+      delete dbUpdates.id; // Correct ID is in URL/Query
+
+      const { error } = await supabase
+        .from('master_list_items')
+        .update(dbUpdates)
+        .eq('id', id);
+
+      if (error) {
+        console.error(`Failed to save edit for item ${id}:`, error);
+        // Ideally show toast/error to user, or revert optimistic update?
+      }
+    }
   };
 
   const discardMasterListEdits = () => {
@@ -1376,15 +1429,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setQuotationEdits(prev => ({ ...prev, [id]: value }));
   };
 
-  const commitQuotationEdits = () => {
+  const commitQuotationEdits = async () => {
     if (Object.keys(quotationEdits).length === 0) return;
+
+    // 1. Optimistic
     setBqItems(prev => prev.map(item => {
       if (quotationEdits[item.id] !== undefined) {
         return { ...item, quotationDescription: quotationEdits[item.id] };
       }
       return item;
     }));
+
+    // 2. DB Update
+    const editsToSave = { ...quotationEdits };
     setQuotationEdits({});
+
+    for (const [id, newDesc] of Object.entries(editsToSave)) {
+      const { error } = await supabase
+        .from('bq_items')
+        .update({ quotation_description: newDesc })
+        .eq('id', id);
+
+      if (error) {
+        console.error(`Failed to save quotation desc for item ${id}:`, error);
+      }
+    }
   };
 
   const discardQuotationEdits = () => {
@@ -1419,7 +1488,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         quotationEdits, setQuotationEdit, commitQuotationEdits, discardQuotationEdits,
         masterListEdits, setMasterListEdit, commitMasterListEdits, discardMasterListEdits,
         hasUnsavedChanges, saveAllChanges, discardAllChanges,
-        user, login, logout, updateUserProfile, updateCompanyProfile, uploadCompanyLogo
+        user, login, logout, updateUserProfile, updateCompanyProfile, uploadCompanyLogo, uploadProfileSignature
       }}
 
 
