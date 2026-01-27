@@ -67,15 +67,11 @@ const SmartPriceCell: React.FC<SmartPriceCellProps> = ({ field, strategies, onCh
                     value={field.value}
                     onChange={handleValueChange}
                     readOnly={!isManual || disabled}
-                    className={`w-full bg-transparent p-2 pr-8 rounded border 
+                    className={`w-full bg-transparent p-2 pr-2 rounded border 
             ${!isManual ? 'text-slate-600 dark:text-slate-400 bg-gray-50/50 dark:bg-slate-800/50 cursor-not-allowed' : 'text-slate-800 dark:text-slate-200'}
             border-transparent hover:border-gray-200 dark:hover:border-slate-600 
             focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-sm`}
                 />
-                {/* Indicator Icon */}
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                    {!isManual && <Calculator size={14} />}
-                </div>
             </div>
 
             {/* Strategy Toggler (Visible on Hover or if Open) */}
