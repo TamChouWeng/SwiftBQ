@@ -728,7 +728,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                             <div className="h-16"></div>
 
                                             <div className="flex justify-between items-start text-xs">
-                                                <div className="w-[50%]">
+                                                <div className="w-[50%] relative">
                                                     <div className="border-t border-black pt-1">
                                                         <div className="text-[10px] space-y-1">
                                                             <p className="font-bold text-xs">{appSettings.companyName}</p>
@@ -741,6 +741,16 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                                             </div>
                                                         </div>
                                                     </div>
+                                                    {appSettings.profileSignature && (
+                                                        <img
+                                                            src={appSettings.profileSignature}
+                                                            alt="Signature"
+                                                            className="absolute left-0 bottom-full mb-2 h-16 w-auto object-contain mix-blend-multiply"
+                                                            onError={(e) => {
+                                                                e.currentTarget.style.display = 'none';
+                                                            }}
+                                                        />
+                                                    )}
                                                 </div>
 
                                                 <div className="w-[40%]">
