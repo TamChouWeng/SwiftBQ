@@ -68,13 +68,16 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         projects,
         updateProject,
         getProjectTotal,
+
         appSettings,
-        quotationEdits,
-        setQuotationEdit,
-        commitQuotationEdits,
-        discardQuotationEdits,
         hasUnsavedChanges,
-        updateVersionDetails
+        updateVersionDetails,
+        saveAllChanges,
+        discardAllChanges,
+        setVersionEdit,
+        versionEdits,
+        bqItemEdits,
+        setBQItemEdit
     } = useAppStore();
     const t = TRANSLATIONS[currentLanguage];
     const [searchQuery, setSearchQuery] = useState('');
@@ -87,10 +90,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     // Local state for selecting version in Quotation View
     const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
 
-    // T&C State
-    const [termsConditions, setTermsConditions] = useState('');
-    const [isTermsDirty, setIsTermsDirty] = useState(false);
-
     // Get current project details
     const activeProject = useMemo(() =>
         projects.find(p => p.id === currentProjectId),
@@ -102,27 +101,26 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         }
     }, [activeProject, selectedVersionId]);
 
-    // Sync T&C from Version
-    useEffect(() => {
-        if (activeProject && selectedVersionId) {
-            const ver = activeProject.versions.find(v => v.id === selectedVersionId);
-            if (ver) {
-                setTermsConditions(ver.termsConditions || '');
-                setIsTermsDirty(false);
-            }
+    // Compute Display Terms
+    const displayTerms = useMemo(() => {
+        if (!activeProject || !selectedVersionId) return '';
+
+        // 1. Check for unsaved edits
+        if (versionEdits && versionEdits[selectedVersionId]?.termsConditions !== undefined) {
+            return versionEdits[selectedVersionId].termsConditions || '';
         }
-    }, [activeProject, selectedVersionId]);
+
+        // 2. Fallback to persisted version data
+        const ver = activeProject.versions.find(v => v.id === selectedVersionId);
+        return ver?.termsConditions || '';
+    }, [activeProject, selectedVersionId, versionEdits]);
 
     const handleTermsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        setTermsConditions(e.target.value);
-        setIsTermsDirty(true);
+        if (!selectedVersionId) return;
+        setVersionEdit(selectedVersionId, { termsConditions: e.target.value });
     };
 
-    const handleSaveTerms = async () => {
-        if (!currentProjectId || !selectedVersionId) return;
-        await updateVersionDetails(currentProjectId, selectedVersionId, { termsConditions });
-        setIsTermsDirty(false);
-    };
+
 
     const activeItems = useMemo(() =>
         bqItems.filter(item => item.projectId === currentProjectId && item.versionId === selectedVersionId),
@@ -432,7 +430,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             onClick={() => {
                                 if (hasUnsavedChanges) {
                                     if (window.confirm("You have unsaved changes. Discard them?")) {
-                                        discardQuotationEdits();
+                                        discardAllChanges();
                                         setCurrentProjectId(null);
                                         setSelectedVersionId(null);
                                     }
@@ -478,7 +476,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                 onChange={(e) => {
                                     if (hasUnsavedChanges) {
                                         if (!window.confirm("Changing version will discard unsaved changes. Continue?")) return;
-                                        discardQuotationEdits();
+                                        discardAllChanges();
                                     }
                                     setSelectedVersionId(e.target.value);
                                 }}
@@ -495,7 +493,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     <div className="flex gap-2 mt-4 sm:mt-0">
                         {/* Undo Button */}
                         <button
-                            onClick={discardQuotationEdits}
+                            onClick={discardAllChanges}
                             disabled={!hasUnsavedChanges}
                             className={`w-10 h-10 flex items-center justify-center rounded-lg shadow-sm transition-colors border ${hasUnsavedChanges
                                 ? 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-gray-200 dark:border-slate-600 hover:bg-gray-50'
@@ -508,7 +506,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
                         {/* Save Button */}
                         <button
-                            onClick={commitQuotationEdits}
+                            onClick={saveAllChanges}
                             disabled={!hasUnsavedChanges}
                             className={`w-10 h-10 flex items-center justify-center rounded-lg shadow-sm transition-colors border ${hasUnsavedChanges
                                 ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800 hover:bg-green-100'
@@ -677,17 +675,19 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                                     );
                                                 } else if (row.type === 'item') {
                                                     const item = row.data;
-                                                    const displayDescription = quotationEdits[item.id] ?? item.quotationDescription ?? item.description;
+                                                    // Check for unsaved edits first, then fall back to item description
+                                                    const displayDescription = bqItemEdits[item.id]?.description ?? item.description;
+
                                                     return (
                                                         <tr key={item.id}>
                                                             <td className="border border-black p-1 text-center align-top text-[10px]">{globalRowCounter++}</td>
                                                             <td className="border border-black p-1 align-top">
                                                                 <div className="font-bold text-[10px] mb-1 leading-tight">{item.itemName}</div>
                                                             </td>
-                                                            <td className="border border-black p-1 align-top">
+                                                            <td className="border border-black p-1 align-top whitespace-pre-wrap text-[10px] leading-tight">
                                                                 <AutoResizeTextarea
                                                                     value={displayDescription}
-                                                                    onChange={(e) => setQuotationEdit(item.id, e.target.value)}
+                                                                    onChange={(e) => setBQItemEdit(item.id, { description: e.target.value })}
                                                                     className="w-full bg-transparent border-none p-0 text-[10px] text-black whitespace-pre-wrap leading-tight focus:ring-0"
                                                                 />
                                                             </td>
@@ -734,18 +734,9 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                             <div className="text-xs mb-6">
                                                 <div className="mb-3 flex items-center justify-between">
                                                     <span className="font-bold border-b border-black pb-1 inline-block">TERMS & CONDITIONS:</span>
-                                                    {isTermsDirty && (
-                                                        <button
-                                                            onClick={handleSaveTerms}
-                                                            className="flex items-center gap-1 bg-blue-600 text-white px-2 py-0.5 rounded text-[10px] hover:bg-blue-700 transition hidden-print"
-                                                        >
-                                                            <Save size={10} />
-                                                            Save Terms
-                                                        </button>
-                                                    )}
                                                 </div>
                                                 <AutoResizeTextarea
-                                                    value={termsConditions}
+                                                    value={displayTerms}
                                                     onChange={handleTermsChange}
                                                     className="w-full text-black bg-transparent border-none p-0 focus:ring-1 focus:ring-blue-200 rounded resize-none overflow-hidden whitespace-pre-wrap"
                                                     style={{ minHeight: '80px', lineHeight: '1.4' }}

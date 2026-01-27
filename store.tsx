@@ -124,7 +124,6 @@ export const mapBQItemFromDB = (dbItem: any): BQItem => ({
   category: dbItem.category,
   itemName: dbItem.item_name,
   description: dbItem.description,
-  quotationDescription: dbItem.quotation_description,
   uom: dbItem.uom,
   qty: Number(dbItem.qty) || 0,
   price: Number(dbItem.price) || 0,
@@ -158,7 +157,6 @@ export const mapBQItemToDB = (item: Partial<BQItem>) => {
   if (item.category !== undefined) dbItem.category = item.category;
   if (item.itemName !== undefined) dbItem.item_name = item.itemName;
   if (item.description !== undefined) dbItem.description = item.description;
-  if (item.quotationDescription !== undefined) dbItem.quotation_description = item.quotationDescription;
   if (item.uom !== undefined) dbItem.uom = item.uom;
   if (item.qty !== undefined) dbItem.qty = item.qty;
   if (item.price !== undefined) dbItem.price = item.price;
@@ -251,11 +249,7 @@ interface AppContextType {
   // Computations
   getProjectTotal: (projectId: string, versionId: string) => { subtotal: number; tax: number; grandTotal: number; discount: number };
 
-  // Quotation Edit Mode
-  quotationEdits: Record<string, string>;
-  setQuotationEdit: (id: string, value: string) => void;
-  commitQuotationEdits: () => void;
-  discardQuotationEdits: () => void;
+
 
   // Master List Edit Mode (Transactional)
   masterListEdits: Record<string, Partial<MasterItem>>;
@@ -263,8 +257,20 @@ interface AppContextType {
   commitMasterListEdits: () => void;
   discardMasterListEdits: () => void;
 
+  // Version Edits (T&C)
+  versionEdits: Record<string, Partial<ProjectVersion>>;
+  setVersionEdit: (versionId: string, updates: Partial<ProjectVersion>) => void;
+  commitVersionEdits: () => void;
+  discardVersionEdits: () => void;
+
+  // BQ Item Edits (Description etc in Quotation View)
+  bqItemEdits: Record<string, Partial<BQItem>>;
+  setBQItemEdit: (itemId: string, updates: Partial<BQItem>) => void;
+  commitBQItemEdits: () => void;
+  discardBQItemEdits: () => void;
+
   hasUnsavedChanges: boolean;
-  saveAllChanges: () => void;
+  saveAllChanges: () => Promise<void>;
   discardAllChanges: () => void;
 
   /* Authentication */
@@ -709,12 +715,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return (saved as BQViewMode) || 'catalog';
   });
 
-  const [quotationEdits, setQuotationEdits] = useState<Record<string, string>>({});
   const [masterListEdits, setMasterListEdits] = useState<Record<string, Partial<MasterItem>>>({});
+  const [versionEdits, setVersionEdits] = useState<Record<string, Partial<ProjectVersion>>>({});
+  const [bqItemEdits, setBqItemEdits] = useState<Record<string, Partial<BQItem>>>({});
 
   const hasUnsavedChanges = useMemo(() =>
-    Object.keys(quotationEdits).length > 0 || Object.keys(masterListEdits).length > 0,
-    [quotationEdits, masterListEdits]);
+    Object.keys(masterListEdits).length > 0 ||
+    Object.keys(versionEdits).length > 0 ||
+    Object.keys(bqItemEdits).length > 0,
+    [masterListEdits, versionEdits, bqItemEdits]);
 
 
   // --- Persistence Effects ---
@@ -1296,10 +1305,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setBqItems(prev => prev.map(i => i.id === existingItem.id ? { ...i, qty: safeQty, total: updatedTotal } : i));
 
       // DB
-      // Fetch fresh price to be safe? Or just update Qty?
-      // User might have edited price manually. We should preserve that price (existingItem.price).
-      // So we update Qty and Total.
-      await supabase.from('bq_items').update({ qty: safeQty, total: updatedTotal }).eq('id', existingItem.id);
+      // Fix: Update all relevant fields (Description, UOM, Brand, etc.) + Qty/Total
+      // We prioritize the incoming masterItem values as they contain the edits.
+      const updates = {
+        qty: safeQty,
+        total: updatedTotal,
+        description: masterItem.description,
+        uom: masterItem.uom,
+        brand: masterItem.brand,
+        axsku: masterItem.axsku,
+        mpn: masterItem.mpn,
+        group: masterItem.group,
+        category: masterItem.category,
+        item_name: masterItem.itemName,
+        // Prices generally don't change from Master unless it's a manual override,
+        // but if we are editing in Catalog, we might want to sync these too?
+        // For now, let's stick to the basics + Description which is the reported issue.
+      };
+
+      await supabase.from('bq_items').update(updates).eq('id', existingItem.id);
 
     } else if (action === 'insert') {
       const tempId = self.crypto.randomUUID();
@@ -1453,50 +1477,107 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { subtotal, tax, grandTotal, discount };
   };
 
-  // --- Edits Logic ---
-  const setQuotationEdit = (id: string, value: string) => {
-    setQuotationEdits(prev => ({ ...prev, [id]: value }));
+  // --- Version Edits Logic ---
+  const setVersionEdit = (versionId: string, updates: Partial<ProjectVersion>) => {
+    setVersionEdits(prev => ({
+      ...prev,
+      [versionId]: { ...prev[versionId], ...updates }
+    }));
   };
 
-  const commitQuotationEdits = async () => {
-    if (Object.keys(quotationEdits).length === 0) return;
+  const commitVersionEdits = async () => {
+    if (Object.keys(versionEdits).length === 0) return;
 
     // 1. Optimistic
+    setProjects(prev => prev.map(p => ({
+      ...p,
+      versions: p.versions.map(v => {
+        if (versionEdits[v.id]) {
+          return { ...v, ...versionEdits[v.id] };
+        }
+        return v;
+      })
+    })));
+
+    // 2. DB Update
+    const editsToSave = { ...versionEdits };
+    setVersionEdits({});
+
+    for (const [versionId, updates] of Object.entries(editsToSave)) {
+      let foundProjectId = '';
+      for (const p of projects) {
+        if (p.versions.some(v => v.id === versionId)) {
+          foundProjectId = p.id;
+          break;
+        }
+      }
+
+      if (foundProjectId) {
+        const dbUpdates = mapVersionToDB(updates, foundProjectId);
+        delete dbUpdates.project_id;
+        delete dbUpdates.id;
+
+        const { error } = await supabase.from('project_versions').update(dbUpdates).eq('id', versionId);
+        if (error) console.error("Error saving version T&C:", error);
+      }
+    }
+  };
+
+  const discardVersionEdits = () => {
+    setVersionEdits({});
+  };
+
+  // --- BQ Item Edits Logic ---
+  const setBQItemEdit = (itemId: string, updates: Partial<BQItem>) => {
+    setBqItemEdits(prev => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], ...updates }
+    }));
+  };
+
+  const commitBQItemEdits = async () => {
+    if (Object.keys(bqItemEdits).length === 0) return;
+
+    // 1. Optimistic Update
     setBqItems(prev => prev.map(item => {
-      if (quotationEdits[item.id] !== undefined) {
-        return { ...item, quotationDescription: quotationEdits[item.id] };
+      if (bqItemEdits[item.id]) {
+        return { ...item, ...bqItemEdits[item.id] };
       }
       return item;
     }));
 
     // 2. DB Update
-    const editsToSave = { ...quotationEdits };
-    setQuotationEdits({});
+    const editsToSave = { ...bqItemEdits };
+    setBqItemEdits({});
 
-    for (const [id, newDesc] of Object.entries(editsToSave)) {
-      const { error } = await supabase
-        .from('bq_items')
-        .update({ quotation_description: newDesc })
-        .eq('id', id);
+    for (const [itemId, updates] of Object.entries(editsToSave)) {
+      const dbUpdates = mapBQItemToDB(updates);
+      delete dbUpdates.id; // Don't update ID or keys
+      delete dbUpdates.user_id;
+      delete dbUpdates.project_id;
+      delete dbUpdates.version_id;
 
-      if (error) {
-        console.error(`Failed to save quotation desc for item ${id}:`, error);
-      }
+      const { error } = await supabase.from('bq_items').update(dbUpdates).eq('id', itemId);
+      if (error) console.error("Error saving BQ Item edits:", error);
     }
   };
 
-  const discardQuotationEdits = () => {
-    setQuotationEdits({});
+  const discardBQItemEdits = () => {
+    setBqItemEdits({});
   };
 
-  const saveAllChanges = () => {
-    commitQuotationEdits();
-    commitMasterListEdits();
+  const saveAllChanges = async () => {
+    await Promise.all([
+      commitMasterListEdits(),
+      commitVersionEdits(),
+      commitBQItemEdits()
+    ]);
   };
 
   const discardAllChanges = () => {
-    discardQuotationEdits();
     discardMasterListEdits();
+    discardVersionEdits();
+    discardBQItemEdits();
   };
 
   return (
@@ -1514,8 +1595,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createVersion, updateVersionName, deleteVersion, updateProjectSnapshot, updateVersionDetails,
         addBQItem, syncMasterToBQ, removeBQItem, updateBQItem, reorderBQItems,
         getProjectTotal,
-        quotationEdits, setQuotationEdit, commitQuotationEdits, discardQuotationEdits,
         masterListEdits, setMasterListEdit, commitMasterListEdits, discardMasterListEdits,
+        versionEdits, setVersionEdit, commitVersionEdits, discardVersionEdits,
+        bqItemEdits, setBQItemEdit, commitBQItemEdits, discardBQItemEdits,
         hasUnsavedChanges, saveAllChanges, discardAllChanges,
         user, login, logout, updateUserProfile, updateCompanyProfile, uploadCompanyLogo, uploadProfileSignature
       }}

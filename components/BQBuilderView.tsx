@@ -54,6 +54,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         appSettings,
         bqViewMode,
         setBqViewMode,
+        saveAllChanges
     } = useAppStore();
 
     const t = TRANSLATIONS[currentLanguage];
@@ -440,6 +441,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     setTimeout(() => {
                         if (syncMasterToBQ) {
                             syncMasterToBQ(activeProject.id, currentVersionId, mergedItem, qtyVal);
+                            saveAllChanges(); // Request 2: Auto-trigger global save
                         }
                     }, 0);
                 }
@@ -455,8 +457,28 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         const masterItem = catalogSource.find(m => m.id === masterItemId);
         if (masterItem) {
             const staged = stagedEdits[masterItemId] || {};
-            const finalItem = { ...masterItem, ...staged } as MasterItem;
+            const itemFromSnapshot = { ...masterItem, ...staged } as MasterItem;
+
+            // CONFLICT FIX: If item exists in BQ, prefer its current fields (like Description)
+            // UNLESS there is an explicit staged edit for that field in the Catalog.
+            // This prevents overwriting Quotation View edits when just changing Qty in Catalog.
+            const existingBQ = activeItemsMap.get(masterItemId);
+            let finalItem = itemFromSnapshot;
+
+            if (existingBQ) {
+                finalItem = {
+                    ...itemFromSnapshot,
+                    // If no staged description, keep existing BQ description
+                    description: (staged.description !== undefined) ? staged.description : existingBQ.description,
+                    // Can extend to other fields if we allow editing them in Quotation View
+                    uom: (staged.uom !== undefined) ? staged.uom : existingBQ.uom,
+                    brand: (staged.brand !== undefined) ? staged.brand : existingBQ.brand,
+                    // Prices etc generally come from Master/Staged in Catalog view, so we keep using itemFromSnapshot for those
+                };
+            }
+
             syncMasterToBQ(activeProject.id, currentVersionId, finalItem, isNaN(val) ? 0 : val);
+            saveAllChanges(); // Request 2: Auto-trigger global save
         }
     };
 
@@ -668,7 +690,32 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             if (!isReview) {
                 const master = item as MasterItem;
                 const staged = stagedEdits[master.id] || {};
-                displayItem = { ...master, ...staged };
+
+                // SYNC FIX: If item exists in this project (BQItem), use its current fields 
+                // as the base instead of the original Master Snapshot.
+                const existingBQ = activeItemsMap.get(master.id);
+                let baseItem = master;
+
+                if (existingBQ) {
+                    baseItem = {
+                        ...master,
+                        // Sync visual fields from the active BQ item
+                        description: existingBQ.description,
+                        uom: existingBQ.uom,
+                        brand: existingBQ.brand,
+                        itemName: existingBQ.itemName,
+                        axsku: existingBQ.axsku,
+                        mpn: existingBQ.mpn,
+                        group: existingBQ.group,
+                        category: existingBQ.category,
+                        // Pricing? If BQ item has price override, it should show?
+                        // Catalog usually shows "Master" price, but if we are "building" for a project,
+                        // we probably want to see "Project" price.
+                        // However, let's stick to content fields first as requested.
+                    };
+                }
+
+                displayItem = { ...baseItem, ...staged };
             } else {
                 displayItem = item as BQItem;
             }
