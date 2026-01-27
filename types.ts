@@ -55,6 +55,7 @@ export interface ProjectVersion {
   name: string;
   createdAt: string;
   masterSnapshot: MasterItem[]; // Data Independence: Per-Version Price Book
+  termsConditions?: string; // Dynamic T&C
 }
 
 export interface Project {

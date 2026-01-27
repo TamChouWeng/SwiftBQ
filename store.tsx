@@ -99,6 +99,7 @@ export const mapVersionFromDB = (dbVersion: any): ProjectVersion => ({
   name: dbVersion.version_name,
   createdAt: dbVersion.created_at,
   masterSnapshot: dbVersion.master_list_snapshot || [],
+  termsConditions: dbVersion.terms_and_conditions || '',
 });
 
 export const mapVersionToDB = (version: Partial<ProjectVersion>, projectId: string) => {
@@ -108,6 +109,7 @@ export const mapVersionToDB = (version: Partial<ProjectVersion>, projectId: stri
   if (version.id) dbVersion.id = version.id;
   if (version.name) dbVersion.version_name = version.name;
   if (version.masterSnapshot) dbVersion.master_list_snapshot = version.masterSnapshot;
+  if (version.termsConditions !== undefined) dbVersion.terms_and_conditions = version.termsConditions;
   return dbVersion;
 };
 
@@ -235,6 +237,7 @@ interface AppContextType {
   // Version Actions
   createVersion: (projectId: string, sourceVersionId: string, newVersionName: string, explicitNewVersionId?: string) => void;
   updateVersionName: (projectId: string, versionId: string, name: string) => void;
+  updateVersionDetails: (projectId: string, versionId: string, updates: Partial<ProjectVersion>) => void;
   deleteVersion: (projectId: string, versionId: string) => void;
 
   updateProjectSnapshot: (projectId: string, versionId: string, snapshotUpdates: Partial<MasterItem>[]) => void;
@@ -891,12 +894,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     const projectWithUser = { ...project, userId: user.id };
 
+    const DEFAULT_TERMS = `(1) No cancellation, suspension or variation of an accepted customer's order shall be valid unless agreed in writing by our company.
+(2) Any goods return request shall be reported within 30 days from date of invoice and we reserve the right to decide on the acceptance of the case.
+(3) Dates of delivery are approximate. We are neither responsible nor liable for losses or damages incurred by reason of delay or inability to delivery caused by unforeseen circumstances.
+(4) Prices quoted are based on the stated quantities. Should the overall required quantities vary by more than 5% when compared to the overall quantities quoted, we reserve the right to revise the pricing.`;
+
     // Initial Version
     const initialVersion: ProjectVersion = {
       id: self.crypto.randomUUID(),
       name: 'Version 1',
       createdAt: new Date().toISOString(),
-      masterSnapshot: masterData // Snapshot current master list
+      masterSnapshot: masterData, // Snapshot current master list
+      termsConditions: DEFAULT_TERMS
     };
 
     // Attach version to project for optimistic UI
@@ -993,7 +1002,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const dbVer = mapVersionToDB({
         ...ver,
         name: ver.name,
-        masterSnapshot: ver.masterSnapshot // Copy snapshot
+        masterSnapshot: ver.masterSnapshot, // Copy snapshot
+        termsConditions: ver.termsConditions // Copy T&C
       }, pData.id);
       delete dbVer.id;
 
@@ -1047,7 +1057,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 1. Create Version in DB
     const dbVer = mapVersionToDB({
       name: newVersionName,
-      masterSnapshot: sourceSnapshot
+      masterSnapshot: sourceSnapshot,
+      termsConditions: sourceVersion.termsConditions // Copy T&C
     }, projectId);
     delete dbVer.id;
 
@@ -1173,6 +1184,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
 
     await supabase.from('project_versions').update({ version_name: name }).eq('id', versionId);
+  };
+
+  const updateVersionDetails = async (projectId: string, versionId: string, updates: Partial<ProjectVersion>) => {
+    setProjects(prev => prev.map(p => {
+      if (p.id === projectId) {
+        return {
+          ...p,
+          versions: p.versions.map(v => v.id === versionId ? { ...v, ...updates } : v)
+        };
+      }
+      return p;
+    }));
+
+    const dbUpdates = mapVersionToDB(updates, projectId);
+    delete dbUpdates.project_id;
+    delete dbUpdates.id;
+
+    await supabase.from('project_versions').update(dbUpdates).eq('id', versionId);
   };
 
   const deleteVersion = async (projectId: string, versionId: string) => {
@@ -1482,7 +1511,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bqViewMode, setBqViewMode,
         addMasterItem, updateMasterItem, deleteMasterItem,
         addProject, updateProject, deleteProject, duplicateProject,
-        createVersion, updateVersionName, deleteVersion, updateProjectSnapshot,
+        createVersion, updateVersionName, deleteVersion, updateProjectSnapshot, updateVersionDetails,
         addBQItem, syncMasterToBQ, removeBQItem, updateBQItem, reorderBQItems,
         getProjectTotal,
         quotationEdits, setQuotationEdit, commitQuotationEdits, discardQuotationEdits,

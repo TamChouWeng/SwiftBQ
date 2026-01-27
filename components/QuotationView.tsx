@@ -73,7 +73,8 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         setQuotationEdit,
         commitQuotationEdits,
         discardQuotationEdits,
-        hasUnsavedChanges
+        hasUnsavedChanges,
+        updateVersionDetails
     } = useAppStore();
     const t = TRANSLATIONS[currentLanguage];
     const [searchQuery, setSearchQuery] = useState('');
@@ -86,17 +87,42 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     // Local state for selecting version in Quotation View
     const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
 
+    // T&C State
+    const [termsConditions, setTermsConditions] = useState('');
+    const [isTermsDirty, setIsTermsDirty] = useState(false);
+
     // Get current project details
     const activeProject = useMemo(() =>
         projects.find(p => p.id === currentProjectId),
         [projects, currentProjectId]);
 
-    // Set default version when project loads
     useEffect(() => {
         if (activeProject && !selectedVersionId && activeProject.versions.length > 0) {
             setSelectedVersionId(activeProject.versions[0].id);
         }
     }, [activeProject, selectedVersionId]);
+
+    // Sync T&C from Version
+    useEffect(() => {
+        if (activeProject && selectedVersionId) {
+            const ver = activeProject.versions.find(v => v.id === selectedVersionId);
+            if (ver) {
+                setTermsConditions(ver.termsConditions || '');
+                setIsTermsDirty(false);
+            }
+        }
+    }, [activeProject, selectedVersionId]);
+
+    const handleTermsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        setTermsConditions(e.target.value);
+        setIsTermsDirty(true);
+    };
+
+    const handleSaveTerms = async () => {
+        if (!currentProjectId || !selectedVersionId) return;
+        await updateVersionDetails(currentProjectId, selectedVersionId, { termsConditions });
+        setIsTermsDirty(false);
+    };
 
     const activeItems = useMemo(() =>
         bqItems.filter(item => item.projectId === currentProjectId && item.versionId === selectedVersionId),
@@ -706,18 +732,25 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                         {/* Terms & Signature */}
                                         <div className="text-black">
                                             <div className="text-xs mb-6">
-                                                <div className="mb-3">
+                                                <div className="mb-3 flex items-center justify-between">
                                                     <span className="font-bold border-b border-black pb-1 inline-block">TERMS & CONDITIONS:</span>
+                                                    {isTermsDirty && (
+                                                        <button
+                                                            onClick={handleSaveTerms}
+                                                            className="flex items-center gap-1 bg-blue-600 text-white px-2 py-0.5 rounded text-[10px] hover:bg-blue-700 transition hidden-print"
+                                                        >
+                                                            <Save size={10} />
+                                                            Save Terms
+                                                        </button>
+                                                    )}
                                                 </div>
-                                                <ul className="list-disc list-outside ml-4 space-y-1 text-black">
-                                                    <li>(1) No cancellation, suspension or variation of an accepted customer's order shall be valid unless agreed in writing by our company.</li>
-                                                    <li>(2) Any goods return request shall be reported within 30 days from date of invoice and we reserve the right to decide on the acceptance of the case.</li>
-                                                    <li>(3) Dates of delivery are approximate. We are neither responsible nor liable for losses or damages incurred by reason of delay or inability to delivery caused by unforeseen circumstances.</li>
-                                                    <li>(4) Prices quoted are based on the stated quantities. Should the overall required quantities vary by more than 5% when compared to the overall quantities quoted, we reserve the right to revise the pricing.</li>
-                                                </ul>
-                                                <p className="mt-3 italic text-[10px] text-black">
-                                                    (1) No cancellation, suspension or variation of an accepted customer's order shall be valid unless agreed in writing by our company.
-                                                </p>
+                                                <AutoResizeTextarea
+                                                    value={termsConditions}
+                                                    onChange={handleTermsChange}
+                                                    className="w-full text-black bg-transparent border-none p-0 focus:ring-1 focus:ring-blue-200 rounded resize-none overflow-hidden whitespace-pre-wrap"
+                                                    style={{ minHeight: '80px', lineHeight: '1.4' }}
+                                                    placeholder="Enter Terms & Conditions..."
+                                                />
                                             </div>
 
                                             <div className="flex justify-between items-end text-xs italic">
