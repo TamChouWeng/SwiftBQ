@@ -430,6 +430,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 ]],
                 body: tableData,
                 theme: 'grid',
+                showHead: 'firstPage', // Only show header on first page
                 styles: {
                     fontSize: 8,
                     cellPadding: 2,
