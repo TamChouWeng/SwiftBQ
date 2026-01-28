@@ -4,8 +4,8 @@ import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, Us
 import { useAppStore } from '../store';
 import { AppLanguage, BQItem } from '../types';
 import { TRANSLATIONS } from '../constants';
-import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface Props {
     currentLanguage: AppLanguage;
@@ -234,87 +234,378 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             return;
         }
 
-        const pageElements = document.querySelectorAll('.quotation-page');
-        if (pageElements.length === 0) return;
-
-        // Show loading state if needed...
-
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = 210;
-        const pdfHeight = 297;
+        if (!activeProject || !selectedVersionId) {
+            alert("No project or version selected.");
+            return;
+        }
 
         try {
-            for (let i = 0; i < pageElements.length; i++) {
-                const pageEl = pageElements[i] as HTMLElement;
+            const doc = new jsPDF('p', 'mm', 'a4');
 
-                // Create a clone to clean up for capture
-                const clone = pageEl.cloneNode(true) as HTMLElement;
-                clone.style.transform = 'none'; // Remove any zoom transforms
-                clone.style.margin = '0';
-                clone.style.boxShadow = 'none';
-                // Ensure fixed dimensions for capture
-                clone.style.width = '210mm';
-                clone.style.height = '297mm'; // Force A4 height context
-                clone.style.position = 'fixed';
-                clone.style.left = '-9999px';
-                clone.style.top = '0';
+            // PDF Dimensions
+            const pageWidth = 210;
+            const pageHeight = 297;
 
-                // Fix Textareas in clone
-                const originalTextareas = pageEl.querySelectorAll('textarea');
-                const cloneTextareas = clone.querySelectorAll('textarea');
-                cloneTextareas.forEach((cta, idx) => {
-                    const div = document.createElement('div');
-                    div.className = cta.className;
-                    div.style.whiteSpace = 'pre-wrap';
-                    div.style.wordBreak = 'break-word';
-                    // IMPORTANT: Force auto height for clone to ensure text isn't clipped in PDF
-                    div.style.height = 'auto';
-                    div.style.minHeight = 'auto';
-                    div.textContent = originalTextareas[idx].value;
-                    cta.parentNode?.replaceChild(div, cta);
-                });
+            // Margins (Safe Zones)
+            const marginTop = 20;
+            const marginBottom = 20;
+            const marginLeft = 15;
+            const marginRight = 15;
+            const contentWidth = pageWidth - marginLeft - marginRight;
 
-                // --- STYLING FIXES FOR PDF ---
-                // Html2Canvas often clips text in tables with border-collapse.
-                // We inject explicit spacing to correct this in the export.
+            let currentY = marginTop;
 
-                const tableHeaders = clone.querySelectorAll('th');
-                tableHeaders.forEach(th => {
-                    th.style.paddingTop = '4px';
-                    th.style.paddingBottom = '4px';
-                    th.style.verticalAlign = 'middle';
-                    // Prevent background color from clipping border
-                    th.style.backgroundClip = 'padding-box';
-                });
+            // =============================================
+            // 1. HEADER SECTION (Page 1 Only)
+            // =============================================
 
-                const tableCells = clone.querySelectorAll('td');
-                tableCells.forEach(td => {
-                    // Ensure padding is sufficient for text
-                    td.style.paddingTop = '6px';
-                    td.style.paddingBottom = '6px';
-                    td.style.verticalAlign = 'middle';
-                });
-
-                document.body.appendChild(clone);
-
-                const canvas = await html2canvas(clone, {
-                    scale: 4, // High Quality Scale
-                    useCORS: true,
-                    logging: false,
-                    backgroundColor: '#ffffff',
-                    windowWidth: 794, // Approx px width of A4 at 96dpi
-                    windowHeight: 1123
-                });
-
-                document.body.removeChild(clone);
-
-                const imgData = canvas.toDataURL('image/jpeg', 1.0);
-
-                if (i > 0) pdf.addPage();
-                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            // Company Logo (if exists)
+            if (appSettings.companyLogo) {
+                try {
+                    doc.addImage(appSettings.companyLogo, 'PNG', marginLeft, currentY, 40, 16);
+                } catch (e) {
+                    console.warn("Failed to load company logo:", e);
+                }
             }
 
-            pdf.save(`Quotation-${activeProject?.quoteId || 'draft'}.pdf`);
+            // QUOTE Title (right aligned)
+            doc.setFontSize(24);
+            doc.setFont('helvetica', 'bold');
+            doc.text('QUOTE', pageWidth - marginRight, currentY + 10, { align: 'right' });
+
+            currentY += 20;
+
+            // Company Name
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(220, 38, 38); // Red color
+            doc.text(appSettings.companyName, marginLeft, currentY);
+            currentY += 6;
+
+            // Company Address
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(0, 0, 0);
+            const addressLines = appSettings.companyAddress.split('\n');
+            addressLines.forEach(line => {
+                doc.text(line, marginLeft, currentY);
+                currentY += 4;
+            });
+
+            currentY += 2;
+
+            // Bill To / Quote Reference Section
+            const leftColX = marginLeft;
+            const rightColX = marginLeft + contentWidth * 0.58;
+            const refY = currentY;
+
+            // Bill To Section
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.text('BILL / SHIP TO:', leftColX, refY);
+            doc.line(leftColX, refY + 1, leftColX + 50, refY + 1);
+
+            let billY = refY + 6;
+            doc.setFontSize(8);
+            doc.text('Attn to:', leftColX, billY);
+            doc.setFont('helvetica', 'normal');
+            doc.text((activeProject.clientContact || 'N/A').toUpperCase(), leftColX + 20, billY);
+            billY += 5;
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Client:', leftColX, billY);
+            doc.setFont('helvetica', 'normal');
+            doc.text(activeProject.clientName.toUpperCase(), leftColX + 20, billY);
+            billY += 5;
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Address:', leftColX, billY);
+            doc.setFont('helvetica', 'normal');
+            const clientAddressLines = activeProject.clientAddress.split('\n');
+            clientAddressLines.forEach((line, idx) => {
+                doc.text(line, leftColX + 20, billY + (idx * 4));
+            });
+
+            // Quote Reference Section
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9);
+            doc.text('QUOTE REFERENCE:', rightColX, refY);
+            doc.line(rightColX, refY + 1, rightColX + 50, refY + 1);
+
+            let quoteY = refY + 6;
+            doc.setFontSize(8);
+            doc.text('Quote #:', rightColX, quoteY);
+            doc.setFont('helvetica', 'normal');
+            doc.text(activeProject.quoteId, rightColX + 20, quoteY);
+            quoteY += 5;
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Date:', rightColX, quoteY);
+            doc.setFont('helvetica', 'normal');
+            doc.text(activeProject.date, rightColX + 20, quoteY);
+            quoteY += 5;
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Valid for:', rightColX, quoteY);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`${activeProject.validityPeriod} Days`, rightColX + 20, quoteY);
+            quoteY += 5;
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Issued by:', rightColX, quoteY);
+            doc.setFont('helvetica', 'normal');
+            doc.text(appSettings.profileName, rightColX + 20, quoteY);
+            quoteY += 5;
+
+            doc.setFont('helvetica', 'bold');
+            doc.text('Contact:', rightColX, quoteY);
+            doc.setFont('helvetica', 'normal');
+            doc.text(appSettings.profileContact, rightColX + 20, quoteY);
+
+            currentY = Math.max(billY + (clientAddressLines.length * 4), quoteY) + 8;
+
+            // =============================================
+            // 2. ITEMS TABLE (using autoTable)
+            // =============================================
+
+            // Prepare table data
+            const tableData: any[] = [];
+            let rowNumber = 1;
+
+            // Standard Items
+            Object.entries(groupedItems).forEach(([category, items]) => {
+                // Category header row
+                tableData.push([
+                    { content: '', styles: { fillColor: [200, 200, 200] } },
+                    { content: category.toUpperCase(), colSpan: 6, styles: { fontStyle: 'bold', fillColor: [245, 245, 245], halign: 'left' } }
+                ]);
+
+                // Item rows
+                (items as BQItem[]).forEach(item => {
+                    const displayDescription = bqItemEdits[item.id]?.description ?? item.description;
+                    tableData.push([
+                        rowNumber++,
+                        item.itemName,
+                        displayDescription,
+                        fmt(item.price),
+                        item.qty,
+                        item.uom,
+                        fmt(item.total)
+                    ]);
+                });
+            });
+
+            // Optional Items Section
+            if (optionalItems.length > 0) {
+                tableData.push([
+                    { content: '', styles: { fillColor: [200, 200, 200] } },
+                    { content: 'OPTIONAL ITEMS', colSpan: 6, styles: { fontStyle: 'bold', fillColor: [230, 230, 230], halign: 'center' } }
+                ]);
+
+                optionalItems.forEach(item => {
+                    const displayDescription = bqItemEdits[item.id]?.description ?? item.description;
+                    tableData.push([
+                        rowNumber++,
+                        item.itemName,
+                        displayDescription,
+                        fmt(item.price),
+                        item.qty,
+                        item.uom,
+                        fmt(item.total)
+                    ]);
+                });
+            }
+
+            // Render table with autoTable
+            autoTable(doc, {
+                startY: currentY,
+                head: [[
+                    'NO',
+                    'ITEM',
+                    'DESCRIPTION',
+                    `Unit Price (${appSettings.currencySymbol})`,
+                    'QTY',
+                    'UOM',
+                    `Total Price (${appSettings.currencySymbol})`
+                ]],
+                body: tableData,
+                theme: 'grid',
+                styles: {
+                    fontSize: 8,
+                    cellPadding: 2,
+                    lineColor: [0, 0, 0],
+                    lineWidth: 0.1,
+                    textColor: [0, 0, 0]
+                },
+                headStyles: {
+                    fillColor: [240, 240, 240],
+                    textColor: [0, 0, 0],
+                    fontStyle: 'bold',
+                    halign: 'center',
+                    fontSize: 7
+                },
+                columnStyles: {
+                    0: { halign: 'center', cellWidth: 10 },
+                    1: { halign: 'left', cellWidth: 35 },
+                    2: { halign: 'left', cellWidth: 'auto' },
+                    3: { halign: 'right', cellWidth: 25 },
+                    4: { halign: 'center', cellWidth: 12 },
+                    5: { halign: 'center', cellWidth: 15 },
+                    6: { halign: 'right', cellWidth: 28, fontStyle: 'bold' }
+                },
+                margin: { left: marginLeft, right: marginRight }
+            });
+
+            // Get position after table
+            currentY = (doc as any).lastAutoTable.finalY + 5;
+
+            // =============================================
+            // 3. TOTALS SECTION
+            // =============================================
+
+            const totalsX = pageWidth - marginRight - 60;
+            const totalsWidth = 60;
+
+            // Subtotal
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Subtotal (${appSettings.currencySymbol}):`, totalsX, currentY, { align: 'left' });
+            doc.setFont('helvetica', 'normal');
+            doc.text(fmt(subtotal), totalsX + totalsWidth, currentY, { align: 'right' });
+            doc.line(totalsX, currentY + 1, totalsX + totalsWidth, currentY + 1);
+            currentY += 6;
+
+            // Special Discount (if applicable)
+            if (discount > 0) {
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(22, 163, 74); // Green
+                doc.text(`Special Discount (${appSettings.currencySymbol}):`, totalsX, currentY, { align: 'left' });
+                doc.text(`(${fmt(discount)})`, totalsX + totalsWidth, currentY, { align: 'right' });
+                doc.line(totalsX, currentY + 1, totalsX + totalsWidth, currentY + 1);
+                doc.setTextColor(0, 0, 0);
+                currentY += 6;
+            }
+
+            // Grand Total
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`TOTAL (${appSettings.currencySymbol}):`, totalsX, currentY, { align: 'left' });
+            doc.text(fmt(grandTotal), totalsX + totalsWidth, currentY, { align: 'right' });
+            doc.setLineWidth(0.5);
+            doc.line(totalsX, currentY + 1, totalsX + totalsWidth, currentY + 1);
+            doc.setLineWidth(0.1);
+            currentY += 10;
+
+            // =============================================
+            // 4. TERMS & CONDITIONS (Keep-Together Block)
+            // =============================================
+
+            const tncHeight = 45; // Estimated height for T&C block
+
+            // Check if T&C fits on current page
+            if (currentY + tncHeight > pageHeight - marginBottom) {
+                doc.addPage();
+                currentY = marginTop;
+            }
+
+            // Terms & Conditions Header
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.text('TERMS & CONDITIONS:', marginLeft, currentY);
+            doc.line(marginLeft, currentY + 1, marginLeft + 60, currentY + 1);
+            currentY += 6;
+
+            // Terms Content
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            const termsLines = doc.splitTextToSize(displayTerms || 'N/A', contentWidth);
+            doc.text(termsLines, marginLeft, currentY);
+            currentY += (termsLines.length * 4) + 8;
+
+            // =============================================
+            // 5. SIGNATURE SECTION (Keep-Together Block)
+            // =============================================
+
+            const signatureHeight = 65; // Estimated height for signature block
+
+            // Check if signature fits on current page
+            if (currentY + signatureHeight > pageHeight - marginBottom) {
+                doc.addPage();
+                currentY = marginTop;
+            }
+
+            // Thank you message & instruction
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'italic');
+            doc.text('Thank you for your business,', marginLeft, currentY);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Sign and return to confirm your order.', pageWidth - marginRight - 60, currentY, { align: 'center' });
+            doc.setFont('helvetica', 'normal');
+            currentY += 20;
+
+            // Signature boxes
+            const leftSigX = marginLeft;
+            const rightSigX = pageWidth - marginRight - 75;
+            const sigY = currentY;
+
+            // Left signature (Company)
+            doc.line(leftSigX, sigY, leftSigX + 75, sigY);
+            currentY = sigY + 4;
+
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.text(appSettings.companyName, leftSigX, currentY);
+            currentY += 4;
+
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(37, 99, 235); // Blue
+            doc.text(appSettings.companyEmail || 'email@example.com', leftSigX, currentY);
+            doc.setTextColor(0, 0, 0);
+            currentY += 6;
+
+            doc.setFont('helvetica', 'italic');
+            doc.text('All cheques should be crossed and made to:', leftSigX, currentY);
+            currentY += 4;
+            doc.setFont('helvetica', 'bold');
+            doc.text(appSettings.companyName, leftSigX, currentY);
+            currentY += 4;
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Bank Name: ${appSettings.bankName}`, leftSigX, currentY);
+            currentY += 4;
+            doc.text(`Bank Account: ${appSettings.bankAccount}`, leftSigX, currentY);
+
+            // Add signature image if exists
+            if (appSettings.profileSignature) {
+                try {
+                    doc.addImage(appSettings.profileSignature, 'PNG', leftSigX, sigY - 18, 30, 15);
+                } catch (e) {
+                    console.warn("Failed to load signature:", e);
+                }
+            }
+
+            // Right signature (Client)
+            doc.line(rightSigX, sigY, rightSigX + 75, sigY);
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Company Stamp', rightSigX, sigY + 4);
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(6);
+            doc.text('(if any)', rightSigX, sigY + 8);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(7);
+            doc.text('Authorized Signature', rightSigX + 60, sigY + 6, { align: 'right' });
+
+            doc.text('Name:', rightSigX, sigY + 18);
+            doc.text('Mobile:', rightSigX, sigY + 26);
+
+            // =============================================
+            // 6. SAVE PDF
+            // =============================================
+
+            doc.save(`Quotation-${activeProject.quoteId || 'draft'}.pdf`);
+
         } catch (err) {
             console.error("PDF Export Failed", err);
             alert("Failed to generate PDF. Please try again.");
