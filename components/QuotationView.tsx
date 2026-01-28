@@ -464,12 +464,12 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             // 3. TOTALS SECTION
             // =============================================
 
-            const totalsHeight = 30; // Estimated height for totals block
+            const totalsHeight = 15; // Estimated height for totals block
 
             // Check if totals fit on current page
             if (currentY + totalsHeight > pageHeight - marginBottom) {
                 doc.addPage();
-                currentY = marginTop;
+                currentY = marginTop * 2;
             }
 
             const totalsX = pageWidth - marginRight - 60;
@@ -514,7 +514,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             // Check if T&C fits on current page
             if (currentY + tncHeight > pageHeight - marginBottom) {
                 doc.addPage();
-                currentY = marginTop;
+                currentY = marginTop * 2;
             }
 
             // Terms & Conditions Header
@@ -540,7 +540,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             // Check if signature fits on current page
             if (currentY + signatureHeight > pageHeight - marginBottom) {
                 doc.addPage();
-                currentY = marginTop;
+                currentY = marginTop * 2;
             }
 
             // Thank you message & instruction
