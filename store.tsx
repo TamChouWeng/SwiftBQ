@@ -1223,7 +1223,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setBqItems(prev => prev.filter(item => !(item.projectId === projectId && item.versionId === versionId)));
 
-    await supabase.from('project_versions').update({ is_deleted: true }).eq('id', versionId); // Soft delete version
+    // Hard delete all associated BQ items first
+    await supabase.from('bq_items').delete().eq('version_id', versionId);
+
+    // Hard delete version
+    await supabase.from('project_versions').delete().eq('id', versionId);
 
     if (currentProjectId === projectId && currentVersionId === versionId) {
       // Logic to switch version
