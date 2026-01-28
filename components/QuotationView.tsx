@@ -464,6 +464,14 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             // 3. TOTALS SECTION
             // =============================================
 
+            const totalsHeight = 30; // Estimated height for totals block
+
+            // Check if totals fit on current page
+            if (currentY + totalsHeight > pageHeight - marginBottom) {
+                doc.addPage();
+                currentY = marginTop;
+            }
+
             const totalsX = pageWidth - marginRight - 60;
             const totalsWidth = 60;
 
