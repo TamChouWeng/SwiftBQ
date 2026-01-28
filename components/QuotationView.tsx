@@ -247,10 +247,10 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             const pageHeight = 297;
 
             // Margins (Safe Zones)
-            const marginTop = 20;
-            const marginBottom = 20;
-            const marginLeft = 15;
-            const marginRight = 15;
+            const marginTop = 7;
+            const marginBottom = 7;
+            const marginLeft = 10;
+            const marginRight = 10;
             const contentWidth = pageWidth - marginLeft - marginRight;
 
             let currentY = marginTop;
@@ -303,7 +303,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             doc.setFontSize(9);
             doc.setFont('helvetica', 'bold');
             doc.text('BILL / SHIP TO:', leftColX, refY);
-            doc.line(leftColX, refY + 1, leftColX + 50, refY + 1);
+            doc.line(leftColX, refY + 1, leftColX + 25, refY + 1);
 
             let billY = refY + 6;
             doc.setFontSize(8);
@@ -330,7 +330,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(9);
             doc.text('QUOTE REFERENCE:', rightColX, refY);
-            doc.line(rightColX, refY + 1, rightColX + 50, refY + 1);
+            doc.line(rightColX, refY + 1, rightColX + 35, refY + 1);
 
             let quoteY = refY + 6;
             doc.setFontSize(8);
@@ -362,7 +362,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             doc.setFont('helvetica', 'normal');
             doc.text(appSettings.profileContact, rightColX + 20, quoteY);
 
-            currentY = Math.max(billY + (clientAddressLines.length * 4), quoteY) + 8;
+            currentY = Math.max(billY + (clientAddressLines.length * 4), quoteY) + 5;
 
             // =============================================
             // 2. ITEMS TABLE (using autoTable)
@@ -529,13 +529,13 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             doc.setFont('helvetica', 'normal');
             const termsLines = doc.splitTextToSize(displayTerms || 'N/A', contentWidth);
             doc.text(termsLines, marginLeft, currentY);
-            currentY += (termsLines.length * 4) + 8;
+            currentY += (termsLines.length * 4) + 1;
 
             // =============================================
             // 5. SIGNATURE SECTION (Keep-Together Block)
             // =============================================
 
-            const signatureHeight = 20; // Estimated height for signature block
+            const signatureHeight = 40; // Estimated height for signature block
 
             // Check if signature fits on current page
             if (currentY + signatureHeight > pageHeight - marginBottom) {
@@ -548,7 +548,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             doc.setFont('helvetica', 'italic');
             doc.text('Thank you for your business,', marginLeft, currentY);
             doc.setFont('helvetica', 'bold');
-            doc.text('Sign and return to confirm your order.', pageWidth - marginRight - 60, currentY, { align: 'center' });
+            doc.text('Sign and return to confirm your order.', pageWidth - marginRight - 40, currentY, { align: 'center' });
             doc.setFont('helvetica', 'normal');
             currentY += 20;
 
