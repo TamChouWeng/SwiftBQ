@@ -1,8 +1,14 @@
 # SwitftBQ
-> **Status**: Beta 3.2
-> **Version**: 3.2.0
+> **Status**: Beta 3.3
+> **Version**: 3.3.0
 
 SwitftBQ is a modern web application designed to streamline the process of creating Bills of Quantities (BQ) and managing quotations. Built with React, Vite, and Tailwind CSS, it offers a responsive and intuitive interface for construction and project management professionals.
+
+## 🚀 What's New in Beta 3.3
+- **📄 Enhanced Quotation Preview**:
+    - **True-to-Life Rendering**: The preview now uses a continuous scroll layout that matches the final PDF export 1:1.
+    - **Seamless Experience**: Removed clunky on-screen pagination in favor of a natural document flow.
+    - **Visual Consistency**: Fixed issues where headers or footers would misalign between preview and export.
 
 ## 🚀 What's New in Beta 3.2
 - **💾 Transactional Save Architecture**:

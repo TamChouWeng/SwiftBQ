@@ -1,24 +1,29 @@
 # SwiftBQ
-**Version**: Beta 3.2
+**Version**: Beta 3.3
 
 ## 📝 Overview
 SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management system designed for the construction industry. It solves the critical challenge of maintaining a live "Master Price Book" while ensuring that historical quotations remain immutable through robust data independence.
 
-## 🚀 Key Features (Beta 3.2)
+## 🚀 Key Features (Beta 3.3)
 
-### 1. Data Independence (Snapshots)
+### 1. High-Fidelity Quotation Preview
+- **Continuous Layout**: Replaced paginated view with a seamless, single-scroll experience.
+- **WYSIWYG Accuracy**: On-screen preview now exactly mirrors the PDF output, including headers, footers, and item flow.
+- **Smart Layout**: Headers appear logically at the start, and totals/signatures naturally at the end, without artificial page breaks interrupting the view.
+
+### 2. Data Independence (Snapshots)
 - **Immutable Quotes**: When a new project version is created, the system takes a "snapshot" of the Master List.
 - **Safety**: Subsequent price increases in the Master List do **not** affect existing quotes. Your historical data remains 100% accurate to the time it was created.
 
-### 2. Transactional Save System
+### 3. Transactional Save System
 - **Optimistic UI**: Experience instant feedback in the BQ Builder. Data is saved locally first for zero latency.
 - **Batch Commits**: Changes are synced to the cloud (Supabase) in a single transaction only when you click "Save", ensuring data integrity and preventing partial updates.
 
-### 3. Dynamic Pricing Engine
+### 4. Dynamic Pricing Engine
 - **Smart Formulas**: Prices are calculated automatically using configurable "Recipes" (e.g., `(FOB * Forex * SST) / OPTA`).
 - **Real-time Updates**: Toggle between pricing strategies to instantly see the impact on your margins.
 
-### 4. Enterprise-Grade Security
+### 5. Enterprise-Grade Security
 - **Data Isolation**: Strict Row Level Security ensures users can only access their own projects.
 - **Cascading Precision**: Deleting a project automatically cleans up all related versions and items, keeping your database pristine.
 
