@@ -509,7 +509,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             // 4. TERMS & CONDITIONS (Keep-Together Block)
             // =============================================
 
-            const tncHeight = 45; // Estimated height for T&C block
+            const tncHeight = 20; // Estimated height for T&C block
 
             // Check if T&C fits on current page
             if (currentY + tncHeight > pageHeight - marginBottom) {
@@ -535,7 +535,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             // 5. SIGNATURE SECTION (Keep-Together Block)
             // =============================================
 
-            const signatureHeight = 65; // Estimated height for signature block
+            const signatureHeight = 20; // Estimated height for signature block
 
             // Check if signature fits on current page
             if (currentY + signatureHeight > pageHeight - marginBottom) {
