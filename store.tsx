@@ -1214,6 +1214,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteVersion = async (projectId: string, versionId: string) => {
+    // Guard: Prevent deleting the last remaining version
+    const project = projects.find(p => p.id === projectId);
+    if (project && project.versions.length <= 1) {
+      console.warn("Cannot delete the last remaining version.");
+      return; // Abort operation
+    }
+
     setProjects(prev => prev.map(p => {
       if (p.id === projectId) {
         return { ...p, versions: p.versions.filter(v => v.id !== versionId) };

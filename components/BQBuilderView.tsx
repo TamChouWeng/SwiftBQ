@@ -546,20 +546,20 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     const handleCopyVersion = () => {
         if (!activeProject || !currentVersionId) return;
 
-        const currentVersionName = activeProject.versions.find(v => v.id === currentVersionId)?.name || 'version';
+        const currentVersionName = activeProject.versions.find(v => v.id === currentVersionId)?.name || 'Version';
 
         // Determine next version number logic
         let newName = `${currentVersionName}-copy`;
-        const match = currentVersionName.match(/version-(\d+)$/i);
+        const match = currentVersionName.match(/Version (\d+)$/i);
         if (match) {
             const nextNum = parseInt(match[1]) + 1;
-            newName = `version-${nextNum}`;
+            newName = `Version ${nextNum}`;
         } else {
             let counter = 2;
-            while (activeProject.versions.some(v => v.name === `version-${counter}`)) {
+            while (activeProject.versions.some(v => v.name === `Version ${counter}`)) {
                 counter++;
             }
-            newName = `version-${counter}`;
+            newName = `Version ${counter}`;
         }
 
         const newVersionId = self.crypto.randomUUID();
@@ -1400,8 +1400,12 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
                         <button
                             onClick={() => setIsDeleteVersionModalOpen(true)}
-                            className="w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-800 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 rounded-lg border border-gray-200 dark:border-slate-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                            title="Delete Version"
+                            disabled={activeProject && activeProject.versions.length <= 1}
+                            className={`w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-600 transition-colors ${activeProject && activeProject.versions.length <= 1
+                                ? 'opacity-50 cursor-not-allowed pointer-events-none text-slate-400'
+                                : 'text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20'
+                                }`}
+                            title={activeProject && activeProject.versions.length <= 1 ? "Projects must have at least one version" : "Delete Version"}
                         >
                             <Trash2 size={14} />
                         </button>
