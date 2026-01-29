@@ -255,16 +255,20 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.profileRole}</label>
-                            <div className="relative">
-                                <select
-                                    value={profileForm.role}
-                                    onChange={(e) => setProfileForm({ ...profileForm, role: e.target.value })}
-                                    className="w-full bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-primary-500 focus:outline-none appearance-none cursor-pointer"
-                                >
-                                    <option value="admin">{t.roleAdmin}</option>
-                                    <option value="user">{t.roleUser}</option>
-                                </select>
-                                <ShieldCheck className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${profileForm.role === 'admin'
+                                    ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+                                    : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                                }`}>
+                                <ShieldCheck
+                                    className={profileForm.role === 'admin' ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'}
+                                    size={16}
+                                />
+                                <span className={`font-medium ${profileForm.role === 'admin'
+                                        ? 'text-emerald-700 dark:text-emerald-300'
+                                        : 'text-blue-700 dark:text-blue-300'
+                                    }`}>
+                                    {profileForm.role === 'admin' ? t.roleAdmin : t.roleUser}
+                                </span>
                             </div>
                         </div>
 

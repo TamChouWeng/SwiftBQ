@@ -13,8 +13,11 @@ interface Props {
 }
 
 const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
-  const { masterData, addMasterItem, deleteMasterItem, masterListEdits, setMasterListEdit, commitMasterListEdits } = useAppStore();
+  const { masterData, addMasterItem, deleteMasterItem, masterListEdits, setMasterListEdit, commitMasterListEdits, user } = useAppStore();
   const t = TRANSLATIONS[currentLanguage];
+
+  // Role-based access control
+  const isReadOnly = user?.role === 'user';
 
   // --- Local State ---
   const [currentPage, setCurrentPage] = useState(1);
@@ -488,15 +491,16 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
             )}
           </div>
 
-          {/* Add Button */}
-          {/* Add Button */}
-          <button
-            onClick={openModal}
-            className="w-10 h-10 flex items-center justify-center bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors shadow-lg shadow-primary-500/30"
-            title={t.addRow}
-          >
-            <Plus size={20} />
-          </button>
+          {/* Add Button - Admin Only */}
+          {!isReadOnly && (
+            <button
+              onClick={openModal}
+              className="w-10 h-10 flex items-center justify-center bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors shadow-lg shadow-primary-500/30"
+              title={t.addRow}
+            >
+              <Plus size={20} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -590,13 +594,13 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
 
                   return (
                     <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors">
-                      {visibleColumns.brand && <td className="p-1"><input type="text" value={display.brand} onChange={(e) => handleEdit(item.id, 'brand', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
-                      {visibleColumns.axsku && <td className="p-1"><input type="text" value={display.axsku} onChange={(e) => handleEdit(item.id, 'axsku', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
-                      {visibleColumns.mpn && <td className="p-1"><input type="text" value={display.mpn} onChange={(e) => handleEdit(item.id, 'mpn', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
-                      {visibleColumns.group && <td className="p-1"><input type="text" value={display.group} onChange={(e) => handleEdit(item.id, 'group', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
+                      {visibleColumns.brand && <td className="p-1"><input type="text" value={display.brand} onChange={(e) => handleEdit(item.id, 'brand', e.target.value)} disabled={isReadOnly} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate disabled:cursor-not-allowed disabled:opacity-60" /></td>}
+                      {visibleColumns.axsku && <td className="p-1"><input type="text" value={display.axsku} onChange={(e) => handleEdit(item.id, 'axsku', e.target.value)} disabled={isReadOnly} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate disabled:cursor-not-allowed disabled:opacity-60" /></td>}
+                      {visibleColumns.mpn && <td className="p-1"><input type="text" value={display.mpn} onChange={(e) => handleEdit(item.id, 'mpn', e.target.value)} disabled={isReadOnly} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate disabled:cursor-not-allowed disabled:opacity-60" /></td>}
+                      {visibleColumns.group && <td className="p-1"><input type="text" value={display.group} onChange={(e) => handleEdit(item.id, 'group', e.target.value)} disabled={isReadOnly} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate disabled:cursor-not-allowed disabled:opacity-60" /></td>}
 
-                      {visibleColumns.category && <td className="p-1"><input type="text" value={display.category} onChange={(e) => handleEdit(item.id, 'category', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate" /></td>}
-                      {visibleColumns.itemName && <td className="p-1"><input type="text" value={display.itemName} onChange={(e) => handleEdit(item.id, 'itemName', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate font-bold" /></td>}
+                      {visibleColumns.category && <td className="p-1"><input type="text" value={display.category} onChange={(e) => handleEdit(item.id, 'category', e.target.value)} disabled={isReadOnly} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate disabled:cursor-not-allowed disabled:opacity-60" /></td>}
+                      {visibleColumns.itemName && <td className="p-1"><input type="text" value={display.itemName} onChange={(e) => handleEdit(item.id, 'itemName', e.target.value)} disabled={isReadOnly} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-slate-200 text-sm truncate font-bold disabled:cursor-not-allowed disabled:opacity-60" /></td>}
 
 
                       {/* Description */}
@@ -605,22 +609,24 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                           <div className="flex-1 px-2 py-1.5 bg-transparent border border-transparent rounded text-slate-800 dark:text-slate-200 text-sm truncate">
                             {display.description || ''}
                           </div>
-                          <button
-                            onClick={() => openDescriptionModal(item.id, display.description || '', 'description')}
-                            className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition-colors"
-                            title="Edit Description"
-                          >
-                            <Edit2 size={14} />
-                          </button>
+                          {!isReadOnly && (
+                            <button
+                              onClick={() => openDescriptionModal(item.id, display.description || '', 'description')}
+                              className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded transition-colors"
+                              title="Edit Description"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                          )}
                         </div>
                       </td>}
 
-                      {visibleColumns.uom && <td className="p-1"><input type="text" value={display.uom} onChange={(e) => handleEdit(item.id, 'uom', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-center text-slate-800 dark:text-slate-200 text-sm" /></td>}
+                      {visibleColumns.uom && <td className="p-1"><input type="text" value={display.uom} onChange={(e) => handleEdit(item.id, 'uom', e.target.value)} disabled={isReadOnly} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-center text-slate-800 dark:text-slate-200 text-sm disabled:cursor-not-allowed disabled:opacity-60" /></td>}
 
-                      {visibleColumns.rexScFob && <td className="p-1"><input type="number" value={display.rexScFob} onChange={(e) => handleEdit(item.id, 'rexScFob', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
-                      {visibleColumns.forex && <td className="p-1"><input type="number" value={display.forex} onChange={(e) => handleEdit(item.id, 'forex', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
-                      {visibleColumns.sst && <td className="p-1"><input type="number" value={display.sst} onChange={(e) => handleEdit(item.id, 'sst', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
-                      {visibleColumns.opta && <td className="p-1"><input type="number" value={display.opta} onChange={(e) => handleEdit(item.id, 'opta', e.target.value)} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm" /></td>}
+                      {visibleColumns.rexScFob && <td className="p-1"><input type="number" value={display.rexScFob} onChange={(e) => handleEdit(item.id, 'rexScFob', e.target.value)} disabled={isReadOnly} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm disabled:cursor-not-allowed disabled:opacity-60" /></td>}
+                      {visibleColumns.forex && <td className="p-1"><input type="number" value={display.forex} onChange={(e) => handleEdit(item.id, 'forex', e.target.value)} disabled={isReadOnly} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm disabled:cursor-not-allowed disabled:opacity-60" /></td>}
+                      {visibleColumns.sst && <td className="p-1"><input type="number" value={display.sst} onChange={(e) => handleEdit(item.id, 'sst', e.target.value)} disabled={isReadOnly} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm disabled:cursor-not-allowed disabled:opacity-60" /></td>}
+                      {visibleColumns.opta && <td className="p-1"><input type="number" value={display.opta} onChange={(e) => handleEdit(item.id, 'opta', e.target.value)} disabled={isReadOnly} className="w-full bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-right text-slate-800 dark:text-slate-200 text-sm disabled:cursor-not-allowed disabled:opacity-60" /></td>}
 
 
                       {visibleColumns.rexScDdp && <td className="p-1">
@@ -628,6 +634,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                           field={display.rexScDdp as PriceField}
                           strategies={DDP_STRATEGIES}
                           onChange={(updates) => handleEdit(item.id, 'rexScDdp', { ...display.rexScDdp, ...updates })}
+                          disabled={isReadOnly}
                         />
                       </td>}
                       {visibleColumns.rexSp && <td className="p-1">
@@ -635,6 +642,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                           field={display.rexSp as PriceField}
                           strategies={SP_STRATEGIES}
                           onChange={(updates) => handleEdit(item.id, 'rexSp', { ...display.rexSp, ...updates })}
+                          disabled={isReadOnly}
                         />
                       </td>}
                       {visibleColumns.rexRsp && <td className="p-1">
@@ -642,11 +650,14 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                           field={display.rexRsp as PriceField}
                           strategies={RSP_STRATEGIES}
                           onChange={(updates) => handleEdit(item.id, 'rexRsp', { ...display.rexRsp, ...updates })}
+                          disabled={isReadOnly}
                         />
                       </td>}
 
                       {visibleColumns.action && <td className="p-1 text-center">
-                        <button onClick={() => deleteMasterItem(item.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                        {!isReadOnly && (
+                          <button onClick={() => deleteMasterItem(item.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                        )}
                       </td>}
                     </tr>
                   );
