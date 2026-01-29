@@ -111,4 +111,9 @@ const SmartPriceCell: React.FC<SmartPriceCellProps> = ({ field, strategies, onCh
     );
 };
 
-export default SmartPriceCell;
+export default React.memo(SmartPriceCell, (prev, next) => {
+    // Only re-render if these props actually change
+    return prev.field.value === next.field.value &&
+        prev.field.strategy === next.field.strategy &&
+        prev.disabled === next.disabled;
+});

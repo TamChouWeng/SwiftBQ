@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { MasterItem, BQItem, Project, AppSettings, BQViewMode, PriceField, ProjectVersion } from './types';
+import { sanitizeMasterItem } from './utils/dataSanitizer';
 import { DDP_STRATEGIES, SP_STRATEGIES, RSP_STRATEGIES } from './pricingStrategies';
 
 import { createClient } from '@supabase/supabase-js';
@@ -205,6 +206,8 @@ export const mapProfileToSettings = (profile: any): Partial<AppSettings> => {
 interface AppContextType {
   masterData: MasterItem[];
   setMasterData: React.Dispatch<React.SetStateAction<MasterItem[]>>;
+  totalMasterCount: number;
+  fetchMasterData: (options?: { pageIndex?: number; pageSize?: number; searchTerm?: string }) => Promise<void>;
   projects: Project[];
   setProjects: React.Dispatch<React.SetStateAction<Project[]>>;
 
@@ -590,19 +593,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isLoading, setIsLoading] = useState(true);
 
   const [masterData, setMasterData] = useState<MasterItem[]>([]);
+  const [totalMasterCount, setTotalMasterCount] = useState(0);
 
   // --- Initial Data Fetch ---
   useEffect(() => {
     fetchMasterData();
   }, []);
 
-  const fetchMasterData = async () => {
+  const fetchMasterData = async (options?: {
+    pageIndex?: number;
+    pageSize?: number;
+    searchTerm?: string;
+  }) => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      const { pageIndex = 0, pageSize = 1000, searchTerm = '' } = options || {};
+
+      let query = supabase
         .from('master_list_items')
-        .select('*')
-        .eq('is_deleted', false); // Only fetch non-deleted
+        .select('*', { count: 'exact' })
+        .eq('is_deleted', false);
+
+      // Search Logic
+      if (searchTerm) {
+        query = query.or(`item_name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%,brand.ilike.%${searchTerm}%,axsku.ilike.%${searchTerm}%`);
+      }
+
+      // Pagination Logic
+      const from = pageIndex * pageSize;
+      const to = from + pageSize - 1;
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
 
       if (error) {
         console.error('Error fetching master data:', error);
@@ -610,8 +632,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       if (data) {
-        const mapped = data.map(mapMasterItemFromDB);
+        const mapped = data.map(dbItem => {
+          const baseItem = mapMasterItemFromDB(dbItem);
+          return sanitizeMasterItem(baseItem);
+        });
         setMasterData(mapped);
+        setTotalMasterCount(count || 0);
       }
     } catch (err) {
       console.error('Unexpected error fetching master data:', err);
@@ -619,6 +645,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsLoading(false);
     }
   };
+
 
 
   /* Projects State - Supabase */
@@ -1594,7 +1621,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider
       value={{
-        masterData, setMasterData,
+        masterData, setMasterData, totalMasterCount, fetchMasterData,
         projects, setProjects,
         currentProjectId, setCurrentProjectId,
         currentVersionId, setCurrentVersionId,

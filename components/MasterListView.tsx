@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Plus, Trash2, Search, ChevronLeft, ChevronRight, Filter, X, Eye, LayoutTemplate, Check, EyeOff, Save, Edit2 } from 'lucide-react';
 import { useAppStore, calculateDerivedFields } from '../store';
 import { AppLanguage, MasterItem, PriceField } from '../types';
@@ -187,9 +187,9 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     setCurrentPage(1);
   }, [selectedCategories, selectedTypes, searchQuery, itemsPerPage]);
 
-  const handleEdit = (id: string, field: keyof MasterItem, value: any) => {
+  const handleEdit = useCallback((id: string, field: keyof MasterItem, value: any) => {
     setMasterListEdit(id, field, value);
-  };
+  }, [setMasterListEdit]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
