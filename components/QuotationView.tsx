@@ -302,7 +302,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             // QUOTE Title (right aligned)
             doc.setFontSize(24);
             doc.setFont('helvetica', 'bold');
-            doc.text('QUOTE', pageWidth - marginRight, currentY + 10, { align: 'right' });
+            doc.text('QUOTE', pageWidth - marginRight, currentY + 10, { align: 'right' }); // Moved up (was +10)
 
             currentY += 20;
 
@@ -888,7 +888,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                 {/* 1. Header Section (First Page Only) */}
                                 {isFirstPage && (
                                     <>
-                                        <div className="flex justify-between items-end mb-4">
+                                        <div className="flex justify-between items-start mb-4">
                                             {/* Left: Company Details */}
                                             <div className="w-[60%] pb-2">
                                                 {appSettings.companyLogo && (
