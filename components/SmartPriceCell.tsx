@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Calculator, Edit3, ChevronDown, Check } from 'lucide-react';
 import { PriceField } from '../types';
 import { PricingStrategy } from '../pricingStrategies';
+import FormattedNumberInput from './FormattedNumberInput';
 
 interface SmartPriceCellProps {
     field: PriceField;
@@ -14,7 +15,6 @@ interface SmartPriceCellProps {
 
 const SmartPriceCell: React.FC<SmartPriceCellProps> = ({ field, strategies, onChange, className, disabled }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
     const popoverRef = useRef<HTMLDivElement>(null);
 
     // Close popover when clicking outside
@@ -34,25 +34,17 @@ const SmartPriceCell: React.FC<SmartPriceCellProps> = ({ field, strategies, onCh
     const currentStrategy = strategies.find(s => s.id === field.strategy);
     const strategyLabel = currentStrategy ? currentStrategy.label : 'Manual';
 
-    const handleValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = parseFloat(e.target.value);
+    const handleValueChange = (val: number) => {
         // If we are in manual mode, update the manualOverride and the value
         if (isManual) {
             onChange({
-                value: isNaN(val) ? 0 : val,
-                manualOverride: isNaN(val) ? 0 : val
+                value: val,
+                manualOverride: val
             });
         }
     };
 
     const handleStrategySelect = (strategyId: string) => {
-        // When switching strategies, we just update the strategy ID. 
-        // The value recalculation is handled by the store.
-        // Exception: If switching TO manual, populate override with current value?
-        // Store logic: "if (ddpField.strategy === 'MANUAL') ddpValue = ddpField.manualOverride ?? 0;"
-        // So if we switch to manual, we should probably ensure manualOverride is synced if we want to "freeze" current value.
-        // For now, let's assume manualOverride holds the last manual entry.
-
         onChange({ strategy: strategyId });
         setIsOpen(false);
     };
@@ -62,11 +54,11 @@ const SmartPriceCell: React.FC<SmartPriceCellProps> = ({ field, strategies, onCh
 
             {/* Input / Display */}
             <div className="relative flex-1">
-                <input
-                    type="number"
+                <FormattedNumberInput
                     value={field.value}
                     onChange={handleValueChange}
                     readOnly={!isManual || disabled}
+                    disabled={disabled} // Pass disabled prop correctly
                     className={`w-full bg-transparent p-2 pr-2 rounded border 
             ${!isManual ? 'text-slate-600 dark:text-slate-400 bg-gray-50/50 dark:bg-slate-800/50 cursor-not-allowed' : 'text-slate-800 dark:text-slate-200'}
             border-transparent hover:border-gray-200 dark:hover:border-slate-600 

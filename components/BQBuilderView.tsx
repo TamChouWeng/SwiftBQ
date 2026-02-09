@@ -5,6 +5,7 @@ import { useAppStore, calculateDerivedFields } from '../store';
 import { AppLanguage, Project, BQItem, MasterItem, PriceField } from '../types';
 import { TRANSLATIONS } from '../constants';
 import SmartPriceCell from './SmartPriceCell';
+import FormattedNumberInput from './FormattedNumberInput';
 import { DDP_STRATEGIES, SP_STRATEGIES, RSP_STRATEGIES } from '../pricingStrategies';
 
 
@@ -871,11 +872,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         {isReview ? (
                             <div className="text-sm font-normal text-slate-900 dark:text-white text-right p-2">{fmt(priceVal)}</div>
                         ) : (
-                            <input
+                            <FormattedNumberInput
                                 tabIndex={1}
-                                type="number"
                                 value={priceVal}
-                                onChange={(e) => handleCatalogEdit(itemId, 'rexScFob', e.target.value)} // Editing FOB triggers calc
+                                onChange={(val) => handleCatalogEdit(itemId, 'rexScFob', val)} // Editing FOB triggers calc
                                 className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all font-normal text-sm text-slate-900 dark:text-white"
                             />
                         )}
@@ -883,14 +883,13 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
                     {/* Qty (Quantity) - Review: Editable (user request ambiguous, but usually Qty is the ONLY thing editable in a locked BOQ). Catalog: Editable. */}
                     {visibleColumns.qty && <td className="p-1 align-top">
-                        <input
-                            type="number"
-                            min="0"
+                        <FormattedNumberInput
+                            min={0}
                             placeholder="0"
-                            value={currentQty}
-                            onChange={(e) => isReview
-                                ? updateBQItem(itemId, 'qty', e.target.value)
-                                : handleCatalogQtyChange(itemId, e.target.value)
+                            value={Number(currentQty) || 0}
+                            onChange={(val) => isReview
+                                ? updateBQItem(itemId, 'qty', val)
+                                : handleCatalogQtyChange(itemId, val.toString())
                             }
                             className={`w-full text-center rounded-lg border focus:ring-2 focus:outline-none p-1 transition-all text-sm font-bold ${isReview
                                 ? 'bg-gray-50 dark:bg-slate-700/50 border-gray-200 dark:border-slate-600 text-slate-900 dark:text-white focus:border-primary-500'
@@ -906,7 +905,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-300 text-right p-2">{fmtSensitive((bqItem as BQItem)?.forex || 0)}</div>
                         ) : (
-                            <input tabIndex={1} type="number" value={displayItem.forex} onChange={(e) => handleCatalogEdit(itemId, 'forex', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
+                            <FormattedNumberInput tabIndex={1} value={displayItem.forex} onChange={(val) => handleCatalogEdit(itemId, 'forex', val)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
                         )}
                     </td>}
 
@@ -915,7 +914,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-300 text-right p-2">{fmtSensitive((bqItem as BQItem)?.sst || 0)}</div>
                         ) : (
-                            <input tabIndex={1} type="number" value={displayItem.sst} onChange={(e) => handleCatalogEdit(itemId, 'sst', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
+                            <FormattedNumberInput tabIndex={1} value={displayItem.sst} onChange={(val) => handleCatalogEdit(itemId, 'sst', val)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
                         )}
                     </td>}
 
@@ -924,7 +923,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         {isReview ? (
                             <div className="text-xs font-normal text-slate-600 dark:text-slate-300 text-right p-2">{fmtSensitive((bqItem as BQItem)?.opta || 0)}</div>
                         ) : (
-                            <input tabIndex={1} type="number" value={displayItem.opta} onChange={(e) => handleCatalogEdit(itemId, 'opta', e.target.value)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
+                            <FormattedNumberInput tabIndex={1} value={displayItem.opta} onChange={(val) => handleCatalogEdit(itemId, 'opta', val)} className="w-full text-right bg-transparent p-2 rounded border border-transparent hover:border-gray-200 dark:hover:border-slate-600 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-xs text-slate-600 dark:text-slate-300" />
                         )}
                     </td>}
 
