@@ -259,12 +259,43 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             // 1. HEADER SECTION (Page 1 Only)
             // =============================================
 
+            // Helper to get image dimensions
+            const getImageDimensions = (src: string): Promise<{ w: number, h: number, ratio: number }> => {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => resolve({ w: img.width, h: img.height, ratio: img.width / img.height });
+                    img.onerror = reject;
+                    img.src = src;
+                });
+            };
+
             // Company Logo (if exists)
             if (appSettings.companyLogo) {
                 try {
-                    doc.addImage(appSettings.companyLogo, 'PNG', marginLeft, currentY, 40, 16);
+                    // Load image to get dimensions
+                    const dims = await getImageDimensions(appSettings.companyLogo);
+                    const maxHeight = 16; // Max height 16mm
+                    const maxWidth = 50;  // Max width 50mm
+
+                    let finalW = dims.ratio * maxHeight;
+                    let finalH = maxHeight;
+
+                    if (finalW > maxWidth) {
+                        finalW = maxWidth;
+                        finalH = maxWidth / dims.ratio;
+                    }
+
+                    doc.addImage(appSettings.companyLogo, 'PNG', marginLeft, currentY, finalW, finalH);
+                    // Adjust currentY based on actual height used? 
+                    // The text starts at fixed offset usually, or we can check overlap. 
+                    // Text is "QUOTE" on right, and Company Name below logo.
+                    // Original code: currentY += 20; 
+                    // Let's keep space reserve but image fits inside.
+
                 } catch (e) {
                     console.warn("Failed to load company logo:", e);
+                    // Fallback if load fails? Just skip or use fixed box?
+                    // doc.addImage(appSettings.companyLogo, 'PNG', marginLeft, currentY, 40, 16);
                 }
             }
 
@@ -864,7 +895,8 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                                     <img
                                                         src={appSettings.companyLogo}
                                                         alt="Company Logo"
-                                                        className="h-16 w-auto mb-3 object-contain"
+                                                        className="max-h-20 w-auto mb-3"
+                                                        style={{ objectFit: 'contain' }} // Fallback safety
                                                         onError={(e) => {
                                                             e.currentTarget.style.display = 'none'; // Hide if broken
                                                         }}
