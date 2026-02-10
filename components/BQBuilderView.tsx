@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical, AlertTriangle, Copy, ChevronDown, Save, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical, AlertTriangle, Copy, ChevronDown, Save, ChevronLeft, ChevronRight, Filter, ListFilter } from 'lucide-react';
 import { useAppStore, calculateDerivedFields } from '../store';
 import { AppLanguage, Project, BQItem, MasterItem, PriceField } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -99,6 +99,9 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
     // Staged Edits for Catalog Mode (Session-based)
     const [stagedEdits, setStagedEdits] = useState<Record<string, Partial<MasterItem>>>({});
+
+    // Filter Quantity State: 'all' | 'nonzero' | 'zero'
+    const [quantityFilterMode, setQuantityFilterMode] = useState<'all' | 'nonzero' | 'zero'>('all');
 
     // Column Visibility State with localStorage persistence
     const [showColumnDropdown, setShowColumnDropdown] = useState(false);
@@ -341,13 +344,25 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             );
         }
 
+        // 3. Filter by Quantity Mode
+        if (quantityFilterMode !== 'all' && activeProject && currentVersionId) {
+            items = items.filter(item => {
+                const bqItem = activeItemsMap.get(item.id);
+                const qty = bqItem ? Number(bqItem.qty) : 0;
+
+                if (quantityFilterMode === 'nonzero') return qty > 0;
+                if (quantityFilterMode === 'zero') return qty === 0;
+                return true;
+            });
+        }
+
         return items;
-    }, [catalogSource, selectedCategory, searchQuery]);
+    }, [catalogSource, selectedCategory, searchQuery, quantityFilterMode, activeItemsMap]);
 
     // Reset page when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [selectedCategory, searchQuery, itemsPerPage]);
+    }, [selectedCategory, searchQuery, itemsPerPage, quantityFilterMode]);
 
     // Pagination Calculation
     const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
@@ -1122,7 +1137,31 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'price')} />
                 </th>}
                 {visibleColumns.qty && <th className="relative p-4 text-center font-semibold select-none" style={{ width: colWidths.qty }}>
-                    Quantity
+                    <div className="flex items-center justify-center gap-1">
+                        Quantity
+                        {bqViewMode === 'catalog' && (
+                            <button
+                                onClick={() => {
+                                    if (quantityFilterMode === 'all') setQuantityFilterMode('nonzero');
+                                    else if (quantityFilterMode === 'nonzero') setQuantityFilterMode('zero');
+                                    else setQuantityFilterMode('all');
+                                }}
+                                className={`p-1 rounded transition-colors ${quantityFilterMode === 'nonzero' ? 'bg-primary-50 text-primary-600' :
+                                        quantityFilterMode === 'zero' ? 'bg-slate-100 text-slate-600' :
+                                            'text-slate-400 hover:text-slate-600'
+                                    }`}
+                                title={
+                                    quantityFilterMode === 'all' ? "Filter: All Items" :
+                                        quantityFilterMode === 'nonzero' ? "Filter: Added Items (>0)" :
+                                            "Filter: Unadded Items (0)"
+                                }
+                            >
+                                {quantityFilterMode === 'all' && <ListFilter size={14} />}
+                                {quantityFilterMode === 'nonzero' && <Filter size={14} fill="currentColor" />}
+                                {quantityFilterMode === 'zero' && <Filter size={14} />}
+                            </button>
+                        )}
+                    </div>
                     <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary-400 z-10" onMouseDown={(e) => startResize(e, 'qty')} />
                 </th>}
                 {visibleColumns.forex && <th className="relative p-4 text-right font-semibold select-none" style={{ width: colWidths.forex }}>
