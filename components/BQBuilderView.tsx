@@ -195,7 +195,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         rexSp: 150,
         rexRsp: 150,
         price: 120,
-        qty: 70,
+        qty: 80,
         rexTsc: 90,
         rexTsp: 90,
         rexTrsp: 90,
@@ -902,10 +902,14 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             min={0}
                             placeholder="0"
                             value={Number(currentQty) || 0}
-                            onChange={(val) => isReview
-                                ? updateBQItem(itemId, 'qty', val)
-                                : handleCatalogQtyChange(itemId, val.toString())
-                            }
+                            onChange={(val) => {
+                                const safeVal = Math.max(0, val);
+                                if (isReview) {
+                                    updateBQItem(itemId, 'qty', safeVal);
+                                } else {
+                                    handleCatalogQtyChange(itemId, safeVal.toString());
+                                }
+                            }}
                             className={`w-full text-center rounded-lg border focus:ring-2 focus:outline-none p-1 transition-all text-sm font-bold ${isReview
                                 ? 'bg-gray-50 dark:bg-slate-700/50 border-gray-200 dark:border-slate-600 text-slate-900 dark:text-white focus:border-primary-500'
                                 : isSelectedInCatalog
@@ -1147,8 +1151,8 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                     else setQuantityFilterMode('all');
                                 }}
                                 className={`p-1 rounded transition-colors ${quantityFilterMode === 'nonzero' ? 'bg-primary-50 text-primary-600' :
-                                        quantityFilterMode === 'zero' ? 'bg-slate-100 text-slate-600' :
-                                            'text-slate-400 hover:text-slate-600'
+                                    quantityFilterMode === 'zero' ? 'bg-slate-100 text-slate-600' :
+                                        'text-slate-400 hover:text-slate-600'
                                     }`}
                                 title={
                                     quantityFilterMode === 'all' ? "Filter: All Items" :

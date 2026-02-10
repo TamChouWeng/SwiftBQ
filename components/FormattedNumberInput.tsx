@@ -69,13 +69,17 @@ const FormattedNumberInput: React.FC<Props> = ({
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        // Allow typing only valid characters for number
-        // Allow digits, one dot, maybe minus sign
         const raw = e.target.value;
+
+        // Prevent negative input if min >= 0
+        if (min !== undefined && min >= 0 && raw.includes('-')) {
+            return;
+        }
+
+        // Allow typing only valid characters for number
         setInputValue(raw); // Update UI immediately so user can type "1." without it vanishing
 
         // Parse and Bubble up
-        // Handle empty string as 0 or null? Usually 0 for numeric fields in this app.
         if (raw === '') {
             onChange(0);
             return;
@@ -83,7 +87,6 @@ const FormattedNumberInput: React.FC<Props> = ({
 
         const parsed = parseFloat(raw);
         if (!isNaN(parsed)) {
-            // Simple boundary check if needed, though usually better on blur or just clamped by logic elsewhere
             onChange(parsed);
         }
     };
@@ -103,6 +106,14 @@ const FormattedNumberInput: React.FC<Props> = ({
             tabIndex={tabIndex}
             autoFocus={autoFocus}
             step="any"
+            min={min}
+            max={max}
+            onKeyDown={(e) => {
+                // Prevent typing '-' if min >= 0
+                if (min !== undefined && min >= 0 && e.key === '-') {
+                    e.preventDefault();
+                }
+            }}
         />
     );
 };
