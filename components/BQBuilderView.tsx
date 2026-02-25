@@ -1571,20 +1571,6 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             Review ({activeItems.length})
                         </button>
                     </div>
-
-                    {/* Add Custom Item Button - Square with Logo */}
-                    <button
-                        onClick={() => {
-                            if (activeProject && currentVersionId) {
-                                addBQItem(activeProject.id, currentVersionId);
-                                setBqViewMode('review');
-                            }
-                        }}
-                        className="w-10 h-10 flex items-center justify-center bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-gray-100 transition-colors shadow-sm ml-2"
-                        title="Add Custom Item"
-                    >
-                        <Plus size={20} />
-                    </button>
                 </div>
             </div>
 
