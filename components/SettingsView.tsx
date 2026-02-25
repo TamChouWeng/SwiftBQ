@@ -256,16 +256,16 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                         <div>
                             <label className="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">{t.profileRole}</label>
                             <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${profileForm.role === 'admin'
-                                    ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
-                                    : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+                                ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+                                : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
                                 }`}>
                                 <ShieldCheck
                                     className={profileForm.role === 'admin' ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'}
                                     size={16}
                                 />
                                 <span className={`font-medium ${profileForm.role === 'admin'
-                                        ? 'text-emerald-700 dark:text-emerald-300'
-                                        : 'text-blue-700 dark:text-blue-300'
+                                    ? 'text-emerald-700 dark:text-emerald-300'
+                                    : 'text-blue-700 dark:text-blue-300'
                                     }`}>
                                     {profileForm.role === 'admin' ? t.roleAdmin : t.roleUser}
                                 </span>
@@ -581,7 +581,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                             </div>
                         </div>
                         <div className="px-3 py-1 bg-gray-100 dark:bg-slate-700 rounded-full border border-gray-200 dark:border-slate-600">
-                            <span className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">Beta 3.3</span>
+                            <span className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">Beta 3.4</span>
                         </div>
                     </div>
                 </div>
