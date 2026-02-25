@@ -814,6 +814,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                     field={newItem.rexScDdp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }}
                     strategies={DDP_STRATEGIES}
                     direction="up"
+                    align="left"
                     onChange={(updates) => setNewItem(prev => ({ ...prev, rexScDdp: { ...(prev.rexScDdp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }), ...updates } }))}
                   />
                 </div>
@@ -823,6 +824,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                     field={newItem.rexSp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }}
                     strategies={SP_STRATEGIES}
                     direction="up"
+                    align="left"
                     onChange={(updates) => setNewItem(prev => ({ ...prev, rexSp: { ...(prev.rexSp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }), ...updates } }))}
                   />
                 </div>
@@ -832,6 +834,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                     field={newItem.rexRsp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }}
                     strategies={RSP_STRATEGIES}
                     direction="up"
+                    align="right"
                     onChange={(updates) => setNewItem(prev => ({ ...prev, rexRsp: { ...(prev.rexRsp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }), ...updates } }))}
                   />
                 </div>
