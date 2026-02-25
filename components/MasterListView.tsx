@@ -107,16 +107,32 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
   // Calculate fields dynamically when modal inputs change
   useEffect(() => {
     if (isModalOpen) {
-      const derived = calculateDerivedFields(newItem);
-      if (
-        derived.rexScDdp !== newItem.rexScDdp ||
-        derived.rexSp !== newItem.rexSp ||
-        derived.rexRsp !== newItem.rexRsp
-      ) {
-        setNewItem(prev => ({ ...prev, ...derived }));
-      }
+      setNewItem(prev => {
+        const derived = calculateDerivedFields(prev);
+        if (
+          derived.rexScDdp?.value !== (prev.rexScDdp as PriceField)?.value ||
+          derived.rexSp?.value !== (prev.rexSp as PriceField)?.value ||
+          derived.rexRsp?.value !== (prev.rexRsp as PriceField)?.value ||
+          derived.price !== prev.price ||
+          derived.rexScDdp?.strategy !== (prev.rexScDdp as PriceField)?.strategy ||
+          derived.rexSp?.strategy !== (prev.rexSp as PriceField)?.strategy ||
+          derived.rexRsp?.strategy !== (prev.rexRsp as PriceField)?.strategy
+        ) {
+          return { ...prev, ...derived };
+        }
+        return prev;
+      });
     }
-  }, [newItem.rexScFob, newItem.forex, newItem.sst, newItem.opta, isModalOpen]);
+  }, [
+    newItem.rexScFob,
+    newItem.forex,
+    newItem.sst,
+    newItem.opta,
+    (newItem.rexScDdp as PriceField)?.strategy,
+    (newItem.rexSp as PriceField)?.strategy,
+    (newItem.rexRsp as PriceField)?.strategy,
+    isModalOpen
+  ]);
 
 
   // Description Modal State
@@ -719,24 +735,24 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                 {/* Col A */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.brand}</label>
-                  <input type="text" value={newItem.brand} onChange={(e) => setNewItem({ ...newItem, brand: e.target.value })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                  <input type="text" value={newItem.brand} onChange={(e) => setNewItem(prev => ({ ...prev, brand: e.target.value }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
                 </div>
                 {/* Ax SKU */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.axsku}</label>
-                  <input type="text" value={newItem.axsku} onChange={(e) => setNewItem({ ...newItem, axsku: e.target.value })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                  <input type="text" value={newItem.axsku} onChange={(e) => setNewItem(prev => ({ ...prev, axsku: e.target.value }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 {/* Col C */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.mpn}</label>
-                  <input type="text" value={newItem.mpn} onChange={(e) => setNewItem({ ...newItem, mpn: e.target.value })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                  <input type="text" value={newItem.mpn} onChange={(e) => setNewItem(prev => ({ ...prev, mpn: e.target.value }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
                 </div>
                 {/* Group */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.group}</label>
-                  <input type="text" value={newItem.group} onChange={(e) => setNewItem({ ...newItem, group: e.target.value })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                  <input type="text" value={newItem.group} onChange={(e) => setNewItem(prev => ({ ...prev, group: e.target.value }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
                 </div>
               </div>
 
@@ -745,20 +761,20 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
               {/* Category */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.category} <span className="text-red-500">*</span></label>
-                <input list="category-options" value={newItem.category} onChange={(e) => setNewItem({ ...newItem, category: e.target.value })} placeholder="Select or type new category" className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                <input list="category-options" value={newItem.category} onChange={(e) => setNewItem(prev => ({ ...prev, category: e.target.value }))} placeholder="Select or type new category" className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
                 <datalist id="category-options">{allUniqueCategories.map(c => <option key={c} value={c} />)}</datalist>
               </div>
 
               {/* Item Name */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.item} <span className="text-red-500">*</span></label>
-                <input type="text" value={newItem.itemName} onChange={(e) => setNewItem({ ...newItem, itemName: e.target.value })} placeholder="Item name" className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                <input type="text" value={newItem.itemName} onChange={(e) => setNewItem(prev => ({ ...prev, itemName: e.target.value }))} placeholder="Item name" className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
               </div>
 
               {/* Description (Formerly Type) */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.description} <span className="text-red-500">*</span></label>
-                <input list="type-options" value={newItem.description} onChange={(e) => setNewItem({ ...newItem, description: e.target.value })} placeholder="Select or type description" className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                <input list="type-options" value={newItem.description} onChange={(e) => setNewItem(prev => ({ ...prev, description: e.target.value }))} placeholder="Select or type description" className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
                 <datalist id="type-options">{alluniqueItems.map(t => <option key={t} value={t} />)}</datalist>
               </div>
 
@@ -766,27 +782,27 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                 {/* UOM */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.uom}</label>
-                  <input type="text" value={newItem.uom} onChange={(e) => setNewItem({ ...newItem, uom: e.target.value })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                  <input type="text" value={newItem.uom} onChange={(e) => setNewItem(prev => ({ ...prev, uom: e.target.value }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
                 </div>
                 {/* FOB */}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.rexScFob}</label>
-                  <input type="number" value={newItem.rexScFob} onChange={(e) => setNewItem({ ...newItem, rexScFob: parseFloat(e.target.value) })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                  <input type="number" value={newItem.rexScFob} onChange={(e) => setNewItem(prev => ({ ...prev, rexScFob: parseFloat(e.target.value) }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.forex}</label>
-                  <input type="number" value={newItem.forex} onChange={(e) => setNewItem({ ...newItem, forex: parseFloat(e.target.value) })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                  <input type="number" value={newItem.forex} onChange={(e) => setNewItem(prev => ({ ...prev, forex: parseFloat(e.target.value) }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.sst}</label>
-                  <input type="number" value={newItem.sst} onChange={(e) => setNewItem({ ...newItem, sst: parseFloat(e.target.value) })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                  <input type="number" value={newItem.sst} onChange={(e) => setNewItem(prev => ({ ...prev, sst: parseFloat(e.target.value) }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.opta}</label>
-                  <input type="number" value={newItem.opta} onChange={(e) => setNewItem({ ...newItem, opta: parseFloat(e.target.value) })} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                  <input type="number" value={newItem.opta} onChange={(e) => setNewItem(prev => ({ ...prev, opta: parseFloat(e.target.value) }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
                 </div>
               </div>
 
@@ -797,7 +813,8 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                   <SmartPriceCell
                     field={newItem.rexScDdp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }}
                     strategies={DDP_STRATEGIES}
-                    onChange={(updates) => setNewItem({ ...newItem, rexScDdp: { ...(newItem.rexScDdp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }), ...updates } })}
+                    direction="up"
+                    onChange={(updates) => setNewItem(prev => ({ ...prev, rexScDdp: { ...(prev.rexScDdp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }), ...updates } }))}
                   />
                 </div>
                 <div>
@@ -805,7 +822,8 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                   <SmartPriceCell
                     field={newItem.rexSp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }}
                     strategies={SP_STRATEGIES}
-                    onChange={(updates) => setNewItem({ ...newItem, rexSp: { ...(newItem.rexSp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }), ...updates } })}
+                    direction="up"
+                    onChange={(updates) => setNewItem(prev => ({ ...prev, rexSp: { ...(prev.rexSp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }), ...updates } }))}
                   />
                 </div>
                 <div>
@@ -813,7 +831,8 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
                   <SmartPriceCell
                     field={newItem.rexRsp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }}
                     strategies={RSP_STRATEGIES}
-                    onChange={(updates) => setNewItem({ ...newItem, rexRsp: { ...(newItem.rexRsp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }), ...updates } })}
+                    direction="up"
+                    onChange={(updates) => setNewItem(prev => ({ ...prev, rexRsp: { ...(prev.rexRsp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }), ...updates } }))}
                   />
                 </div>
               </div>

@@ -11,9 +11,10 @@ interface SmartPriceCellProps {
     onChange: (updates: Partial<PriceField>) => void;
     className?: string;
     disabled?: boolean;
+    direction?: 'up' | 'down';
 }
 
-const SmartPriceCell: React.FC<SmartPriceCellProps> = ({ field, strategies, onChange, className, disabled }) => {
+const SmartPriceCell: React.FC<SmartPriceCellProps> = ({ field, strategies, onChange, className, disabled, direction = 'down' }) => {
     const [isOpen, setIsOpen] = useState(false);
     const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -78,7 +79,7 @@ const SmartPriceCell: React.FC<SmartPriceCellProps> = ({ field, strategies, onCh
 
             {/* Strategy Popover */}
             {isOpen && (
-                <div className="absolute right-0 top-full mt-1 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 z-50 overflow-hidden flex flex-col animate-fade-in">
+                <div className={`absolute right-0 ${direction === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'} w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 z-50 overflow-hidden flex flex-col animate-fade-in`}>
                     <div className="p-2 bg-gray-50 dark:bg-slate-700/50 border-b border-gray-100 dark:border-slate-700 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                         Select Pricing Strategy
                     </div>
