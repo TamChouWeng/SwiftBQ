@@ -272,6 +272,12 @@ interface AppContextType {
   commitBQItemEdits: () => void;
   discardBQItemEdits: () => void;
 
+  // BQ Builder Catalog Staged Edits
+  bqStagedEdits: Record<string, Partial<MasterItem>>;
+  setBqStagedEdits: (edits: Record<string, Partial<MasterItem>>) => void;
+  clearBqStagedEdits: () => void;
+  commitBqStagedEdits: () => Promise<void>;
+
   hasUnsavedChanges: boolean;
   saveAllChanges: () => Promise<void>;
   discardAllChanges: () => void;
@@ -745,12 +751,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [masterListEdits, setMasterListEdits] = useState<Record<string, Partial<MasterItem>>>({});
   const [versionEdits, setVersionEdits] = useState<Record<string, Partial<ProjectVersion>>>({});
   const [bqItemEdits, setBqItemEdits] = useState<Record<string, Partial<BQItem>>>({});
+  const [bqStagedEdits, setBqStagedEdits] = useState<Record<string, Partial<MasterItem>>>({});
+  const clearBqStagedEdits = () => setBqStagedEdits({});
 
   const hasUnsavedChanges = useMemo(() =>
     Object.keys(masterListEdits).length > 0 ||
     Object.keys(versionEdits).length > 0 ||
-    Object.keys(bqItemEdits).length > 0,
-    [masterListEdits, versionEdits, bqItemEdits]);
+    Object.keys(bqItemEdits).length > 0 ||
+    Object.keys(bqStagedEdits).length > 0,
+    [masterListEdits, versionEdits, bqItemEdits, bqStagedEdits]);
 
 
   // --- Persistence Effects ---
@@ -1604,11 +1613,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBqItemEdits({});
   };
 
+  // --- BQ Staged Edits Commit ---
+  const commitBqStagedEdits = async () => {
+    if (!currentProjectId || !currentVersionId || Object.keys(bqStagedEdits).length === 0) return;
+
+    const editsToSave = { ...bqStagedEdits }; // Snapshot
+    clearBqStagedEdits(); // Clear immediately (like MasterListView), DB write is background
+
+    const updates = Object.entries(editsToSave).map(([id, edits]) => ({
+      id,
+      ...(edits as Partial<MasterItem>)
+    }));
+
+    // Write staged edits back to the project snapshot
+    await updateProjectSnapshot(currentProjectId, currentVersionId, updates);
+  };
+
   const saveAllChanges = async () => {
     await Promise.all([
       commitMasterListEdits(),
       commitVersionEdits(),
-      commitBQItemEdits()
+      commitBQItemEdits(),
+      commitBqStagedEdits()
     ]);
   };
 
@@ -1616,6 +1642,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     discardMasterListEdits();
     discardVersionEdits();
     discardBQItemEdits();
+    clearBqStagedEdits();
   };
 
   return (
@@ -1636,6 +1663,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         masterListEdits, setMasterListEdit, commitMasterListEdits, discardMasterListEdits,
         versionEdits, setVersionEdit, commitVersionEdits, discardVersionEdits,
         bqItemEdits, setBQItemEdit, commitBQItemEdits, discardBQItemEdits,
+        bqStagedEdits, setBqStagedEdits, clearBqStagedEdits, commitBqStagedEdits,
         hasUnsavedChanges, saveAllChanges, discardAllChanges,
         user, login, logout, updateUserProfile, updateCompanyProfile, uploadCompanyLogo, uploadProfileSignature
       }}

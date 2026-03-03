@@ -55,7 +55,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         appSettings,
         bqViewMode,
         setBqViewMode,
-        saveAllChanges
+        saveAllChanges,
+        bqStagedEdits,
+        setBqStagedEdits,
+        clearBqStagedEdits,
     } = useAppStore();
 
     const t = TRANSLATIONS[currentLanguage];
@@ -97,8 +100,9 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     const [selectedCategory, setSelectedCategory] = useState<string>('All');
     const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
-    // Staged Edits for Catalog Mode (Session-based)
-    const [stagedEdits, setStagedEdits] = useState<Record<string, Partial<MasterItem>>>({});
+    // Staged Edits for Catalog Mode — stored globally so hasUnsavedChanges tracks them
+    const stagedEdits = bqStagedEdits;
+    const setStagedEdits = setBqStagedEdits;
 
     // Filter Quantity State: 'all' | 'nonzero' | 'zero'
     const [quantityFilterMode, setQuantityFilterMode] = useState<'all' | 'nonzero' | 'zero'>('all');
@@ -414,7 +418,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
         if (currentVersionId) {
             updateProjectSnapshot(activeProject.id, currentVersionId, updates);
-            setStagedEdits({});
+            clearBqStagedEdits();
         }
 
         // Force reload BQ items that use these master items to ensure they stay in sync?

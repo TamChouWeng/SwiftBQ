@@ -45,8 +45,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const handleSaveAndContinue = () => {
-    saveAllChanges();
+  const handleSaveAndContinue = async () => {
+    await saveAllChanges();
     setShowUnsavedModal(false);
     if (pendingTab) performNavigation(pendingTab);
   };
@@ -110,8 +110,8 @@ const Sidebar: React.FC<SidebarProps> = ({
               key={item.tab}
               onClick={() => handleTabClick(item.tab)}
               className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group ${activeTab === item.tab
-                  ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 font-medium'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-slate-200'
+                ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 font-medium'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
             >
               <item.icon
