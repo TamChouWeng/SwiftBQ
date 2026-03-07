@@ -47,6 +47,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         deleteVersion,
         updateProjectSnapshot,
         addBQItem,
+        addCustomBQItem,
         syncMasterToBQ,
         removeBQItem,
         updateBQItem,
@@ -226,6 +227,85 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         }
     }, [currentPage]);
 
+
+    // Custom Item Modal State (Add item directly to this BQ version)
+    const [isCustomItemModalOpen, setIsCustomItemModalOpen] = useState(false);
+    const [newCustomItem, setNewCustomItem] = useState<Partial<MasterItem>>({
+        brand: '', axsku: '', mpn: '', group: '',
+        category: '', description: '', itemName: '',
+        price: 0, uom: 'Unit', rexScFob: 0, forex: 1, sst: 1, opta: 0.97,
+        rexScDdp: { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+        rexSp: { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+        rexRsp: { value: 0, strategy: 'MANUAL', manualOverride: 0 }
+    });
+
+    // Auto-derive calculated fields when inputs change in custom item modal
+    useEffect(() => {
+        if (isCustomItemModalOpen) {
+            setNewCustomItem(prev => {
+                const derived = calculateDerivedFields(prev);
+                if (
+                    derived.rexScDdp?.value !== (prev.rexScDdp as PriceField)?.value ||
+                    derived.rexSp?.value !== (prev.rexSp as PriceField)?.value ||
+                    derived.rexRsp?.value !== (prev.rexRsp as PriceField)?.value ||
+                    derived.price !== prev.price
+                ) {
+                    return { ...prev, ...derived };
+                }
+                return prev;
+            });
+        }
+    }, [
+        newCustomItem.rexScFob,
+        newCustomItem.forex,
+        newCustomItem.sst,
+        newCustomItem.opta,
+        (newCustomItem.rexScDdp as PriceField)?.strategy,
+        (newCustomItem.rexSp as PriceField)?.strategy,
+        (newCustomItem.rexRsp as PriceField)?.strategy,
+        isCustomItemModalOpen
+    ]);
+
+    const openCustomItemModal = () => {
+        setNewCustomItem({
+            brand: '', axsku: '', mpn: '', group: '',
+            category: '', description: '', itemName: '',
+            price: 0, uom: 'Unit', rexScFob: 0, forex: 1, sst: 1, opta: 0.97,
+            rexScDdp: { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+            rexSp: { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+            rexRsp: { value: 0, strategy: 'MANUAL', manualOverride: 0 }
+        });
+        setIsCustomItemModalOpen(true);
+    };
+
+    const saveCustomItem = () => {
+        if (!activeProject || !currentVersionId) return;
+        if (!newCustomItem.category || !newCustomItem.itemName || !newCustomItem.description) {
+            alert('Category, Item Name, and Description are required.');
+            return;
+        }
+        const itemToAdd: MasterItem = {
+            id: self.crypto.randomUUID(),
+            brand: newCustomItem.brand || '',
+            axsku: newCustomItem.axsku || '',
+            mpn: newCustomItem.mpn || '',
+            group: newCustomItem.group || '',
+            category: newCustomItem.category!,
+            description: newCustomItem.description || '',
+            itemName: newCustomItem.itemName!,
+            price: (newCustomItem.rexRsp as PriceField)?.value || 0,
+            uom: newCustomItem.uom || 'Unit',
+            rexScFob: Number(newCustomItem.rexScFob) || 0,
+            forex: Number(newCustomItem.forex) || 1,
+            sst: Number(newCustomItem.sst) || 1,
+            opta: Number(newCustomItem.opta) || 0.97,
+            rexScDdp: (newCustomItem.rexScDdp as PriceField) || { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+            rexSp: (newCustomItem.rexSp as PriceField) || { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+            rexRsp: (newCustomItem.rexRsp as PriceField) || { value: 0, strategy: 'MANUAL', manualOverride: 0 },
+        };
+        addCustomBQItem(activeProject.id, currentVersionId, itemToAdd);
+        setIsCustomItemModalOpen(false);
+    };
 
     // Description Modal State
     const [descriptionModal, setDescriptionModal] = useState<{ isOpen: boolean; itemId: string; content: string; field: keyof MasterItem }>({
@@ -1575,6 +1655,17 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             Review ({activeItems.length})
                         </button>
                     </div>
+
+                    {/* Add Custom BQ Item Button */}
+                    {activeProject && currentVersionId && (
+                        <button
+                            onClick={openCustomItemModal}
+                            className="w-10 h-10 flex items-center justify-center bg-primary-500 hover:bg-primary-600 text-white rounded-lg shadow-lg shadow-primary-500/30 transition-colors"
+                            title="Add Custom Item to this BQ"
+                        >
+                            <Plus size={20} />
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -1891,6 +1982,124 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </div>
                 )
             }
+
+            {/* Add Custom BQ Item Modal */}
+            {isCustomItemModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in border border-gray-100 dark:border-slate-700 h-[90vh] flex flex-col">
+                        <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-slate-700 shrink-0">
+                            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add Custom Item to BQ</h3>
+                            <button onClick={() => setIsCustomItemModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.brand}</label>
+                                    <input type="text" value={newCustomItem.brand} onChange={(e) => setNewCustomItem(prev => ({ ...prev, brand: e.target.value }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.axsku}</label>
+                                    <input type="text" value={newCustomItem.axsku} onChange={(e) => setNewCustomItem(prev => ({ ...prev, axsku: e.target.value }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.mpn}</label>
+                                    <input type="text" value={newCustomItem.mpn} onChange={(e) => setNewCustomItem(prev => ({ ...prev, mpn: e.target.value }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.group}</label>
+                                    <input type="text" value={newCustomItem.group} onChange={(e) => setNewCustomItem(prev => ({ ...prev, group: e.target.value }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                                </div>
+                            </div>
+
+                            <div className="border-t border-gray-100 dark:border-slate-700 pt-2"></div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.category} <span className="text-red-500">*</span></label>
+                                <input type="text" value={newCustomItem.category} onChange={(e) => setNewCustomItem(prev => ({ ...prev, category: e.target.value }))} placeholder="Category" className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.item} <span className="text-red-500">*</span></label>
+                                <input type="text" value={newCustomItem.itemName} onChange={(e) => setNewCustomItem(prev => ({ ...prev, itemName: e.target.value }))} placeholder="Item name" className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.description} <span className="text-red-500">*</span></label>
+                                <input type="text" value={newCustomItem.description} onChange={(e) => setNewCustomItem(prev => ({ ...prev, description: e.target.value }))} placeholder="Description / Type" className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.uom}</label>
+                                    <input type="text" value={newCustomItem.uom} onChange={(e) => setNewCustomItem(prev => ({ ...prev, uom: e.target.value }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.rexScFob}</label>
+                                    <input type="number" value={newCustomItem.rexScFob} onChange={(e) => setNewCustomItem(prev => ({ ...prev, rexScFob: parseFloat(e.target.value) }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.forex}</label>
+                                    <input type="number" value={newCustomItem.forex} onChange={(e) => setNewCustomItem(prev => ({ ...prev, forex: parseFloat(e.target.value) }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.sst}</label>
+                                    <input type="number" value={newCustomItem.sst} onChange={(e) => setNewCustomItem(prev => ({ ...prev, sst: parseFloat(e.target.value) }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.opta}</label>
+                                    <input type="number" value={newCustomItem.opta} onChange={(e) => setNewCustomItem(prev => ({ ...prev, opta: parseFloat(e.target.value) }))} className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white" />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4 border-t border-gray-100 dark:border-slate-700 pt-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{t.rexScDdp}</label>
+                                    <SmartPriceCell
+                                        field={newCustomItem.rexScDdp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }}
+                                        strategies={DDP_STRATEGIES}
+                                        direction="up"
+                                        align="left"
+                                        onChange={(updates) => setNewCustomItem(prev => ({ ...prev, rexScDdp: { ...(prev.rexScDdp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }), ...updates } }))}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{t.rexSp}</label>
+                                    <SmartPriceCell
+                                        field={newCustomItem.rexSp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }}
+                                        strategies={SP_STRATEGIES}
+                                        direction="up"
+                                        align="left"
+                                        onChange={(updates) => setNewCustomItem(prev => ({ ...prev, rexSp: { ...(prev.rexSp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }), ...updates } }))}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 font-bold">{t.rexRsp}</label>
+                                    <SmartPriceCell
+                                        field={newCustomItem.rexRsp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }}
+                                        strategies={RSP_STRATEGIES}
+                                        direction="up"
+                                        align="right"
+                                        onChange={(updates) => setNewCustomItem(prev => ({ ...prev, rexRsp: { ...(prev.rexRsp as PriceField || { value: 0, strategy: 'MANUAL', manualOverride: 0 }), ...updates } }))}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-6 bg-gray-50 dark:bg-slate-700/30 flex justify-end gap-3 shrink-0">
+                            <button onClick={() => setIsCustomItemModalOpen(false)} className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-lg transition-colors">Cancel</button>
+                            <button onClick={saveCustomItem} className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg shadow-lg shadow-primary-500/30 transition-colors font-medium">Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

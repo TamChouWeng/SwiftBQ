@@ -244,6 +244,7 @@ interface AppContextType {
   updateProjectSnapshot: (projectId: string, versionId: string, snapshotUpdates: Partial<MasterItem>[]) => void;
 
   addBQItem: (projectId: string, versionId: string) => void;
+  addCustomBQItem: (projectId: string, versionId: string, item: MasterItem) => void;
   syncMasterToBQ: (projectId: string, versionId: string, masterItem: MasterItem, qty: number) => void;
   removeBQItem: (id: string) => void;
   updateBQItem: (id: string, field: keyof BQItem, value: any) => void;
@@ -1288,6 +1289,87 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // --- BQ Items Actions ---
   // --- BQ Items Actions ---
+  const addCustomBQItem = async (projectId: string, versionId: string, item: MasterItem) => {
+    if (!user || !user.id) return;
+
+    // 1. Find current snapshot and compute the new one OUTSIDE of state setter
+    //    (never run async/side-effects inside React state updater callbacks)
+    const targetProject = projects.find(p => p.id === projectId);
+    const targetVersion = targetProject?.versions.find(v => v.id === versionId);
+    if (!targetVersion) {
+      console.error('addCustomBQItem: version not found', { projectId, versionId });
+      return;
+    }
+    const currentSnapshot = targetVersion.masterSnapshot || [];
+    // Guard: don't add duplicate
+    if (currentSnapshot.find(s => s.id === item.id)) return;
+    const newSnapshot = [...currentSnapshot, item];
+
+    // Optimistic state update
+    setProjects(prev => prev.map(p => {
+      if (p.id !== projectId) return p;
+      return {
+        ...p,
+        versions: p.versions.map(v => v.id === versionId ? { ...v, masterSnapshot: newSnapshot } : v)
+      };
+    }));
+
+    // Persist snapshot to DB
+    const { error: snapshotError } = await supabase
+      .from('project_versions')
+      .update({ master_list_snapshot: newSnapshot })
+      .eq('id', versionId);
+    if (snapshotError) console.error('Error updating snapshot:', snapshotError);
+
+    // 2. Add BQ item with qty=1
+    const tempId = self.crypto.randomUUID();
+    const rspVal = typeof item.rexRsp === 'object' && 'value' in item.rexRsp ? item.rexRsp.value : 0;
+    const newBQItem: BQItem = {
+      id: tempId,
+      userId: user.id,
+      projectId,
+      versionId,
+      masterId: undefined, // Custom item — no entry in master_list_items, leave FK null
+      category: item.category,
+      itemName: item.itemName,
+      description: item.description,
+      uom: item.uom,
+      brand: item.brand || '',
+      axsku: item.axsku || '',
+      mpn: item.mpn || '',
+      group: item.group || '',
+      price: rspVal,
+      qty: 1,
+      total: rspVal,
+      rexScFob: item.rexScFob,
+      forex: item.forex,
+      sst: item.sst,
+      opta: item.opta,
+      rexScDdp: item.rexScDdp,
+      rexSp: item.rexSp,
+      rexRsp: item.rexRsp,
+      isOptional: false,
+    };
+
+    // Optimistic UI
+    setBqItems(prev => [...prev, newBQItem]);
+
+    // DB insert — drop the client-side tempId so Supabase generates its own UUID
+    const dbItemObj = mapBQItemToDB(newBQItem);
+    delete dbItemObj.id;
+    console.log('Inserting custom BQ item:', dbItemObj);
+    const { data, error } = await supabase.from('bq_items').insert(dbItemObj).select().single();
+    if (data) {
+      // Replace temp ID with real DB-generated ID
+      setBqItems(prev => prev.map(i => i.id === tempId ? { ...i, id: data.id } : i));
+      console.log('Custom BQ item inserted successfully, db id:', data.id);
+    } else if (error) {
+      console.error('Error inserting custom BQ item:', JSON.stringify(error));
+      // Revert optimistic update
+      setBqItems(prev => prev.filter(i => i.id !== tempId));
+    }
+  };
+
   const addBQItem = async (projectId: string, versionId: string) => {
     if (!user || !user.id) return;
 
@@ -1658,7 +1740,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addMasterItem, updateMasterItem, deleteMasterItem,
         addProject, updateProject, deleteProject, duplicateProject,
         createVersion, updateVersionName, deleteVersion, updateProjectSnapshot, updateVersionDetails,
-        addBQItem, syncMasterToBQ, removeBQItem, updateBQItem, reorderBQItems,
+        addBQItem, addCustomBQItem, syncMasterToBQ, removeBQItem, updateBQItem, reorderBQItems,
         getProjectTotal,
         masterListEdits, setMasterListEdit, commitMasterListEdits, discardMasterListEdits,
         versionEdits, setVersionEdit, commitVersionEdits, discardVersionEdits,
