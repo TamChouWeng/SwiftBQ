@@ -1521,6 +1521,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
+    // Use functional updater so the DB write always sees the freshest item values,
+    // avoiding the stale-closure bug where bqItems captured at call-time was stale.
     setBqItems((prev) => {
       return prev.map((item) => {
         if (item.id === id) {
@@ -1528,52 +1530,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (field === 'price' || field === 'qty') {
             const p = field === 'price' ? processedValue : item.price;
             const q = field === 'qty' ? processedValue : item.qty;
-            const safeP = isNaN(p) ? 0 : p;
-            const safeQ = isNaN(q) ? 0 : q;
-            updated.total = safeP * safeQ;
+            updated.total = (isNaN(p) ? 0 : p) * (isNaN(q) ? 0 : q);
           }
+          // Fire DB write from inside the functional updater so we always have
+          // the correct current item values (no stale closure).
+          const toSave = mapBQItemToDB(updated);
+          delete toSave.id;
+          supabase.from('bq_items').update(toSave).eq('id', id).then(({ error }) => {
+            if (error) console.error('Error updating BQ item:', error);
+          });
           return updated;
         }
         return item;
-      })
+      });
     });
-
-    // DB Update
-    // Calculate total if price/qty changed
-    let dbUpdate: any = { [field]: processedValue };
-    if (field === 'price' || field === 'qty') {
-      // We need to calculate total. 
-      // Reuse logic?
-      // Just find the item in 'prev' state is hard. 
-      // We can fetch from DB, update total.
-      // Or cleaner: Calculate total based on what we have.
-      // We only have the CHANGED field.
-      // We need the OTHER field.
-      const existing = bqItems.find(i => i.id === id);
-      if (existing) {
-        const p = field === 'price' ? processedValue : existing.price;
-        const q = field === 'qty' ? processedValue : existing.qty;
-        const total = p * q;
-        dbUpdate = { [field]: processedValue, total };
-
-        // Perform Update
-        const merged = { ...existing, ...dbUpdate };
-        const toSave = mapBQItemToDB(merged);
-        delete toSave.id;
-        await supabase.from('bq_items').update(toSave).eq('id', id);
-      }
-    } else {
-      // Non-calc field update
-      // Map the single field? 
-      // Just update the whole item using mapBQItemToDB is safer.
-      const existing = bqItems.find(i => i.id === id);
-      if (existing) {
-        const merged = { ...existing, [field]: processedValue };
-        const toSave = mapBQItemToDB(merged);
-        delete toSave.id;
-        await supabase.from('bq_items').update(toSave).eq('id', id);
-      }
-    }
   };
 
   const reorderBQItems = (projectId: string, versionId: string, sourceIndex: number, destinationIndex: number) => {

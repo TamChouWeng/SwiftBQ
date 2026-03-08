@@ -65,6 +65,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         bqItems,
         currentProjectId,
         setCurrentProjectId,
+        currentVersionId,
         projects,
         updateProject,
         getProjectTotal,
@@ -96,10 +97,15 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         [projects, currentProjectId]);
 
     useEffect(() => {
-        if (activeProject && !selectedVersionId && activeProject.versions.length > 0) {
+        // Prefer the version that's currently active in BQ Builder (currentVersionId),
+        // so both tabs always show the same version. Fall back to the first version
+        // if BQ Builder has no active version selected yet.
+        if (currentVersionId) {
+            setSelectedVersionId(currentVersionId);
+        } else if (activeProject && !selectedVersionId && activeProject.versions.length > 0) {
             setSelectedVersionId(activeProject.versions[0].id);
         }
-    }, [activeProject, selectedVersionId]);
+    }, [activeProject, currentVersionId]);
 
     // Compute Display Terms
     const displayTerms = useMemo(() => {

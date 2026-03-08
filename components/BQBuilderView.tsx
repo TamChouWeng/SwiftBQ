@@ -541,7 +541,9 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     setTimeout(() => {
                         if (syncMasterToBQ) {
                             syncMasterToBQ(activeProject.id, currentVersionId, mergedItem, qtyVal);
-                            saveAllChanges(); // Request 2: Auto-trigger global save
+                            // Note: do NOT call saveAllChanges() here — this runs before
+                            // setStagedEdits has committed the new edit to React state,
+                            // so commitBqStagedEdits would exclude the edit that just triggered this.
                         }
                     }, 0);
                 }
