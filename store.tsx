@@ -145,6 +145,7 @@ export const mapBQItemFromDB = (dbItem: any): BQItem => ({
   rexRsp: dbItem.rex_rsp || { value: 0, strategy: 'MANUAL', manualOverride: 0 },
 
   isOptional: dbItem.is_optional,
+  orderIndex: Number(dbItem.order_index) || 0,
 });
 
 export const mapBQItemToDB = (item: Partial<BQItem>) => {
@@ -178,6 +179,7 @@ export const mapBQItemToDB = (item: Partial<BQItem>) => {
   if (item.rexRsp !== undefined) dbItem.rex_rsp = item.rexRsp;
 
   if (item.isOptional !== undefined) dbItem.is_optional = item.isOptional;
+  if (item.orderIndex !== undefined) dbItem.order_index = item.orderIndex;
   return dbItem;
 };
 
@@ -716,7 +718,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { data, error } = await supabase
       .from('bq_items')
       .select('*')
-      .eq('user_id', user.id); // Filter by User
+      .eq('user_id', user.id) // Filter by User
+      .order('order_index', { ascending: true }); // Preserve drag order
 
     if (error) console.error('Error fetching BQ items:', error);
     if (data) {
@@ -1551,13 +1554,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const projectVersionItems = prev.filter((item) => item.projectId === projectId && item.versionId === versionId);
       const otherItems = prev.filter((item) => !(item.projectId === projectId && item.versionId === versionId));
 
-      const newProjectItems = [...projectVersionItems];
-      const [movedItem] = newProjectItems.splice(sourceIndex, 1);
-      newProjectItems.splice(destinationIndex, 0, movedItem);
+      const reordered = [...projectVersionItems];
+      const [movedItem] = reordered.splice(sourceIndex, 1);
+      reordered.splice(destinationIndex, 0, movedItem);
 
-      return [...otherItems, ...newProjectItems];
+      // Assign new orderIndex values and persist each to DB
+      const withOrder = reordered.map((item, idx) => ({ ...item, orderIndex: idx }));
+      withOrder.forEach(item => {
+        supabase
+          .from('bq_items')
+          .update({ order_index: item.orderIndex })
+          .eq('id', item.id)
+          .then(({ error }) => { if (error) console.error('Failed to save reorder:', error); });
+      });
+
+      return [...otherItems, ...withOrder];
     });
-    // TODO: Persist order to DB (requires order_index column)
   };
 
   // --- Calculations ---

@@ -103,8 +103,9 @@ export interface BQItem {
   rexSp: PriceField;
   rexRsp: PriceField;
 
-  // New field
+  // New fields
   isOptional?: boolean;
+  orderIndex?: number;
 }
 
 export interface AppSettings {
