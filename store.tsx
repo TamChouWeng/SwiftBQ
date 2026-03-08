@@ -1329,7 +1329,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userId: user.id,
       projectId,
       versionId,
-      masterId: undefined, // Custom item — no entry in master_list_items, leave FK null
+      masterId: item.id, // Keep in local state so activeItemsMap lookup (Catalog qty) works
       category: item.category,
       itemName: item.itemName,
       description: item.description,
@@ -1354,15 +1354,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Optimistic UI
     setBqItems(prev => [...prev, newBQItem]);
 
-    // DB insert — drop the client-side tempId so Supabase generates its own UUID
+    // DB insert — drop client tempId (let DB generate) and master_id (FK → master_list_items;
+    // custom items don't exist there, but masterId is kept in local state for Catalog qty lookup)
     const dbItemObj = mapBQItemToDB(newBQItem);
     delete dbItemObj.id;
-    console.log('Inserting custom BQ item:', dbItemObj);
+    delete dbItemObj.master_id; // FK violation fix: custom items have no master_list_items row
     const { data, error } = await supabase.from('bq_items').insert(dbItemObj).select().single();
     if (data) {
-      // Replace temp ID with real DB-generated ID
+      // Replace temp ID with real DB ID, but preserve masterId in local state for activeItemsMap
       setBqItems(prev => prev.map(i => i.id === tempId ? { ...i, id: data.id } : i));
-      console.log('Custom BQ item inserted successfully, db id:', data.id);
     } else if (error) {
       console.error('Error inserting custom BQ item:', JSON.stringify(error));
       // Revert optimistic update
