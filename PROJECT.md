@@ -1,10 +1,11 @@
 # SwiftBQ
-**Version**: Beta 3.4
+**Version**: Beta 3.5
 
 ## 📝 Overview
 SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management system designed for the construction industry. It solves the critical challenge of maintaining a live "Master Price Book" while ensuring that historical quotations remain immutable through robust data independence.
 
-## 🚀 Key Features (Beta 3.4)
+## 🚀 Key Features (Beta 3.5)
+- **Add Custom Items to BQ**: Users can now add custom items directly to a specific quotation (project & version) without adding them to the global master list. Custom items persist in the project snapshot and automatically appear in both Catalog and Review views.
 
 ### 1. UI Refinements & Bug Fixes
 - **Smart Dropdowns**: Smart Price Strategy dropdowns now intelligently align themselves (upwards or to the right) to prevent clipping by screen or modal edges.
