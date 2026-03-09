@@ -1429,18 +1429,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await supabase.from('bq_items').delete().eq('id', existingItem.id);
 
     } else if (action === 'update' && existingItem) {
-      const safePrice = isNaN(existingItem.price) ? 0 : existingItem.price;
+      // Use price from the incoming masterItem (which already has staged catalog edits merged in)
+      const rspVal =
+        masterItem.rexRsp && typeof masterItem.rexRsp === 'object' && 'value' in masterItem.rexRsp
+          ? (masterItem.rexRsp as any).value
+          : (masterItem.price ?? existingItem.price);
+      const safePrice = isNaN(rspVal) ? 0 : rspVal;
       const safeQty = isNaN(qty) ? 0 : qty;
       const updatedTotal = safePrice * safeQty;
 
-      // Optimistic
-      setBqItems(prev => prev.map(i => i.id === existingItem.id ? { ...i, qty: safeQty, total: updatedTotal } : i));
+      // Optimistic — sync ALL fields so in-memory state matches what we persist
+      setBqItems(prev => prev.map(i => i.id === existingItem.id ? {
+        ...i,
+        qty: safeQty,
+        price: safePrice,
+        total: updatedTotal,
+        description: masterItem.description,
+        uom: masterItem.uom,
+        brand: masterItem.brand,
+        axsku: masterItem.axsku,
+        mpn: masterItem.mpn,
+        group: masterItem.group,
+        category: masterItem.category,
+        itemName: masterItem.itemName,
+        rexScFob: masterItem.rexScFob,
+        forex: masterItem.forex,
+        sst: masterItem.sst,
+        opta: masterItem.opta,
+        rexScDdp: masterItem.rexScDdp,
+        rexSp: masterItem.rexSp,
+        rexRsp: masterItem.rexRsp,
+      } : i));
 
-      // DB
-      // Fix: Update all relevant fields (Description, UOM, Brand, etc.) + Qty/Total
-      // We prioritize the incoming masterItem values as they contain the edits.
+      // DB — persist ALL fields including price/pricing strategy fields
       const updates = {
         qty: safeQty,
+        price: safePrice,
         total: updatedTotal,
         description: masterItem.description,
         uom: masterItem.uom,
@@ -1450,9 +1474,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         group: masterItem.group,
         category: masterItem.category,
         item_name: masterItem.itemName,
-        // Prices generally don't change from Master unless it's a manual override,
-        // but if we are editing in Catalog, we might want to sync these too?
-        // For now, let's stick to the basics + Description which is the reported issue.
+        rex_sc_fob: masterItem.rexScFob,
+        forex: masterItem.forex,
+        sst: masterItem.sst,
+        opta: masterItem.opta,
+        rex_sc_ddp: masterItem.rexScDdp,
+        rex_sp: masterItem.rexSp,
+        rex_rsp: masterItem.rexRsp,
       };
 
       await supabase.from('bq_items').update(updates).eq('id', existingItem.id);
