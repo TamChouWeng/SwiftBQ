@@ -1643,22 +1643,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setVersionEdits({});
 
     for (const [versionId, updates] of Object.entries(editsToSave)) {
-      let foundProjectId = '';
-      for (const p of projects) {
-        if (p.versions.some(v => v.id === versionId)) {
-          foundProjectId = p.id;
-          break;
-        }
-      }
+      // project_id is deleted after mapVersionToDB anyway, so we don't need to look it up.
+      // Previously, a failed lookup silently skipped the DB write entirely.
+      const dbUpdates = mapVersionToDB(updates, '');
+      delete dbUpdates.project_id;
+      delete dbUpdates.id;
 
-      if (foundProjectId) {
-        const dbUpdates = mapVersionToDB(updates, foundProjectId);
-        delete dbUpdates.project_id;
-        delete dbUpdates.id;
-
-        const { error } = await supabase.from('project_versions').update(dbUpdates).eq('id', versionId);
-        if (error) console.error("Error saving version T&C:", error);
-      }
+      const { error } = await supabase.from('project_versions').update(dbUpdates).eq('id', versionId);
+      if (error) console.error("Error saving version T&C:", error);
     }
   };
 
