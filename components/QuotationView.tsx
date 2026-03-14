@@ -72,16 +72,22 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
         appSettings,
         hasUnsavedChanges,
+        isSaving,
         updateVersionDetails,
         saveAllChanges,
         discardAllChanges,
         setVersionEdit,
         versionEdits,
         bqItemEdits,
-        setBQItemEdit
+        setBQItemEdit,
+        pendingProjectEdits,
+        setPendingProjectEdit,
     } = useAppStore();
     const t = TRANSLATIONS[currentLanguage];
     const [searchQuery, setSearchQuery] = useState('');
+
+    // --- Local discount buffer: avoids a DB write on every keystroke ---
+    const [localDiscount, setLocalDiscount] = useState<string>('');
 
     // Sort Configuration
     type SortKey = 'date' | 'validityPeriod';
@@ -106,6 +112,15 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             setSelectedVersionId(activeProject.versions[0].id);
         }
     }, [activeProject, currentVersionId]);
+
+    // Keep localDiscount in sync:
+    // 1. When project changes or after discardAllChanges resets pendingProjectEdits
+    // 2. Prefer pendingProjectEdits (buffered unsaved value) over the committed DB value
+    useEffect(() => {
+        const pending = currentProjectId ? pendingProjectEdits[currentProjectId]?.discount : undefined;
+        const committed = activeProject?.discount ?? 0;
+        setLocalDiscount((pending !== undefined ? pending : committed).toString());
+    }, [activeProject?.id, activeProject?.discount, pendingProjectEdits]);
 
     // Compute Display Terms
     const displayTerms = useMemo(() => {
@@ -136,6 +151,8 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     const { subtotal, grandTotal, discount } = currentProjectId && selectedVersionId
         ? getProjectTotal(currentProjectId, selectedVersionId)
         : { subtotal: 0, grandTotal: 0, discount: 0 };
+    // Use effectiveDiscount (pending buffer) so the totals panel updates live while typing
+    // without needing a DB write. effectiveDiscount is defined below after pendingProjectEdits.
 
     // Separate Standard and Optional Items
     const standardItems = useMemo(() => activeItems.filter(item => !item.isOptional), [activeItems]);
@@ -175,12 +192,23 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
     }, [projects, searchQuery, sortConfig]);
 
+    // Buffer discount in the store's pendingProjectEdits so saveAllChanges / discardAllChanges
+    // correctly include or drop the change. No direct DB write here.
     const handleDiscountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (activeProject) {
-            const val = parseFloat(e.target.value);
-            updateProject(activeProject.id, { discount: isNaN(val) ? 0 : val });
-        }
+        const raw = e.target.value;
+        setLocalDiscount(raw); // update visual input immediately
+        if (!activeProject) return;
+        const val = parseFloat(raw);
+        setPendingProjectEdit(activeProject.id, { discount: isNaN(val) ? 0 : val });
     };
+
+    // Effective discount for live totals: prefer buffered pending value over committed value
+    const effectiveDiscount = (() => {
+        if (!currentProjectId) return 0;
+        const pending = pendingProjectEdits[currentProjectId]?.discount;
+        if (pending !== undefined) return pending;
+        return activeProject?.discount ?? 0;
+    })();
 
     // --- Pagination Logic ---
     const pages = useMemo(() => {
@@ -796,7 +824,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">{appSettings.currencySymbol}</span>
                             <input
                                 type="number"
-                                value={activeProject?.discount || ''}
+                                value={localDiscount}
                                 onChange={handleDiscountChange}
                                 placeholder="0.00"
                                 className="w-32 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm rounded-lg pl-10 pr-3 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none font-medium text-right"
@@ -1055,16 +1083,16 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                                     <span className="font-medium">{fmt(subtotal)}</span>
                                                 </div>
 
-                                                {discount > 0 && (
+                                                {effectiveDiscount > 0 && (
                                                     <div className="flex justify-between border-b border-black py-2 text-green-600 font-bold">
                                                         <span className="text-xs uppercase">Special Discount ({appSettings.currencySymbol}) :</span>
-                                                        <span className="">({fmt(discount)})</span>
+                                                        <span>({fmt(effectiveDiscount)})</span>
                                                     </div>
                                                 )}
 
                                                 <div className="flex justify-between border-b-2 border-black py-2 text-sm font-bold mt-1">
                                                     <span>TOTAL ({appSettings.currencySymbol}):</span>
-                                                    <span>{fmt(grandTotal)}</span>
+                                                    <span>{fmt(subtotal - effectiveDiscount)}</span>
                                                 </div>
                                             </div>
                                         </div>

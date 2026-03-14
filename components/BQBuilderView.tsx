@@ -60,6 +60,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         bqStagedEdits,
         setBqStagedEdits,
         clearBqStagedEdits,
+        bqItemEdits,
     } = useAppStore();
 
     const t = TRANSLATIONS[currentLanguage];
@@ -521,7 +522,6 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             const currentStaged = prev[id] || {};
 
             // Calculate derived fields (DDP, SP, RSP) based on updates
-            // We need the base item to have complete context for calculation
             const baseItem = catalogSource.find(m => m.id === id);
             const itemContext = { ...(baseItem || {}), ...currentStaged, [field]: value } as Partial<MasterItem>;
             const derived = calculateDerivedFields(itemContext);
@@ -529,25 +529,12 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             const newStagedItem = { ...currentStaged, [field]: value, ...derived };
             const newStaged = { ...prev, [id]: newStagedItem };
 
-            // If item is already added (Qty > 0), live update the BQ Item to reflect changes
-            const currentQty = getQtyForMasterItem(id);
-            if (currentQty && Number(currentQty) > 0 && activeProject && currentVersionId) {
-                // Use catalogSource (Snapshot) as base
-                const masterItem = baseItem; // Reused from above
-                if (masterItem) {
-                    const mergedItem = { ...masterItem, ...newStagedItem } as MasterItem;
-                    // Defer sync to avoid state update conflict/race
-                    const qtyVal = Number(currentQty);
-                    setTimeout(() => {
-                        if (syncMasterToBQ) {
-                            syncMasterToBQ(activeProject.id, currentVersionId, mergedItem, qtyVal);
-                            // Note: do NOT call saveAllChanges() here — this runs before
-                            // setStagedEdits has committed the new edit to React state,
-                            // so commitBqStagedEdits would exclude the edit that just triggered this.
-                        }
-                    }, 0);
-                }
-            }
+            // NOTE: We intentionally do NOT call syncMasterToBQ here anymore.
+            // syncMasterToBQ writes directly to the DB, bypassing the bqStagedEdits buffer
+            // and making Discard impossible to undo. Catalog edits are now purely buffered in
+            // bqStagedEdits until the user explicitly saves (commitBqStagedEdits →
+            // updateProjectSnapshot). This correctly supports Save & Continue / Discard.
+
             return newStaged;
         });
     };
@@ -568,19 +555,27 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             let finalItem = itemFromSnapshot;
 
             if (existingBQ) {
+                // Also check bqItemEdits for description the user typed in QV but hasn't saved yet.
+                // priority: staged catalog edit > pending QV edit > committed bqItems value
+                const pendingQVDesc = bqItemEdits[existingBQ.id]?.description;
+                const pendingQVUom = bqItemEdits[existingBQ.id]?.uom;
+
                 finalItem = {
                     ...itemFromSnapshot,
-                    // If no staged description, keep existing BQ description
-                    description: (staged.description !== undefined) ? staged.description : existingBQ.description,
-                    // Can extend to other fields if we allow editing them in Quotation View
-                    uom: (staged.uom !== undefined) ? staged.uom : existingBQ.uom,
+                    description: staged.description !== undefined
+                        ? staged.description
+                        : (pendingQVDesc !== undefined ? pendingQVDesc : existingBQ.description),
+                    uom: staged.uom !== undefined
+                        ? staged.uom
+                        : (pendingQVUom !== undefined ? pendingQVUom : existingBQ.uom),
                     brand: (staged.brand !== undefined) ? staged.brand : existingBQ.brand,
-                    // Prices etc generally come from Master/Staged in Catalog view, so we keep using itemFromSnapshot for those
                 };
             }
 
             syncMasterToBQ(activeProject.id, currentVersionId, finalItem, isNaN(val) ? 0 : val);
-            saveAllChanges(); // Request 2: Auto-trigger global save
+            // Note: syncMasterToBQ already writes directly to bq_items in DB.
+            // Do NOT call saveAllChanges() here — it would flush bqItemEdits (QuotationView's
+            // edit buffer) prematurely and race with the snapshot re-upload in commitBqStagedEdits.
         }
     };
 

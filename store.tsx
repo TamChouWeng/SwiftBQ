@@ -281,7 +281,13 @@ interface AppContextType {
   clearBqStagedEdits: () => void;
   commitBqStagedEdits: () => Promise<void>;
 
+  // Project-level Pending Edits (discount etc.) — buffered so saveAllChanges / discardAllChanges control them
+  pendingProjectEdits: Record<string, Partial<Project>>;
+  setPendingProjectEdit: (projectId: string, updates: Partial<Project>) => void;
+  discardPendingProjectEdits: () => void;
+
   hasUnsavedChanges: boolean;
+  isSaving: boolean;
   saveAllChanges: () => Promise<void>;
   discardAllChanges: () => void;
 
@@ -756,14 +762,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [versionEdits, setVersionEdits] = useState<Record<string, Partial<ProjectVersion>>>({});
   const [bqItemEdits, setBqItemEdits] = useState<Record<string, Partial<BQItem>>>({});
   const [bqStagedEdits, setBqStagedEdits] = useState<Record<string, Partial<MasterItem>>>({});
+  const [pendingProjectEdits, setPendingProjectEdits] = useState<Record<string, Partial<Project>>>({});
   const clearBqStagedEdits = () => setBqStagedEdits({});
 
   const hasUnsavedChanges = useMemo(() =>
     Object.keys(masterListEdits).length > 0 ||
     Object.keys(versionEdits).length > 0 ||
     Object.keys(bqItemEdits).length > 0 ||
-    Object.keys(bqStagedEdits).length > 0,
-    [masterListEdits, versionEdits, bqItemEdits, bqStagedEdits]);
+    Object.keys(bqStagedEdits).length > 0 ||
+    Object.keys(pendingProjectEdits).length > 0,
+    [masterListEdits, versionEdits, bqItemEdits, bqStagedEdits, pendingProjectEdits]);
 
 
   // --- Persistence Effects ---
@@ -1180,17 +1188,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return p;
     }));
 
-    // 2. Sync BQ Items (Review View) -> Only for this version!
-    // We need to update items in DB too
+    // 2. Sync ALL fields (text + pricing) of BQ Items from the master snapshot —
+    //    only triggered when user explicitly saves via commitBqStagedEdits (Save button / Save & Continue).
+    //    Text fields editable in QV (description, uom) are protected if there's a pending bqItemEdits entry.
     const updatesToProcess: BQItem[] = [];
 
     setBqItems(prev => prev.map(item => {
       if (item.projectId === projectId && item.versionId === versionId && item.masterId) {
         const update = snapshotUpdates.find(u => u.id === item.masterId);
         if (update) {
-          const newItem = { ...item, ...update };
+          let newItem = { ...item };
+
+          // --- Pricing fields ---
           if (update.price !== undefined || update.rexRsp !== undefined) {
-            // ... logic from original ...
             let rRsp = undefined;
             if (update.rexRsp) {
               if (typeof update.rexRsp === 'object' && 'value' in update.rexRsp) rRsp = update.rexRsp.value;
@@ -1199,24 +1209,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const newPrice = rRsp ?? update.price ?? item.price;
             const safePrice = isNaN(newPrice) ? 0 : newPrice;
             newItem.price = safePrice;
-            if (update.rexRsp && typeof update.rexRsp === 'object') newItem.rexRsp = { ...item.rexRsp, ...update.rexRsp };
-            else if (typeof update.rexRsp === 'number') newItem.rexRsp = { value: update.rexRsp, strategy: 'MANUAL', manualOverride: update.rexRsp };
             newItem.total = safePrice * item.qty;
 
-            updatesToProcess.push(newItem);
+            if (update.rexRsp && typeof update.rexRsp === 'object') newItem.rexRsp = { ...item.rexRsp, ...update.rexRsp };
+            else if (typeof update.rexRsp === 'number') newItem.rexRsp = { value: update.rexRsp, strategy: 'MANUAL', manualOverride: update.rexRsp };
           }
+          if (update.rexScDdp !== undefined) newItem.rexScDdp = update.rexScDdp;
+          if (update.rexSp !== undefined) newItem.rexSp = update.rexSp;
+          if (update.forex !== undefined) newItem.forex = update.forex;
+          if (update.sst !== undefined) newItem.sst = update.sst;
+          if (update.opta !== undefined) newItem.opta = update.opta;
+          if (update.rexScFob !== undefined) newItem.rexScFob = update.rexScFob;
+
+          // --- Text fields from catalog ---
+          // Protected: if QV has a pending (unsaved) edit for a field, the catalog value doesn't win.
+          const pendingQVEdits = bqItemEdits[item.id] || {};
+          if (update.itemName !== undefined) newItem.itemName = update.itemName;
+          if (update.category !== undefined) newItem.category = update.category;
+          if (update.brand !== undefined) newItem.brand = update.brand;
+          if (update.axsku !== undefined) newItem.axsku = update.axsku;
+          if (update.mpn !== undefined) newItem.mpn = update.mpn;
+          if (update.group !== undefined) newItem.group = update.group;
+          // description and uom: only update if QV doesn't have a pending override
+          if (update.description !== undefined && pendingQVEdits.description === undefined) {
+            newItem.description = update.description;
+          }
+          if (update.uom !== undefined && pendingQVEdits.uom === undefined) {
+            newItem.uom = update.uom;
+          }
+
+          updatesToProcess.push(newItem);
           return newItem as BQItem;
         }
       }
       return item;
     }));
 
-    // DB Updates for BQ Items
-    // Batch update? Supabase doesn't support bulk update easily unless upsert with PK.
-    // We iterate.
+    // DB writes — full row update for each changed item
     for (const item of updatesToProcess) {
       const dbItem = mapBQItemToDB(item);
-      delete dbItem.id; // Usually we update by ID
+      delete dbItem.id;
       await supabase.from('bq_items').update(dbItem).eq('id', item.id);
     }
   };
@@ -1438,14 +1470,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const safeQty = isNaN(qty) ? 0 : qty;
       const updatedTotal = safePrice * safeQty;
 
+      // For fields editable in QuotationView, prefer any pending (unsaved) QV edits over
+      // the incoming master values — otherwise changing Qty in BQBuilder overwrites what
+      // the user just typed in QV even before they've had a chance to save.
+      const pendingQVEdits = bqItemEdits[existingItem.id] || {};
+      const resolvedDescription = pendingQVEdits.description !== undefined
+        ? pendingQVEdits.description
+        : masterItem.description;
+      const resolvedUom = pendingQVEdits.uom !== undefined
+        ? pendingQVEdits.uom
+        : masterItem.uom;
+
       // Optimistic — sync ALL fields so in-memory state matches what we persist
       setBqItems(prev => prev.map(i => i.id === existingItem.id ? {
         ...i,
         qty: safeQty,
         price: safePrice,
         total: updatedTotal,
-        description: masterItem.description,
-        uom: masterItem.uom,
+        description: resolvedDescription,
+        uom: resolvedUom,
         brand: masterItem.brand,
         axsku: masterItem.axsku,
         mpn: masterItem.mpn,
@@ -1466,8 +1509,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         qty: safeQty,
         price: safePrice,
         total: updatedTotal,
-        description: masterItem.description,
-        uom: masterItem.uom,
+        description: resolvedDescription,
+        uom: resolvedUom,
         brand: masterItem.brand,
         axsku: masterItem.axsku,
         mpn: masterItem.mpn,
@@ -1713,13 +1756,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await updateProjectSnapshot(currentProjectId, currentVersionId, updates);
   };
 
+  const [isSaving, setIsSaving] = useState(false);
+
+  // --- Pending Project Edits (discount etc.) ---
+  const setPendingProjectEdit = (projectId: string, updates: Partial<Project>) => {
+    setPendingProjectEdits(prev => ({ ...prev, [projectId]: { ...prev[projectId], ...updates } }));
+  };
+
+  const commitPendingProjectEdits = async () => {
+    if (Object.keys(pendingProjectEdits).length === 0) return;
+    const editsToSave = { ...pendingProjectEdits };
+    setPendingProjectEdits({});
+    for (const [projectId, updates] of Object.entries(editsToSave)) {
+      await updateProject(projectId, updates);
+    }
+  };
+
+  const discardPendingProjectEdits = () => {
+    setPendingProjectEdits({});
+  };
+
   const saveAllChanges = async () => {
-    await Promise.all([
-      commitMasterListEdits(),
-      commitVersionEdits(),
-      commitBQItemEdits(),
-      commitBqStagedEdits()
-    ]);
+    if (isSaving) return; // prevent overlapping concurrent flushes
+    setIsSaving(true);
+    try {
+      await Promise.all([
+        commitMasterListEdits(),
+        commitVersionEdits(),
+        commitBQItemEdits(),
+        commitBqStagedEdits(),
+        commitPendingProjectEdits(),
+      ]);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const discardAllChanges = () => {
@@ -1727,6 +1797,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     discardVersionEdits();
     discardBQItemEdits();
     clearBqStagedEdits();
+    discardPendingProjectEdits();
   };
 
   return (
@@ -1748,7 +1819,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         versionEdits, setVersionEdit, commitVersionEdits, discardVersionEdits,
         bqItemEdits, setBQItemEdit, commitBQItemEdits, discardBQItemEdits,
         bqStagedEdits, setBqStagedEdits, clearBqStagedEdits, commitBqStagedEdits,
-        hasUnsavedChanges, saveAllChanges, discardAllChanges,
+        pendingProjectEdits, setPendingProjectEdit, discardPendingProjectEdits,
+        hasUnsavedChanges, isSaving, saveAllChanges, discardAllChanges,
         user, login, logout, updateUserProfile, updateCompanyProfile, uploadCompanyLogo, uploadProfileSignature
       }}
 
