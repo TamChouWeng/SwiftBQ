@@ -19,7 +19,8 @@ const FOOTER_BUFFER_ITEMS = 6; // If last page has more than (Max - this) items,
 type RenderRow =
     | { type: 'item'; data: BQItem }
     | { type: 'category'; label: string }
-    | { type: 'section_header'; label: string };
+    | { type: 'section_header'; label: string }
+    | { type: 'totals' };
 
 // Helper Component for Auto-Resizing Textarea
 const AutoResizeTextarea = ({
@@ -221,6 +222,9 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             (items as BQItem[]).forEach(item => allRows.push({ type: 'item', data: item }));
         });
 
+        // Insert Totals Marker
+        allRows.push({ type: 'totals' });
+
         // Optional Items
         if (optionalItems.length > 0) {
             allRows.push({ type: 'section_header', label: 'OPTIONAL ITEMS' });
@@ -231,14 +235,22 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         const _pages: RenderRow[][] = [];
         let currentBatch: RenderRow[] = [];
 
-        // Heuristic: Page 1 has header, so fewer items. Subsequent pages have more space?
         const LIMIT = ITEMS_PER_PAGE_DEFAULT;
+        let weight = 0;
 
-        allRows.forEach((row, index) => {
+        allRows.forEach((row) => {
+            if (row.type === 'totals') {
+                weight += 2;
+            } else {
+                weight += 1;
+            }
+
             currentBatch.push(row);
-            if (currentBatch.length >= LIMIT) {
+
+            if (weight >= LIMIT) {
                 _pages.push(currentBatch);
                 currentBatch = [];
+                weight = 0;
             }
         });
 
@@ -247,14 +259,13 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         }
 
         // 3. Check footer space on last page
-        // If the last page is very full, add an empty page for the footer
         if (_pages.length > 0) {
             const lastPage = _pages[_pages.length - 1];
-            if (lastPage.length > (LIMIT - FOOTER_BUFFER_ITEMS)) {
+            const lastWeight = lastPage.reduce((acc, r) => acc + (r.type === 'totals' ? 2 : 1), 0);
+            if (lastWeight > (LIMIT - FOOTER_BUFFER_ITEMS)) {
                 _pages.push([]); // New page for footer
             }
         } else {
-            // If no items, still show one page
             _pages.push([]);
         }
 
@@ -460,27 +471,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 });
             });
 
-            // Optional Items Section
-            if (optionalItems.length > 0) {
-                tableData.push([
-                    { content: '', styles: { fillColor: [200, 200, 200] } },
-                    { content: 'OPTIONAL ITEMS', colSpan: 6, styles: { fontStyle: 'bold', fillColor: [230, 230, 230], halign: 'center' } }
-                ]);
-
-                optionalItems.forEach(item => {
-                    const displayDescription = bqItemEdits[item.id]?.description ?? item.description;
-                    tableData.push([
-                        rowNumber++,
-                        item.itemName,
-                        displayDescription,
-                        fmt(item.price),
-                        item.qty,
-                        item.uom,
-                        fmt(item.total)
-                    ]);
-                });
-            }
-
             // Render table with autoTable
             autoTable(doc, {
                 startY: currentY,
@@ -569,6 +559,72 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             doc.line(totalsX, currentY + 1, totalsX + totalsWidth, currentY + 1);
             doc.setLineWidth(0.1);
             currentY += 10;
+
+            // =============================================
+            // 3.5 OPTIONAL ITEMS TABLE
+            // =============================================
+            if (optionalItems.length > 0) {
+                const optionalTableData: any[] = [];
+                optionalTableData.push([
+                    { content: '', styles: { fillColor: [200, 200, 200] } },
+                    { content: 'OPTIONAL ITEMS', colSpan: 6, styles: { fontStyle: 'bold', fillColor: [230, 230, 230], halign: 'center' } }
+                ]);
+
+                optionalItems.forEach(item => {
+                    const displayDescription = bqItemEdits[item.id]?.description ?? item.description;
+                    optionalTableData.push([
+                        rowNumber++,
+                        item.itemName,
+                        displayDescription,
+                        fmt(item.price),
+                        item.qty,
+                        item.uom,
+                        fmt(item.total)
+                    ]);
+                });
+
+                autoTable(doc, {
+                    startY: currentY,
+                    head: [[
+                        'NO',
+                        'ITEM',
+                        'DESCRIPTION',
+                        `Unit Price (${appSettings.currencySymbol})`,
+                        'QTY',
+                        'UOM',
+                        `Total Price (${appSettings.currencySymbol})`
+                    ]],
+                    body: optionalTableData,
+                    theme: 'grid',
+                    showHead: 'firstPage',
+                    styles: {
+                        fontSize: 8,
+                        cellPadding: 2,
+                        lineColor: [0, 0, 0],
+                        lineWidth: 0.1,
+                        textColor: [0, 0, 0]
+                    },
+                    headStyles: {
+                        fillColor: [240, 240, 240],
+                        textColor: [0, 0, 0],
+                        fontStyle: 'bold',
+                        halign: 'center',
+                        fontSize: 7
+                    },
+                    columnStyles: {
+                        0: { halign: 'center', cellWidth: 10 },
+                        1: { halign: 'left', cellWidth: 35 },
+                        2: { halign: 'left', cellWidth: 'auto' },
+                        3: { halign: 'right', cellWidth: 25 },
+                        4: { halign: 'center', cellWidth: 12 },
+                        5: { halign: 'center', cellWidth: 15 },
+                        6: { halign: 'right', cellWidth: 28, fontStyle: 'bold' }
+                    },
+                    margin: { left: marginLeft, right: marginRight }
+                });
+
+                currentY = (doc as any).lastAutoTable.finalY + 5;
+            }
 
             // =============================================
             // 4. TERMS & CONDITIONS (Keep-Together Block)
@@ -1005,78 +1061,66 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                     </>
                                 )}
 
-                                {/* 3. Items Table */}
+                                {/* Block A (Standard Items) */}
                                 <div className="mb-6">
-                                    <table className="w-full border-collapse border border-black text-xs text-black">
-                                        {isFirstPage && (
-                                            <thead>
-                                                <tr className="bg-gray-100">
-                                                    <th className="border border-black py-3 px-1 w-8 text-center font-bold text-[10px]">NO</th>
-                                                    <th className="border border-black py-3 px-1 w-32 text-left font-bold text-[10px]">ITEM</th>
-                                                    <th className="border border-black py-3 px-1 text-left font-bold text-[10px]">DESCRIPTION</th>
-                                                    <th className="border border-black py-3 px-1 w-20 text-right font-bold text-[10px]">Unit Price ({appSettings.currencySymbol})</th>
-                                                    <th className="border border-black py-3 px-1 w-10 text-center font-bold text-[10px]">QTY</th>
-                                                    <th className="border border-black py-3 px-1 w-12 text-center font-bold text-[10px]">UOM</th>
-                                                    <th className="border border-black py-3 px-1 w-24 text-right font-bold text-[10px]">Total Price ({appSettings.currencySymbol})</th>
-                                                </tr>
-                                            </thead>
-                                        )}
-                                        <tbody>
-                                            {pageRows.map((row, idx) => {
-                                                if (row.type === 'category') {
-                                                    return (
-                                                        <tr key={`cat-${idx}`}>
-                                                            <td className="border border-black p-1 bg-gray-200"></td>
-                                                            <td className="border border-black p-1 font-bold bg-gray-50 uppercase pl-2 text-[10px]" colSpan={6}>
-                                                                {row.label}
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                } else if (row.type === 'section_header') {
-                                                    return (
-                                                        <tr key={`header-${idx}`}>
-                                                            <td className="border border-black p-1 bg-gray-200"></td>
-                                                            <td className="border border-black p-1 font-bold bg-gray-100 text-center uppercase text-[10px]" colSpan={6}>
-                                                                {row.label}
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                } else if (row.type === 'item') {
-                                                    const item = row.data;
-                                                    // Check for unsaved edits first, then fall back to item description
-                                                    const displayDescription = bqItemEdits[item.id]?.description ?? item.description;
+                                    {pageRows.filter(r => r.type === 'category' || (r.type === 'item' && !r.data.isOptional)).length > 0 && (
+                                        <table className="w-full border-collapse border border-black text-xs text-black">
+                                            {isFirstPage && (
+                                                <thead>
+                                                    <tr className="bg-gray-100">
+                                                        <th className="border border-black py-3 px-1 w-8 text-center font-bold text-[10px]">NO</th>
+                                                        <th className="border border-black py-3 px-1 w-32 text-left font-bold text-[10px]">ITEM</th>
+                                                        <th className="border border-black py-3 px-1 text-left font-bold text-[10px]">DESCRIPTION</th>
+                                                        <th className="border border-black py-3 px-1 w-20 text-right font-bold text-[10px]">Unit Price ({appSettings.currencySymbol})</th>
+                                                        <th className="border border-black py-3 px-1 w-10 text-center font-bold text-[10px]">QTY</th>
+                                                        <th className="border border-black py-3 px-1 w-12 text-center font-bold text-[10px]">UOM</th>
+                                                        <th className="border border-black py-3 px-1 w-24 text-right font-bold text-[10px]">Total Price ({appSettings.currencySymbol})</th>
+                                                    </tr>
+                                                </thead>
+                                            )}
+                                            <tbody>
+                                                {pageRows.map((row, idx) => {
+                                                    if (row.type === 'category') {
+                                                        return (
+                                                            <tr key={`cat-${idx}`}>
+                                                                <td className="border border-black p-1 bg-gray-200"></td>
+                                                                <td className="border border-black p-1 font-bold bg-gray-50 uppercase pl-2 text-[10px]" colSpan={6}>
+                                                                    {row.label}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    } else if (row.type === 'item' && !row.data.isOptional) {
+                                                        const item = row.data;
+                                                        const displayDescription = bqItemEdits[item.id]?.description ?? item.description;
+                                                        return (
+                                                            <tr key={item.id}>
+                                                                <td className="border border-black p-1 text-center align-top text-[10px]">{globalRowCounter++}</td>
+                                                                <td className="border border-black p-1 align-top">
+                                                                    <div className="font-bold text-[10px] mb-1 leading-tight">{item.itemName}</div>
+                                                                </td>
+                                                                <td className="border border-black p-1 align-top whitespace-pre-wrap text-[10px] leading-tight">
+                                                                    <AutoResizeTextarea
+                                                                        value={displayDescription}
+                                                                        onChange={(e) => setBQItemEdit(item.id, { description: e.target.value })}
+                                                                        className="w-full bg-transparent border-none p-0 text-[10px] text-black whitespace-pre-wrap leading-tight focus:ring-0"
+                                                                    />
+                                                                </td>
+                                                                <td className="border border-black p-1 text-right align-top text-[10px]">{fmt(item.price)}</td>
+                                                                <td className="border border-black p-1 text-center align-top text-[10px]">{item.qty}</td>
+                                                                <td className="border border-black p-1 text-center align-top text-[10px]">{item.uom}</td>
+                                                                <td className="border border-black p-1 text-right align-top font-semibold text-[10px]">{fmt(item.total)}</td>
+                                                            </tr>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    )}
 
-                                                    return (
-                                                        <tr key={item.id}>
-                                                            <td className="border border-black p-1 text-center align-top text-[10px]">{globalRowCounter++}</td>
-                                                            <td className="border border-black p-1 align-top">
-                                                                <div className="font-bold text-[10px] mb-1 leading-tight">{item.itemName}</div>
-                                                            </td>
-                                                            <td className="border border-black p-1 align-top whitespace-pre-wrap text-[10px] leading-tight">
-                                                                <AutoResizeTextarea
-                                                                    value={displayDescription}
-                                                                    onChange={(e) => setBQItemEdit(item.id, { description: e.target.value })}
-                                                                    className="w-full bg-transparent border-none p-0 text-[10px] text-black whitespace-pre-wrap leading-tight focus:ring-0"
-                                                                />
-                                                            </td>
-                                                            <td className="border border-black p-1 text-right align-top text-[10px]">{fmt(item.price)}</td>
-                                                            <td className="border border-black p-1 text-center align-top text-[10px]">{item.qty}</td>
-                                                            <td className="border border-black p-1 text-center align-top text-[10px]">{item.uom}</td>
-                                                            <td className="border border-black p-1 text-right align-top font-semibold text-[10px]">{fmt(item.total)}</td>
-                                                        </tr>
-                                                    );
-                                                }
-                                                return null;
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {/* 4. Footer Section (Last Page Only) */}
-                                {isLastPage && (
-                                    <div className="mt-4">
-                                        {/* Totals */}
-                                        <div className="flex justify-end mb-6 text-black">
+                                    {/* Block B (The Totals Box) */}
+                                    {pageRows.some(r => r.type === 'totals') && (
+                                        <div className="flex justify-end my-6 text-black break-inside-avoid">
                                             <div className="w-[40%]">
                                                 <div className="flex justify-between border-b border-black py-2">
                                                     <span className="font-semibold text-xs">Subtotal ({appSettings.currencySymbol}) :</span>
@@ -1096,7 +1140,68 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                                 </div>
                                             </div>
                                         </div>
+                                    )}
 
+                                    {/* Block C (Optional Items) */}
+                                    {pageRows.filter(r => r.type === 'section_header' || (r.type === 'item' && r.data.isOptional)).length > 0 && (
+                                        <table className="w-full border-collapse border border-black text-xs text-black mt-6 break-inside-avoid">
+                                            {pageRows.some(r => r.type === 'section_header') && (
+                                                <thead>
+                                                    <tr className="bg-gray-100">
+                                                        <th className="border border-black py-3 px-1 w-8 text-center font-bold text-[10px]">NO</th>
+                                                        <th className="border border-black py-3 px-1 w-32 text-left font-bold text-[10px]">ITEM</th>
+                                                        <th className="border border-black py-3 px-1 text-left font-bold text-[10px]">DESCRIPTION</th>
+                                                        <th className="border border-black py-3 px-1 w-20 text-right font-bold text-[10px]">Unit Price ({appSettings.currencySymbol})</th>
+                                                        <th className="border border-black py-3 px-1 w-10 text-center font-bold text-[10px]">QTY</th>
+                                                        <th className="border border-black py-3 px-1 w-12 text-center font-bold text-[10px]">UOM</th>
+                                                        <th className="border border-black py-3 px-1 w-24 text-right font-bold text-[10px]">Total Price ({appSettings.currencySymbol})</th>
+                                                    </tr>
+                                                </thead>
+                                            )}
+                                            <tbody>
+                                                {pageRows.map((row, idx) => {
+                                                    if (row.type === 'section_header') {
+                                                        return (
+                                                            <tr key={`header-${idx}`}>
+                                                                <td className="border border-black p-1 bg-gray-200"></td>
+                                                                <td className="border border-black p-1 font-bold bg-gray-100 text-center uppercase text-[10px]" colSpan={6}>
+                                                                    {row.label}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    } else if (row.type === 'item' && row.data.isOptional) {
+                                                        const item = row.data;
+                                                        const displayDescription = bqItemEdits[item.id]?.description ?? item.description;
+                                                        return (
+                                                            <tr key={item.id}>
+                                                                <td className="border border-black p-1 text-center align-top text-[10px]">{globalRowCounter++}</td>
+                                                                <td className="border border-black p-1 align-top">
+                                                                    <div className="font-bold text-[10px] mb-1 leading-tight">{item.itemName}</div>
+                                                                </td>
+                                                                <td className="border border-black p-1 align-top whitespace-pre-wrap text-[10px] leading-tight">
+                                                                    <AutoResizeTextarea
+                                                                        value={displayDescription}
+                                                                        onChange={(e) => setBQItemEdit(item.id, { description: e.target.value })}
+                                                                        className="w-full bg-transparent border-none p-0 text-[10px] text-black whitespace-pre-wrap leading-tight focus:ring-0"
+                                                                    />
+                                                                </td>
+                                                                <td className="border border-black p-1 text-right align-top text-[10px]">{fmt(item.price)}</td>
+                                                                <td className="border border-black p-1 text-center align-top text-[10px]">{item.qty}</td>
+                                                                <td className="border border-black p-1 text-center align-top text-[10px]">{item.uom}</td>
+                                                                <td className="border border-black p-1 text-right align-top font-semibold text-[10px]">{fmt(item.total)}</td>
+                                                            </tr>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+
+                                {/* 4. Footer Section (Last Page Only) */}
+                                {isLastPage && (
+                                    <div className="mt-4">
                                         {/* Terms & Signature */}
                                         <div className="text-black">
                                             <div className="text-xs mb-6">
