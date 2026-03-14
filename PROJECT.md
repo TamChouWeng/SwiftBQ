@@ -1,8 +1,19 @@
 # SwiftBQ
-**Version**: Beta 3.5
+**Version**: Beta 3.6
 
 ## 📝 Overview
 SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management system designed for the construction industry. It solves the critical challenge of maintaining a live "Master Price Book" while ensuring that historical quotations remain immutable through robust data independence.
+
+## 🚀 Key Features (Beta 3.6)
+
+### 1. Robust State Management & Data Integrity
+- **Granular Database Updates**: Eliminated dangerous "whole-object" database writes. Saves now only update specific modified columns, preventing cross-tab data overwrites.
+- **Eliminated Save Race Conditions**: Fixed critical synchronization bugs where rapidly switching between the BQ Builder and Quotation View would cause description edits or quantity changes to mutually overwrite.
+- **Independent Tab Buffers**: Quotation-specific edits (like descriptions and discounts) are now securely buffered in the global state independently from Catalog edits, guaranteeing that changes naturally merge without conflict.
+
+### 2. Intelligent Save Guard
+- **Foolproof Tab Switching**: The "Unsaved Changes" guard dialog now correctly detects and protects all pending edits (including catalog changes and special discounts) before allowing tab navigation.
+- **Predictable Discard Logic**: Removed premature background database writes. Clicking "Discard Changes" now flawlessly reverts all visual inputs and uncommitted states back to the last known database snapshot, ensuring complete user control.
 
 ## 🚀 Key Features (Beta 3.5)
 - **Add Custom Items to BQ**: Users can now add custom items directly to a specific quotation (project & version) without adding them to the global master list. Custom items persist in the project snapshot and automatically appear in both Catalog and Review views.
