@@ -596,7 +596,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     ]],
                     body: optionalTableData,
                     theme: 'grid',
-                    showHead: 'firstPage',
+                    showHead: 'never',
                     styles: {
                         fontSize: 8,
                         cellPadding: 2,
@@ -1065,6 +1065,15 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                 <div className="mb-6">
                                     {pageRows.filter(r => r.type === 'category' || (r.type === 'item' && !r.data.isOptional)).length > 0 && (
                                         <table className="w-full border-collapse border border-black text-xs text-black">
+                                            <colgroup>
+                                                <col className="w-8" />
+                                                <col className="w-32" />
+                                                <col className="w-auto" />
+                                                <col className="w-20" />
+                                                <col className="w-10" />
+                                                <col className="w-12" />
+                                                <col className="w-24" />
+                                            </colgroup>
                                             {isFirstPage && (
                                                 <thead>
                                                     <tr className="bg-gray-100">
@@ -1145,19 +1154,15 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                     {/* Block C (Optional Items) */}
                                     {pageRows.filter(r => r.type === 'section_header' || (r.type === 'item' && r.data.isOptional)).length > 0 && (
                                         <table className="w-full border-collapse border border-black text-xs text-black mt-6 break-inside-avoid">
-                                            {pageRows.some(r => r.type === 'section_header') && (
-                                                <thead>
-                                                    <tr className="bg-gray-100">
-                                                        <th className="border border-black py-3 px-1 w-8 text-center font-bold text-[10px]">NO</th>
-                                                        <th className="border border-black py-3 px-1 w-32 text-left font-bold text-[10px]">ITEM</th>
-                                                        <th className="border border-black py-3 px-1 text-left font-bold text-[10px]">DESCRIPTION</th>
-                                                        <th className="border border-black py-3 px-1 w-20 text-right font-bold text-[10px]">Unit Price ({appSettings.currencySymbol})</th>
-                                                        <th className="border border-black py-3 px-1 w-10 text-center font-bold text-[10px]">QTY</th>
-                                                        <th className="border border-black py-3 px-1 w-12 text-center font-bold text-[10px]">UOM</th>
-                                                        <th className="border border-black py-3 px-1 w-24 text-right font-bold text-[10px]">Total Price ({appSettings.currencySymbol})</th>
-                                                    </tr>
-                                                </thead>
-                                            )}
+                                            <colgroup>
+                                                <col className="w-8" />
+                                                <col className="w-32" />
+                                                <col className="w-auto" />
+                                                <col className="w-20" />
+                                                <col className="w-10" />
+                                                <col className="w-12" />
+                                                <col className="w-24" />
+                                            </colgroup>
                                             <tbody>
                                                 {pageRows.map((row, idx) => {
                                                     if (row.type === 'section_header') {
