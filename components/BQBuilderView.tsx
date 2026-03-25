@@ -7,19 +7,8 @@ import { TRANSLATIONS } from '../constants';
 import SmartPriceCell from './SmartPriceCell';
 import FormattedNumberInput from './FormattedNumberInput';
 import { DDP_STRATEGIES, SP_STRATEGIES, RSP_STRATEGIES } from '../pricingStrategies';
-
-
-const getPriceValue = (val: any) => {
-    if (typeof val === 'number') return val;
-    if (val && typeof val === 'object' && 'value' in val) return val.value;
-    return 0;
-};
-
-const getPriceField = (val: any): PriceField => {
-    if (val && typeof val === 'object' && 'strategy' in val) return val;
-    // Create a dummy wrapper for display if strictly number (should not happen after migration)
-    return { value: Number(val) || 0, strategy: 'MANUAL', manualOverride: Number(val) || 0 };
-};
+import { formatNumber, formatPercent } from '../utils/formatters';
+import { getPriceValue, getPriceField } from '../utils/priceHelpers';
 
 interface Props {
     currentLanguage: AppLanguage;
@@ -732,12 +721,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         setDraggedIndex(null);
     };
 
-    const fmt = (n: number) => n?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00';
     const fmtSensitive = (n: number) => {
         if (n === undefined || n === null) return '0';
         return n.toString();
     };
-    const fmtPct = (n: number) => (n * 100)?.toFixed(1) + '%';
 
     const contentPadding = !isSidebarOpen ? 'pl-4 md:pl-24 pr-4' : 'px-4';
 
@@ -989,7 +976,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     {/* Price (REX SC FOB) */}
                     {visibleColumns.price && <td className="p-1 align-top">
                         {isReview ? (
-                            <div className="text-sm font-normal text-slate-900 dark:text-white text-right p-2">{fmt(priceVal)}</div>
+                            <div className="text-sm font-normal text-slate-900 dark:text-white text-right p-2">{formatNumber(priceVal)}</div>
                         ) : (
                             <FormattedNumberInput
                                 tabIndex={1}
@@ -1098,11 +1085,11 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     </td>}
 
                     {/* Calculated Columns */}
-                    {visibleColumns.rexTsc && <td className="p-1 align-middle text-right text-slate-500 font-normal text-sm">{fmt(rowRexTsc)}</td>}
-                    {visibleColumns.rexTsp && <td className="p-1 align-middle text-right text-slate-500 font-normal text-sm">{fmt(rowRexTsp)}</td>}
-                    {visibleColumns.rexTrsp && <td className="p-1 align-middle text-right text-slate-500 font-bold text-sm">{fmt(rowRexTrsp)}</td>}
-                    {visibleColumns.rexGp && <td className="p-1 align-middle text-right text-slate-500 font-normal text-sm">{fmt(rowRexGp)}</td>}
-                    {visibleColumns.rexGpPercent && <td className="p-1 align-middle text-right text-slate-500 font-normal text-sm">{fmtPct(rowRexGpPercent)}</td>}
+                    {visibleColumns.rexTsc && <td className="p-1 align-middle text-right text-slate-500 font-normal text-sm">{formatNumber(rowRexTsc)}</td>}
+                    {visibleColumns.rexTsp && <td className="p-1 align-middle text-right text-slate-500 font-normal text-sm">{formatNumber(rowRexTsp)}</td>}
+                    {visibleColumns.rexTrsp && <td className="p-1 align-middle text-right text-slate-500 font-bold text-sm">{formatNumber(rowRexTrsp)}</td>}
+                    {visibleColumns.rexGp && <td className="p-1 align-middle text-right text-slate-500 font-normal text-sm">{formatNumber(rowRexGp)}</td>}
+                    {visibleColumns.rexGpPercent && <td className="p-1 align-middle text-right text-slate-500 font-normal text-sm">{formatPercent(rowRexGpPercent)}</td>}
 
                     {/* Optional */}
                     {visibleColumns.isOptional && isReview && <td className="p-1 align-middle text-center">
@@ -1871,27 +1858,27 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs w-full xl:w-auto bg-gray-50 dark:bg-slate-700/50 rounded-lg px-4 py-2 border border-gray-100 dark:border-slate-700">
                         <div className="flex flex-col items-center sm:block">
                             <span className="text-slate-400 uppercase font-semibold mr-1">TSC:</span>
-                            <span className="font-mono font-medium text-slate-700 dark:text-slate-300">{fmt(totalTSC)}</span>
+                            <span className="font-mono font-medium text-slate-700 dark:text-slate-300">{formatNumber(totalTSC)}</span>
                         </div>
                         <div className="w-px h-3 bg-gray-300 dark:bg-slate-600 hidden sm:block"></div>
                         <div className="flex flex-col items-center sm:block">
                             <span className="text-slate-400 uppercase font-semibold mr-1">TSP:</span>
-                            <span className="font-mono font-medium text-slate-700 dark:text-slate-300">{fmt(totalTSP)}</span>
+                            <span className="font-mono font-medium text-slate-700 dark:text-slate-300">{formatNumber(totalTSP)}</span>
                         </div>
                         <div className="w-px h-3 bg-gray-300 dark:bg-slate-600 hidden sm:block"></div>
                         <div className="flex flex-col items-center sm:block">
                             <span className="text-slate-400 uppercase font-semibold mr-1">TRSP:</span>
-                            <span className="font-mono font-bold text-slate-900 dark:text-white">{fmt(totalTRSP)}</span>
+                            <span className="font-mono font-bold text-slate-900 dark:text-white">{formatNumber(totalTRSP)}</span>
                         </div>
                         <div className="w-px h-3 bg-gray-300 dark:bg-slate-600 hidden sm:block"></div>
                         <div className="flex flex-col items-center sm:block">
                             <span className="text-slate-400 uppercase font-semibold mr-1">GP:</span>
-                            <span className={`font-mono font-medium ${totalGP >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>{fmt(totalGP)}</span>
+                            <span className={`font-mono font-medium ${totalGP >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>{formatNumber(totalGP)}</span>
                         </div>
                         <div className="w-px h-3 bg-gray-300 dark:bg-slate-600 hidden sm:block"></div>
                         <div className="flex flex-col items-center sm:block">
                             <span className="text-slate-400 uppercase font-semibold mr-1">GP%:</span>
-                            <span className={`font-mono font-medium ${totalGPPerc >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>{fmtPct(totalGPPerc)}</span>
+                            <span className={`font-mono font-medium ${totalGPPerc >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>{formatPercent(totalGPPerc)}</span>
                         </div>
                     </div>
 
@@ -1900,7 +1887,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         <div className="text-right flex items-center gap-3">
                             <p className="text-xs text-slate-500 uppercase font-semibold">Grand Total</p>
                             <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">
-                                {appSettings.currencySymbol} {fmt(grandTotal)}
+                                {appSettings.currencySymbol} {formatNumber(grandTotal)}
                             </p>
                         </div>
                     </div>

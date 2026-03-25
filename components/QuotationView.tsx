@@ -6,6 +6,8 @@ import { AppLanguage, BQItem } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatNumber } from '../utils/formatters';
+import { getPriceValue } from '../utils/priceHelpers';
 
 interface Props {
     currentLanguage: AppLanguage;
@@ -15,6 +17,9 @@ interface Props {
 // Pagination Constants
 const ITEMS_PER_PAGE_DEFAULT = 14;
 const FOOTER_BUFFER_ITEMS = 6; // If last page has more than (Max - this) items, push footer to new page
+
+type SortKey = 'date' | 'validityPeriod';
+type SortDirection = 'asc' | 'desc';
 
 type RenderRow =
     | { type: 'item'; data: BQItem }
@@ -90,9 +95,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     // --- Local discount buffer: avoids a DB write on every keystroke ---
     const [localDiscount, setLocalDiscount] = useState<string>('');
 
-    // Sort Configuration
-    type SortKey = 'date' | 'validityPeriod';
-    type SortDirection = 'asc' | 'desc';
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection }>({ key: 'date', direction: 'desc' });
 
     // Local state for selecting version in Quotation View
@@ -144,12 +146,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
 
 
-    // Helper to resolve pricing structures
-    const getPriceValue = (val: any) => {
-        if (typeof val === 'number') return val;
-        if (val && typeof val === 'object' && 'value' in val) return val.value;
-        return 0;
-    };
 
     const activeItems = useMemo(() => {
         const rawItems = bqItems.filter(item => item.projectId === currentProjectId && item.versionId === selectedVersionId);
@@ -491,10 +487,10 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         rowNumber++,
                         item.itemName,
                         displayDescription,
-                        fmt(item.price),
+                        formatNumber(item.price),
                         item.qty,
                         item.uom,
-                        fmt(item.total)
+                        formatNumber(item.total)
                     ]);
                 });
             });
@@ -563,7 +559,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             doc.setFont('helvetica', 'bold');
             doc.text(`Subtotal (${appSettings.currencySymbol}):`, totalsX, currentY, { align: 'left' });
             doc.setFont('helvetica', 'normal');
-            doc.text(fmt(subtotal), totalsX + totalsWidth, currentY, { align: 'right' });
+            doc.text(formatNumber(subtotal), totalsX + totalsWidth, currentY, { align: 'right' });
             doc.line(totalsX, currentY + 1, totalsX + totalsWidth, currentY + 1);
             currentY += 6;
 
@@ -572,7 +568,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor(22, 163, 74); // Green
                 doc.text(`Special Discount (${appSettings.currencySymbol}):`, totalsX, currentY, { align: 'left' });
-                doc.text(`(${fmt(discount)})`, totalsX + totalsWidth, currentY, { align: 'right' });
+                doc.text(`(${formatNumber(discount)})`, totalsX + totalsWidth, currentY, { align: 'right' });
                 doc.line(totalsX, currentY + 1, totalsX + totalsWidth, currentY + 1);
                 doc.setTextColor(0, 0, 0);
                 currentY += 6;
@@ -582,7 +578,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
             doc.text(`TOTAL (${appSettings.currencySymbol}):`, totalsX, currentY, { align: 'left' });
-            doc.text(fmt(grandTotal), totalsX + totalsWidth, currentY, { align: 'right' });
+            doc.text(formatNumber(grandTotal), totalsX + totalsWidth, currentY, { align: 'right' });
             doc.setLineWidth(0.5);
             doc.line(totalsX, currentY + 1, totalsX + totalsWidth, currentY + 1);
             doc.setLineWidth(0.1);
@@ -604,10 +600,10 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         rowNumber++,
                         item.itemName,
                         displayDescription,
-                        fmt(item.price),
+                        formatNumber(item.price),
                         item.qty,
                         item.uom,
-                        fmt(item.total)
+                        formatNumber(item.total)
                     ]);
                 });
 
@@ -772,8 +768,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
     const contentPadding = !isSidebarOpen ? 'pl-4 md:pl-24 pr-4' : 'px-4';
 
-    // Helper for currency format
-    const fmt = (n: number) => n?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00';
 
     // Global row counter for pagination
     let globalRowCounter = 1;
@@ -1142,10 +1136,10 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                                                         className="w-full bg-transparent border-none p-0 text-[10px] text-black whitespace-pre-wrap leading-tight focus:ring-0"
                                                                     />
                                                                 </td>
-                                                                <td className="border border-black p-1 text-right align-top text-[10px]">{fmt(item.price)}</td>
+                                                                <td className="border border-black p-1 text-right align-top text-[10px]">{formatNumber(item.price)}</td>
                                                                 <td className="border border-black p-1 text-center align-top text-[10px]">{item.qty}</td>
                                                                 <td className="border border-black p-1 text-center align-top text-[10px]">{item.uom}</td>
-                                                                <td className="border border-black p-1 text-right align-top font-semibold text-[10px]">{fmt(item.total)}</td>
+                                                                <td className="border border-black p-1 text-right align-top font-semibold text-[10px]">{formatNumber(item.total)}</td>
                                                             </tr>
                                                         );
                                                     }
@@ -1161,19 +1155,19 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                             <div className="w-[40%]">
                                                 <div className="flex justify-between border-b border-black py-2">
                                                     <span className="font-semibold text-xs">Subtotal ({appSettings.currencySymbol}) :</span>
-                                                    <span className="font-medium">{fmt(subtotal)}</span>
+                                                    <span className="font-medium">{formatNumber(subtotal)}</span>
                                                 </div>
 
                                                 {effectiveDiscount > 0 && (
                                                     <div className="flex justify-between border-b border-black py-2 text-green-600 font-bold">
                                                         <span className="text-xs uppercase">Special Discount ({appSettings.currencySymbol}) :</span>
-                                                        <span>({fmt(effectiveDiscount)})</span>
+                                                        <span>({formatNumber(effectiveDiscount)})</span>
                                                     </div>
                                                 )}
 
                                                 <div className="flex justify-between border-b-2 border-black py-2 text-sm font-bold mt-1">
                                                     <span>TOTAL ({appSettings.currencySymbol}):</span>
-                                                    <span>{fmt(subtotal - effectiveDiscount)}</span>
+                                                    <span>{formatNumber(subtotal - effectiveDiscount)}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -1218,10 +1212,10 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                                                         className="w-full bg-transparent border-none p-0 text-[10px] text-black whitespace-pre-wrap leading-tight focus:ring-0"
                                                                     />
                                                                 </td>
-                                                                <td className="border border-black p-1 text-right align-top text-[10px]">{fmt(item.price)}</td>
+                                                                <td className="border border-black p-1 text-right align-top text-[10px]">{formatNumber(item.price)}</td>
                                                                 <td className="border border-black p-1 text-center align-top text-[10px]">{item.qty}</td>
                                                                 <td className="border border-black p-1 text-center align-top text-[10px]">{item.uom}</td>
-                                                                <td className="border border-black p-1 text-right align-top font-semibold text-[10px]">{fmt(item.total)}</td>
+                                                                <td className="border border-black p-1 text-right align-top font-semibold text-[10px]">{formatNumber(item.total)}</td>
                                                             </tr>
                                                         );
                                                     }

@@ -313,7 +313,6 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
       rexScDdp: newItem.rexScDdp || { value: 0, strategy: 'MANUAL', manualOverride: 0 },
       rexSp: newItem.rexSp || { value: 0, strategy: 'MANUAL', manualOverride: 0 },
       rexRsp: newItem.rexRsp || { value: 0, strategy: 'MANUAL', manualOverride: 0 },
-      // spMargin removed
     };
     addMasterItem(itemToAdd);
     setIsModalOpen(false);
