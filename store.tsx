@@ -1545,9 +1545,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         axsku: masterItem.axsku,
         mpn: masterItem.mpn,
         group: masterItem.group,
-        price: masterItem.rexRsp.value,
+        price: masterItem.rexRsp && typeof masterItem.rexRsp === 'object' && 'value' in masterItem.rexRsp ? (masterItem.rexRsp as any).value : (masterItem.price || 0),
         qty: qty,
-        total: (masterItem.rexRsp.value || 0) * (qty || 0),
+        total: (masterItem.rexRsp && typeof masterItem.rexRsp === 'object' && 'value' in masterItem.rexRsp ? (masterItem.rexRsp as any).value : (masterItem.price || 0)) * (qty || 0),
         rexScFob: masterItem.rexScFob,
         forex: masterItem.forex,
         sst: masterItem.sst,
@@ -1601,7 +1601,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return prev.map((item) => {
         if (item.id === id) {
           const updated = { ...item, [field]: processedValue };
-          if (field === 'price' || field === 'qty') {
+          if (field === 'rexRsp') {
+             const rspVal = processedValue && typeof processedValue === 'object' && 'value' in processedValue ? processedValue.value : Number(processedValue);
+             updated.price = isNaN(rspVal) ? 0 : rspVal;
+             updated.total = updated.price * updated.qty;
+          } else if (field === 'price' || field === 'qty') {
             const p = field === 'price' ? processedValue : item.price;
             const q = field === 'qty' ? processedValue : item.qty;
             updated.total = (isNaN(p) ? 0 : p) * (isNaN(q) ? 0 : q);
@@ -1649,8 +1653,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const discount = project?.discount || 0;
     const projectItems = bqItems.filter(i => i.projectId === projectId && i.versionId === versionId && !i.isOptional);
 
-    // Summation of REX TRSP (which is stored in item.total)
-    const subtotal = projectItems.reduce((acc, item) => acc + (isNaN(item.total) ? 0 : item.total), 0);
+    // Helper to extract value since rexRsp can be an object or a number
+    const getPriceValue = (val: any) => {
+        if (typeof val === 'number') return val;
+        if (val && typeof val === 'object' && 'value' in val) return val.value;
+        return 0;
+    };
+
+    const version = project?.versions.find(v => v.id === versionId);
+    const snapshot = version?.masterSnapshot || [];
+
+    // Summation of REX TRSP
+    const subtotal = projectItems.reduce((acc, item) => {
+        let effectiveRsp = item.rexRsp;
+        if (item.masterId) {
+            const master = snapshot.find(m => m.id === item.masterId);
+            if (master) {
+                const staged = bqStagedEdits[item.masterId] || {};
+                const resolved = { ...master, ...staged };
+                effectiveRsp = resolved.rexRsp;
+            }
+        }
+        return acc + (item.qty * (getPriceValue(effectiveRsp) || 0));
+    }, 0);
 
     const tax = 0;
     // Grand Total is Subtotal - Discount

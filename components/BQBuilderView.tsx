@@ -388,13 +388,6 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     const { grandTotal } = currentProjectId && currentVersionId ? getProjectTotal(currentProjectId, currentVersionId) : { grandTotal: 0 };
     const totalItemsSelected = activeItems.reduce((acc, item) => acc + (Number(item.qty) || 0), 0);
 
-    // --- Bottom Bar Calculations ---
-    const totalTSC = useMemo(() => activeItems.reduce((sum, item) => sum + (item.qty * (getPriceValue(item.rexScDdp) || 0)), 0), [activeItems]);
-    const totalTSP = useMemo(() => activeItems.reduce((sum, item) => sum + (item.qty * (getPriceValue(item.rexSp) || 0)), 0), [activeItems]);
-    // Total TRSP is essentially the sum of Item Totals (Selling Price * Qty)
-    const totalTRSP = useMemo(() => activeItems.reduce((sum, item) => sum + (item.total || 0), 0), [activeItems]);
-    const totalGP = totalTRSP - totalTSC;
-    const totalGPPerc = totalTRSP !== 0 ? totalGP / totalTRSP : 0;
 
     // --- Catalog Data Processing ---
     const categories = useMemo(() => {
@@ -408,6 +401,36 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         const version = activeProject.versions.find(v => v.id === currentVersionId);
         return version?.masterSnapshot || [];
     }, [activeProject, currentVersionId, masterData]);
+
+    // Resolve activeItems pricing with the authoritative master snapshot to override stale DB records
+    const resolvedActiveItems = useMemo(() => {
+        return activeItems.map(item => {
+            if (item.masterId) {
+                const master = catalogSource.find(m => m.id === item.masterId);
+                if (master) {
+                    const staged = stagedEdits[item.masterId] || {};
+                    const merged = { ...master, ...staged };
+                    return {
+                        ...item,
+                        rexScFob: merged.rexScFob,
+                        rexScDdp: merged.rexScDdp,
+                        rexSp: merged.rexSp,
+                        rexRsp: merged.rexRsp,
+                        price: getPriceValue(merged.rexRsp) || 0,
+                    };
+                }
+            }
+            return item;
+        });
+    }, [activeItems, catalogSource, stagedEdits]);
+
+    // --- Bottom Bar Calculations ---
+    const totalTSC = useMemo(() => resolvedActiveItems.reduce((sum, item) => sum + (item.qty * (getPriceValue(item.rexScDdp) || 0)), 0), [resolvedActiveItems]);
+    const totalTSP = useMemo(() => resolvedActiveItems.reduce((sum, item) => sum + (item.qty * (getPriceValue(item.rexSp) || 0)), 0), [resolvedActiveItems]);
+    // Total TRSP is essentially the sum of Item Totals (Selling Price * Qty)
+    const totalTRSP = useMemo(() => resolvedActiveItems.reduce((sum, item) => sum + (item.qty * (getPriceValue(item.rexRsp) || 0)), 0), [resolvedActiveItems]);
+    const totalGP = totalTRSP - totalTSC;
+    const totalGPPerc = totalTRSP !== 0 ? totalGP / totalTRSP : 0;
 
     const filteredItems = useMemo(() => {
         let items = catalogSource;
@@ -1826,7 +1849,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                     {visibleColumns.action && <col style={{ width: colWidths.action }} />}
                                 </colgroup>
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-700 text-sm">
-                                    {renderTableRows(activeItems, 'review')}
+                                    {renderTableRows(resolvedActiveItems, 'review')}
                                 </tbody>
                             </table>
                         </div>
