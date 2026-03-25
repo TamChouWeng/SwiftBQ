@@ -1,8 +1,14 @@
 # SwiftBQ
-**Version**: Beta 3.6
+**Version**: Beta 3.7
 
 ## 📝 Overview
 SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management system designed for the construction industry. It solves the critical challenge of maintaining a live "Master Price Book" while ensuring that historical quotations remain immutable through robust data independence.
+
+## 🚀 Key Features (Beta 3.7)
+
+### 1. Authoritative Pricing Sync
+- **Dynamic Price Resolution**: Fixed critical discrepancy where the Builder Catalog view calculated row totals based on dynamic Master List snapshots, but the bottom bar Grand Totals aggregated stale database cache. 
+- **Consolidated Mathematics**: All project bottom bar and global Grand Total metrics now mathematically guarantee perfect parity with the on-screen generated item prices, resolving database sync ghosts entirely by enforcing the Snapshot as the absolute source of truth.
 
 ## 🚀 Key Features (Beta 3.6)
 

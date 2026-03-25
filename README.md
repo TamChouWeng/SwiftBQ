@@ -1,5 +1,5 @@
 # SwiftBQ
-**Version**: Beta 3.6
+**Version**: Beta 3.7
 SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management system engineered for the construction industry. It resolves the critical challenge of maintaining a live, centralized Master Price Book while ensuring historical quotations remain completely immutable and strictly isolated.
 
 <!-- Badges -->
