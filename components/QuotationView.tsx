@@ -144,9 +144,37 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
 
 
-    const activeItems = useMemo(() =>
-        bqItems.filter(item => item.projectId === currentProjectId && item.versionId === selectedVersionId),
-        [bqItems, currentProjectId, selectedVersionId]);
+    // Helper to resolve pricing structures
+    const getPriceValue = (val: any) => {
+        if (typeof val === 'number') return val;
+        if (val && typeof val === 'object' && 'value' in val) return val.value;
+        return 0;
+    };
+
+    const activeItems = useMemo(() => {
+        const rawItems = bqItems.filter(item => item.projectId === currentProjectId && item.versionId === selectedVersionId);
+        const version = activeProject?.versions.find(v => v.id === selectedVersionId);
+        const snapshot = version?.masterSnapshot || [];
+
+        return rawItems.map(item => {
+            if (item.masterId) {
+                const master = snapshot.find(m => m.id === item.masterId);
+                if (master) {
+                    const price = getPriceValue(master.rexRsp) || 0;
+                    return {
+                        ...item,
+                        rexScFob: master.rexScFob,
+                        rexScDdp: master.rexScDdp,
+                        rexSp: master.rexSp,
+                        rexRsp: master.rexRsp,
+                        price: price,
+                        total: price * item.qty
+                    };
+                }
+            }
+            return item;
+        });
+    }, [bqItems, currentProjectId, selectedVersionId, activeProject]);
 
     // Calculate totals including discount
     const { subtotal, grandTotal, discount } = currentProjectId && selectedVersionId
