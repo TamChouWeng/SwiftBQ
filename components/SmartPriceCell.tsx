@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Calculator, Edit3, ChevronDown, Check } from 'lucide-react';
+import { ChevronDown, Check } from 'lucide-react';
 import { PriceField } from '../types';
 import { PricingStrategy } from '../pricingStrategies';
 import FormattedNumberInput from './FormattedNumberInput';
