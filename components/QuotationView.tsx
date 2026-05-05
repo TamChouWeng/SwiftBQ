@@ -99,6 +99,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
     // Local state for selecting version in Quotation View
     const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+    const [selectedSST, setSelectedSST] = useState<number>(0);
 
     // Get current project details
     const activeProject = useMemo(() =>
@@ -543,7 +544,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             // 3. TOTALS SECTION
             // =============================================
 
-            const totalsHeight = 15; // Estimated height for totals block
+            const totalsHeight = 35; // Estimated height for totals block
 
             // Check if totals fit on current page
             if (currentY + totalsHeight > pageHeight - marginBottom) {
@@ -556,32 +557,52 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
             // Subtotal
             doc.setFontSize(9);
-            doc.setFont('helvetica', 'bold');
-            doc.text(`Subtotal (${appSettings.currencySymbol}):`, totalsX, currentY, { align: 'left' });
             doc.setFont('helvetica', 'normal');
+            doc.setTextColor(0, 0, 0);
+            doc.text(`Subtotal (${appSettings.currencySymbol}):`, totalsX, currentY, { align: 'left' });
             doc.text(formatNumber(subtotal), totalsX + totalsWidth, currentY, { align: 'right' });
-            doc.line(totalsX, currentY + 1, totalsX + totalsWidth, currentY + 1);
             currentY += 6;
+
+            const postDiscountTotal = subtotal - discount;
 
             // Special Discount (if applicable)
             if (discount > 0) {
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(22, 163, 74); // Green
                 doc.text(`Special Discount (${appSettings.currencySymbol}):`, totalsX, currentY, { align: 'left' });
-                doc.text(`(${formatNumber(discount)})`, totalsX + totalsWidth, currentY, { align: 'right' });
-                doc.line(totalsX, currentY + 1, totalsX + totalsWidth, currentY + 1);
-                doc.setTextColor(0, 0, 0);
+                doc.text(`- ${formatNumber(discount)}`, totalsX + totalsWidth, currentY, { align: 'right' });
+                currentY += 4;
+
+                // Big Underline
+                doc.setLineWidth(0.5);
+                doc.line(totalsX, currentY, totalsX + totalsWidth, currentY);
+                doc.setLineWidth(0.1);
+                currentY += 5;
+
+                // Total After Discount
+                doc.text(`Total After Discount (${appSettings.currencySymbol}):`, totalsX, currentY, { align: 'left' });
+                doc.text(formatNumber(postDiscountTotal), totalsX + totalsWidth, currentY, { align: 'right' });
                 currentY += 6;
             }
 
+            // SST
+            if (selectedSST > 0) {
+                const sstAmount = postDiscountTotal * (selectedSST / 100);
+                doc.text(`SST of ${selectedSST}%:`, totalsX, currentY, { align: 'left' });
+                doc.text(formatNumber(sstAmount), totalsX + totalsWidth, currentY, { align: 'right' });
+                currentY += 4;
+            } else {
+                currentY -= 2;
+            }
+
+            // Standard Underline
+            doc.line(totalsX, currentY, totalsX + totalsWidth, currentY);
+            currentY += 5;
+
             // Grand Total
+            const finalTotal = postDiscountTotal * (1 + selectedSST / 100);
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
-            doc.text(`TOTAL (${appSettings.currencySymbol}):`, totalsX, currentY, { align: 'left' });
-            doc.text(formatNumber(grandTotal), totalsX + totalsWidth, currentY, { align: 'right' });
-            doc.setLineWidth(0.5);
-            doc.line(totalsX, currentY + 1, totalsX + totalsWidth, currentY + 1);
-            doc.setLineWidth(0.1);
+            doc.text(`TOTAL INCLUSIVE SST (${appSettings.currencySymbol}):`, totalsX, currentY, { align: 'left' });
+            doc.text(formatNumber(finalTotal), totalsX + totalsWidth, currentY, { align: 'right' });
             currentY += 10;
 
             // =============================================
@@ -933,6 +954,24 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         </div>
                     </div>
 
+                    {/* SST Selection */}
+                    <div className="flex flex-col items-end sm:items-start">
+                        <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 uppercase">SELECT SST TO APPLY</label>
+                        <div className="relative inline-block">
+                            <select
+                                value={selectedSST}
+                                onChange={(e) => setSelectedSST(Number(e.target.value))}
+                                className="bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm rounded-lg pl-3 pr-8 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none appearance-none font-medium min-w-[100px]"
+                            >
+                                <option value={0}>0%</option>
+                                <option value={6}>6%</option>
+                                <option value={8}>8%</option>
+                                <option value={10}>10%</option>
+                            </select>
+                            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                        </div>
+                    </div>
+
                     <div className="flex gap-2 mt-4 sm:mt-0">
                         {/* Undo Button */}
                         <button
@@ -1152,22 +1191,38 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                     {/* Block B (The Totals Box) */}
                                     {pageRows.some(r => r.type === 'totals') && (
                                         <div className="flex justify-end my-6 text-black break-inside-avoid">
-                                            <div className="w-[40%]">
-                                                <div className="flex justify-between border-b border-black py-2">
-                                                    <span className="font-semibold text-xs">Subtotal ({appSettings.currencySymbol}) :</span>
-                                                    <span className="font-medium">{formatNumber(subtotal)}</span>
+                                            <div className="w-[45%]">
+                                                <div className="flex justify-between py-1">
+                                                    <span className="text-[11px]">Subtotal ({appSettings.currencySymbol}):</span>
+                                                    <span className="text-[11px]">{formatNumber(subtotal)}</span>
                                                 </div>
 
                                                 {effectiveDiscount > 0 && (
-                                                    <div className="flex justify-between border-b border-black py-2 text-green-600 font-bold">
-                                                        <span className="text-xs uppercase">Special Discount ({appSettings.currencySymbol}) :</span>
-                                                        <span>({formatNumber(effectiveDiscount)})</span>
+                                                    <>
+                                                        <div className="flex justify-between py-1">
+                                                            <span className="text-[11px]">Special Discount ({appSettings.currencySymbol}):</span>
+                                                            <span className="text-[11px]">- {formatNumber(effectiveDiscount)}</span>
+                                                        </div>
+                                                        <div className="border-t-[1.5px] border-black my-1"></div>
+                                                        <div className="flex justify-between py-1">
+                                                            <span className="text-[11px]">Total After Discount ({appSettings.currencySymbol}):</span>
+                                                            <span className="text-[11px]">{formatNumber(subtotal - effectiveDiscount)}</span>
+                                                        </div>
+                                                    </>
+                                                )}
+
+                                                {selectedSST > 0 && (
+                                                    <div className="flex justify-between py-1">
+                                                        <span className="text-[11px]">SST of {selectedSST}%:</span>
+                                                        <span className="text-[11px]">{formatNumber((subtotal - effectiveDiscount) * (selectedSST / 100))}</span>
                                                     </div>
                                                 )}
 
-                                                <div className="flex justify-between border-b-2 border-black py-2 text-sm font-bold mt-1">
-                                                    <span>TOTAL ({appSettings.currencySymbol}):</span>
-                                                    <span>{formatNumber(subtotal - effectiveDiscount)}</span>
+                                                <div className="border-t border-black my-1"></div>
+
+                                                <div className="flex justify-between py-1 font-bold uppercase">
+                                                    <span className="text-[11px]">TOTAL INCLUSIVE SST ({appSettings.currencySymbol}):</span>
+                                                    <span className="text-[11px]">{formatNumber((subtotal - effectiveDiscount) * (1 + selectedSST / 100))}</span>
                                                 </div>
                                             </div>
                                         </div>
