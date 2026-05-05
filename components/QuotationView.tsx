@@ -99,7 +99,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
     // Local state for selecting version in Quotation View
     const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
-    const [selectedSST, setSelectedSST] = useState<number>(0);
 
     // Get current project details
     const activeProject = useMemo(() =>
@@ -234,6 +233,18 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         const pending = pendingProjectEdits[currentProjectId]?.discount;
         if (pending !== undefined) return pending;
         return activeProject?.discount ?? 0;
+    })();
+
+    const handleSSTChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        if (!activeProject) return;
+        setPendingProjectEdit(activeProject.id, { sst: Number(e.target.value) });
+    };
+
+    const effectiveSST = (() => {
+        if (!currentProjectId) return 0;
+        const pending = pendingProjectEdits[currentProjectId]?.sst;
+        if (pending !== undefined) return pending;
+        return activeProject?.sst ?? 0;
     })();
 
     // --- Pagination Logic ---
@@ -584,9 +595,9 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             }
 
             // SST
-            if (selectedSST > 0) {
-                const sstAmount = postDiscountTotal * (selectedSST / 100);
-                doc.text(`SST of ${selectedSST}%:`, totalsX, currentY, { align: 'left' });
+            if (effectiveSST > 0) {
+                const sstAmount = postDiscountTotal * (effectiveSST / 100);
+                doc.text(`SST of ${effectiveSST}%:`, totalsX, currentY, { align: 'left' });
                 doc.text(formatNumber(sstAmount), totalsX + totalsWidth, currentY, { align: 'right' });
                 currentY += 4;
             } else {
@@ -598,7 +609,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             currentY += 5;
 
             // Grand Total
-            const finalTotal = postDiscountTotal * (1 + selectedSST / 100);
+            const finalTotal = postDiscountTotal * (1 + effectiveSST / 100);
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
             doc.text(`TOTAL INCLUSIVE SST (${appSettings.currencySymbol}):`, totalsX, currentY, { align: 'left' });
@@ -959,8 +970,8 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 uppercase">SELECT SST TO APPLY</label>
                         <div className="relative inline-block">
                             <select
-                                value={selectedSST}
-                                onChange={(e) => setSelectedSST(Number(e.target.value))}
+                                value={effectiveSST}
+                                onChange={handleSSTChange}
                                 className="bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm rounded-lg pl-3 pr-8 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none appearance-none font-medium min-w-[100px]"
                             >
                                 <option value={0}>0%</option>
@@ -1211,10 +1222,10 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                                     </>
                                                 )}
 
-                                                {selectedSST > 0 && (
+                                                {effectiveSST > 0 && (
                                                     <div className="flex justify-between py-1">
-                                                        <span className="text-[11px]">SST of {selectedSST}%:</span>
-                                                        <span className="text-[11px]">{formatNumber((subtotal - effectiveDiscount) * (selectedSST / 100))}</span>
+                                                        <span className="text-[11px]">SST of {effectiveSST}%:</span>
+                                                        <span className="text-[11px]">{formatNumber((subtotal - effectiveDiscount) * (effectiveSST / 100))}</span>
                                                     </div>
                                                 )}
 
@@ -1222,7 +1233,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
                                                 <div className="flex justify-between py-1 font-bold uppercase">
                                                     <span className="text-[11px]">TOTAL INCLUSIVE SST ({appSettings.currencySymbol}):</span>
-                                                    <span className="text-[11px]">{formatNumber((subtotal - effectiveDiscount) * (1 + selectedSST / 100))}</span>
+                                                    <span className="text-[11px]">{formatNumber((subtotal - effectiveDiscount) * (1 + effectiveSST / 100))}</span>
                                                 </div>
                                             </div>
                                         </div>

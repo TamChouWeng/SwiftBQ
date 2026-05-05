@@ -70,6 +70,7 @@ export interface Project {
   quoteId: string; // Keeping for reference
   versions: ProjectVersion[]; // New: List of versions
   discount?: number; // Special Discount
+  sst?: number; // SST Percentage
 }
 
 export interface BQItem {

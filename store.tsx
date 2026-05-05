@@ -76,6 +76,7 @@ export const mapProjectFromDB = (dbProject: any, versions: ProjectVersion[] = []
   validityPeriod: dbProject.validity_period,
   quoteId: dbProject.quote_id,
   discount: Number(dbProject.discount) || 0,
+  sst: Number(dbProject.sst) || 0,
   versions: versions,
 });
 
@@ -91,6 +92,7 @@ export const mapProjectToDB = (project: Partial<Project>) => {
   if (project.validityPeriod !== undefined) dbProject.validity_period = project.validityPeriod;
   if (project.quoteId !== undefined) dbProject.quote_id = project.quoteId;
   if (project.discount !== undefined) dbProject.discount = project.discount;
+  if (project.sst !== undefined) dbProject.sst = project.sst;
   return dbProject;
 };
 
