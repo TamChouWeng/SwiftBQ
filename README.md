@@ -1,5 +1,5 @@
 # SwiftBQ
-**Version**: Beta 3.7
+**Version**: Beta 3.8
 SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management system engineered for the construction industry. It resolves the critical challenge of maintaining a live, centralized Master Price Book while ensuring historical quotations remain completely immutable and strictly isolated.
 
 <!-- Badges -->
@@ -24,6 +24,7 @@ SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management syste
 
 ### Financial Control & Security
 - **Dynamic Pricing Engine:** Accelerates the quoting process and margin analysis. Calculates prices on the fly using customizable formulas, allowing rapid toggling between distinct pricing strategies to assess margin impacts immediately.
+- **Advanced Taxation & Discounts (New in Beta 3.8):** Seamlessly apply Sales and Service Tax (SST) and Special Discounts directly from the Quotation View. Values are persisted to the database and cleanly formatted into the exported PDF.
 - **Enterprise-Grade Security:** Enforces strict data privacy. Supabase Row Level Security (RLS) ensures that user records and client datasets are aggressively isolated by account.
 
 ## 🏗 Architecture & Tech Stack
