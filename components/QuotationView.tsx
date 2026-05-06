@@ -927,21 +927,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-end sm:items-center gap-4 w-full xl:w-auto">
-                    {/* Discount Input */}
-                    <div className="flex flex-col items-end sm:items-start">
-                        <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 uppercase">Special Discount</label>
-                        <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">{appSettings.currencySymbol}</span>
-                            <input
-                                type="number"
-                                value={localDiscount}
-                                onChange={handleDiscountChange}
-                                placeholder="0.00"
-                                className="w-32 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm rounded-lg pl-10 pr-3 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none font-medium text-right"
-                            />
-                        </div>
-                    </div>
-
                     {/* Version Selection */}
                     <div className="flex flex-col items-end sm:items-start">
                         <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 uppercase">Select Version to Export</label>
@@ -962,6 +947,21 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                 ))}
                             </select>
                             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                        </div>
+                    </div>
+
+                    {/* Discount Input */}
+                    <div className="flex flex-col items-end sm:items-start">
+                        <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 uppercase">Special Discount</label>
+                        <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">{appSettings.currencySymbol}</span>
+                            <input
+                                type="number"
+                                value={localDiscount}
+                                onChange={handleDiscountChange}
+                                placeholder="0.00"
+                                className="w-32 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm rounded-lg pl-10 pr-3 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none font-medium text-right"
+                            />
                         </div>
                     </div>
 
