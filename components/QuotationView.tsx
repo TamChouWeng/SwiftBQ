@@ -563,8 +563,8 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 currentY = marginTop * 2;
             }
 
-            const totalsX = pageWidth - marginRight - 60;
-            const totalsWidth = 60;
+            const totalsWidth = 80;
+            const totalsX = pageWidth - marginRight - totalsWidth;
 
             // Subtotal
             doc.setFontSize(9);
