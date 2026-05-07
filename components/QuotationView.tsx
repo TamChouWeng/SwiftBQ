@@ -612,7 +612,8 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             const finalTotal = postDiscountTotal * (1 + effectiveSST / 100);
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
-            doc.text(`TOTAL INCLUSIVE SST (${appSettings.currencySymbol}):`, totalsX, currentY, { align: 'left' });
+            const totalLabel = effectiveSST > 0 ? `TOTAL INCLUSIVE SST (${appSettings.currencySymbol}):` : `TOTAL (${appSettings.currencySymbol}):`;
+            doc.text(totalLabel, totalsX, currentY, { align: 'left' });
             doc.text(formatNumber(finalTotal), totalsX + totalsWidth, currentY, { align: 'right' });
             currentY += 10;
 
@@ -1232,7 +1233,9 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                                 <div className="border-t border-black my-1"></div>
 
                                                 <div className="flex justify-between py-1 font-bold uppercase">
-                                                    <span className="text-[11px]">TOTAL INCLUSIVE SST ({appSettings.currencySymbol}):</span>
+                                                    <span className="text-[11px]">
+                                                        {effectiveSST > 0 ? `TOTAL INCLUSIVE SST (${appSettings.currencySymbol}):` : `TOTAL (${appSettings.currencySymbol}):`}
+                                                    </span>
                                                     <span className="text-[11px]">{formatNumber((subtotal - effectiveDiscount) * (1 + effectiveSST / 100))}</span>
                                                 </div>
                                             </div>
