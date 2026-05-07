@@ -687,7 +687,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         )
       `)
       .eq('user_id', user.id) // Filter by User
-      .neq('status', 'deleted')
       .order('date', { ascending: false });
 
     if (error) {
