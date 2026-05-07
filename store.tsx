@@ -628,8 +628,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       let query = supabase
         .from('master_list_items')
-        .select('*', { count: 'exact' })
-        .eq('is_deleted', false);
+        .select('*', { count: 'exact' });
 
       // Search Logic
       if (searchTerm) {
@@ -700,7 +699,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const mappedProjects = projectsData.map(p => {
         // Map versions
         const mappedVersions = (p.project_versions || [])
-          .filter((v: any) => !v.is_deleted) // Assuming logical delete or just filter
           .map(mapVersionFromDB);
         return mapProjectFromDB(p, mappedVersions);
       });
@@ -875,13 +873,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setMasterListEdits(newEdits);
     }
 
-    // DB Soft Delete
+    // DB Hard Delete
     const { error } = await supabase
       .from('master_list_items')
-      .update({ is_deleted: true })
+      .delete()
       .eq('id', id);
 
-    if (error) console.error('Error deleting item (soft):', error);
+    if (error) console.error('Error deleting item:', error);
   };
 
 
