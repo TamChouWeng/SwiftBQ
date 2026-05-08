@@ -1190,66 +1190,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 2. Sync ALL fields (text + pricing) of BQ Items from the master snapshot —
     //    only triggered when user explicitly saves via commitBqStagedEdits (Save button / Save & Continue).
     //    Text fields editable in QV (description, uom) are protected if there's a pending bqItemEdits entry.
-    const updatesToProcess: BQItem[] = [];
+    setBqItems(prev => {
+      const updatesToProcess: BQItem[] = [];
+      const newItems = prev.map(item => {
+        if (item.projectId === projectId && item.versionId === versionId && item.masterId) {
+          const update = snapshotUpdates.find(u => u.id === item.masterId);
+          if (update) {
+            let newItem = { ...item };
 
-    setBqItems(prev => prev.map(item => {
-      if (item.projectId === projectId && item.versionId === versionId && item.masterId) {
-        const update = snapshotUpdates.find(u => u.id === item.masterId);
-        if (update) {
-          let newItem = { ...item };
+            // --- Pricing fields ---
+            if (update.price !== undefined || update.rexRsp !== undefined) {
+              let rRsp = undefined;
+              if (update.rexRsp) {
+                if (typeof update.rexRsp === 'object' && 'value' in update.rexRsp) rRsp = update.rexRsp.value;
+                else if (typeof update.rexRsp === 'number') rRsp = update.rexRsp;
+              }
+              const newPrice = rRsp ?? update.price ?? item.price;
+              const safePrice = isNaN(newPrice) ? 0 : newPrice;
+              newItem.price = safePrice;
+              newItem.total = safePrice * item.qty;
 
-          // --- Pricing fields ---
-          if (update.price !== undefined || update.rexRsp !== undefined) {
-            let rRsp = undefined;
-            if (update.rexRsp) {
-              if (typeof update.rexRsp === 'object' && 'value' in update.rexRsp) rRsp = update.rexRsp.value;
-              else if (typeof update.rexRsp === 'number') rRsp = update.rexRsp;
+              if (update.rexRsp && typeof update.rexRsp === 'object') newItem.rexRsp = { ...item.rexRsp, ...update.rexRsp };
+              else if (typeof update.rexRsp === 'number') newItem.rexRsp = { value: update.rexRsp, strategy: 'MANUAL', manualOverride: update.rexRsp };
             }
-            const newPrice = rRsp ?? update.price ?? item.price;
-            const safePrice = isNaN(newPrice) ? 0 : newPrice;
-            newItem.price = safePrice;
-            newItem.total = safePrice * item.qty;
+            if (update.rexScDdp !== undefined) newItem.rexScDdp = update.rexScDdp;
+            if (update.rexSp !== undefined) newItem.rexSp = update.rexSp;
+            if (update.forex !== undefined) newItem.forex = update.forex;
+            if (update.sst !== undefined) newItem.sst = update.sst;
+            if (update.opta !== undefined) newItem.opta = update.opta;
+            if (update.rexScFob !== undefined) newItem.rexScFob = update.rexScFob;
 
-            if (update.rexRsp && typeof update.rexRsp === 'object') newItem.rexRsp = { ...item.rexRsp, ...update.rexRsp };
-            else if (typeof update.rexRsp === 'number') newItem.rexRsp = { value: update.rexRsp, strategy: 'MANUAL', manualOverride: update.rexRsp };
-          }
-          if (update.rexScDdp !== undefined) newItem.rexScDdp = update.rexScDdp;
-          if (update.rexSp !== undefined) newItem.rexSp = update.rexSp;
-          if (update.forex !== undefined) newItem.forex = update.forex;
-          if (update.sst !== undefined) newItem.sst = update.sst;
-          if (update.opta !== undefined) newItem.opta = update.opta;
-          if (update.rexScFob !== undefined) newItem.rexScFob = update.rexScFob;
+            // --- Text fields from catalog ---
+            // Protected: if QV has a pending (unsaved) edit for a field, the catalog value doesn't win.
+            const pendingQVEdits = bqItemEdits[item.id] || {};
+            if (update.itemName !== undefined) newItem.itemName = update.itemName;
+            if (update.category !== undefined) newItem.category = update.category;
+            if (update.brand !== undefined) newItem.brand = update.brand;
+            if (update.axsku !== undefined) newItem.axsku = update.axsku;
+            if (update.mpn !== undefined) newItem.mpn = update.mpn;
+            if (update.group !== undefined) newItem.group = update.group;
+            // description and uom: only update if QV doesn't have a pending override
+            if (update.description !== undefined && pendingQVEdits.description === undefined) {
+              newItem.description = update.description;
+            }
+            if (update.uom !== undefined && pendingQVEdits.uom === undefined) {
+              newItem.uom = update.uom;
+            }
 
-          // --- Text fields from catalog ---
-          // Protected: if QV has a pending (unsaved) edit for a field, the catalog value doesn't win.
-          const pendingQVEdits = bqItemEdits[item.id] || {};
-          if (update.itemName !== undefined) newItem.itemName = update.itemName;
-          if (update.category !== undefined) newItem.category = update.category;
-          if (update.brand !== undefined) newItem.brand = update.brand;
-          if (update.axsku !== undefined) newItem.axsku = update.axsku;
-          if (update.mpn !== undefined) newItem.mpn = update.mpn;
-          if (update.group !== undefined) newItem.group = update.group;
-          // description and uom: only update if QV doesn't have a pending override
-          if (update.description !== undefined && pendingQVEdits.description === undefined) {
-            newItem.description = update.description;
+            updatesToProcess.push(newItem);
+            return newItem as BQItem;
           }
-          if (update.uom !== undefined && pendingQVEdits.uom === undefined) {
-            newItem.uom = update.uom;
-          }
-
-          updatesToProcess.push(newItem);
-          return newItem as BQItem;
         }
-      }
-      return item;
-    }));
+        return item;
+      });
 
-    // DB writes — full row update for each changed item
-    for (const item of updatesToProcess) {
-      const dbItem = mapBQItemToDB(item);
-      delete dbItem.id;
-      await supabase.from('bq_items').update(dbItem).eq('id', item.id);
-    }
+      // DB writes — full row update for each changed item
+      for (const item of updatesToProcess) {
+        const dbItem = mapBQItemToDB(item);
+        delete dbItem.id;
+        supabase.from('bq_items').update(dbItem).eq('id', item.id).then(({error}) => {
+          if (error) console.error('Error updating BQ item during snapshot sync:', error);
+        });
+      }
+
+      return newItems;
+    });
   };
 
   const updateVersionName = async (projectId: string, versionId: string, name: string) => {
