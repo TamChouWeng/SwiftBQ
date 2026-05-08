@@ -72,6 +72,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         currentProjectId,
         setCurrentProjectId,
         currentVersionId,
+        setCurrentVersionId,
         projects,
         updateProject,
         getProjectTotal,
@@ -853,7 +854,14 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     {filteredProjects.map(project => (
                         <div
                             key={project.id}
-                            onClick={() => setCurrentProjectId(project.id)}
+                            onClick={() => {
+                                setCurrentProjectId(project.id);
+                                if (project.versions.length > 0) {
+                                    setCurrentVersionId(project.versions[project.versions.length - 1].id);
+                                } else {
+                                    setCurrentVersionId(null);
+                                }
+                            }}
                             className="group bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-slate-700 hover:shadow-md hover:border-primary-200 dark:hover:border-primary-800 transition-all cursor-pointer relative overflow-hidden"
                         >
                             <div className="flex justify-between items-start mb-4">
@@ -908,10 +916,12 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                     if (window.confirm("You have unsaved changes. Discard them?")) {
                                         discardAllChanges();
                                         setCurrentProjectId(null);
+                                        setCurrentVersionId(null);
                                         setSelectedVersionId(null);
                                     }
                                 } else {
                                     setCurrentProjectId(null);
+                                    setCurrentVersionId(null);
                                     setSelectedVersionId(null);
                                 }
                             }}
@@ -939,7 +949,9 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                         if (!window.confirm("Changing version will discard unsaved changes. Continue?")) return;
                                         discardAllChanges();
                                     }
-                                    setSelectedVersionId(e.target.value);
+                                    const newVersionId = e.target.value;
+                                    setSelectedVersionId(newVersionId);
+                                    setCurrentVersionId(newVersionId);
                                 }}
                                 className="bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm rounded-lg pl-3 pr-8 py-2 focus:ring-2 focus:ring-primary-500 focus:outline-none appearance-none font-medium min-w-[160px]"
                             >
