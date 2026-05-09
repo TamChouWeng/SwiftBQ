@@ -1,5 +1,5 @@
 # SwiftBQ
-**Version**: Beta 3.8
+**Version**: Beta 3.8.1
 SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management system engineered for the construction industry. It resolves the critical challenge of maintaining a live, centralized Master Price Book while ensuring historical quotations remain completely immutable and strictly isolated.
 
 <!-- Badges -->
@@ -19,7 +19,7 @@ SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management syste
 
 ### User Experience & Performance
 - **Optimistic UI:** Provides a zero-latency experience for users. The BQ Builder saves data locally first, providing instantaneous feedback without waiting for network responses.
-- **High-Fidelity Quotation Preview:** Empowers teams to review exactly what clients will see. Delivers a seamless, single-scroll WYSIWYG preview that flawlessly mirrors the final PDF export without artificial page breaks.
+- **High-Fidelity Quotation Preview:** Empowers teams to review exactly what clients will see. Replaced artificial DOM layouts with an embedded, real-time jsPDF engine preview that guarantees a pixel-perfect, 1:1 visual match with the exported document.
 - **Smart UI Infrastructure:** Prevents interface friction and data loss. Intelligent dropdowns adjust to viewport boundaries, and strict state management ensures inputs are reliably captured during complex strategy adjustments.
 
 ### Financial Control & Security
