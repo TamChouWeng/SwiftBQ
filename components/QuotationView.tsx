@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, User, ChevronDown, Save, RotateCcw, ArrowUpDown } from 'lucide-react';
 import { useAppStore } from '../store';
 import { AppLanguage, BQItem } from '../types';
@@ -14,57 +14,8 @@ interface Props {
     isSidebarOpen: boolean;
 }
 
-// Pagination Constants
-const ITEMS_PER_PAGE_DEFAULT = 14;
-const FOOTER_BUFFER_ITEMS = 6; // If last page has more than (Max - this) items, push footer to new page
-
 type SortKey = 'date' | 'validityPeriod';
 type SortDirection = 'asc' | 'desc';
-
-type RenderRow =
-    | { type: 'item'; data: BQItem }
-    | { type: 'category'; label: string }
-    | { type: 'section_header'; label: string }
-    | { type: 'totals' };
-
-// Helper Component for Auto-Resizing Textarea
-const AutoResizeTextarea = ({
-    value,
-    onChange,
-    className,
-    style,
-    placeholder
-}: {
-    value: string,
-    onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void,
-    className?: string,
-    style?: React.CSSProperties,
-    placeholder?: string
-}) => {
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-    useLayoutEffect(() => {
-        if (textareaRef.current) {
-            // Reset height to auto to correctly calculate scrollHeight for shrinking content
-            textareaRef.current.style.height = 'auto';
-            const scrollHeight = textareaRef.current.scrollHeight;
-            // Add a small buffer (e.g., 2px) to prevent clipping of descenders
-            textareaRef.current.style.height = (scrollHeight + 2) + 'px';
-        }
-    }, [value]);
-
-    return (
-        <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={onChange}
-            className={className}
-            style={{ ...style, resize: 'none', overflow: 'hidden' }}
-            rows={1}
-            placeholder={placeholder}
-        />
-    );
-};
 
 const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     const {
@@ -100,6 +51,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
     // Local state for selecting version in Quotation View
     const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+    const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
 
     // Get current project details
     const activeProject = useMemo(() =>
@@ -126,7 +78,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         setLocalDiscount((pending !== undefined ? pending : committed).toString());
     }, [activeProject?.id, activeProject?.discount, pendingProjectEdits]);
 
-    // Compute Display Terms
     const displayTerms = useMemo(() => {
         if (!activeProject || !selectedVersionId) return '';
 
@@ -139,14 +90,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         const ver = activeProject.versions.find(v => v.id === selectedVersionId);
         return ver?.termsConditions || '';
     }, [activeProject, selectedVersionId, versionEdits]);
-
-    const handleTermsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        if (!selectedVersionId) return;
-        setVersionEdit(selectedVersionId, { termsConditions: e.target.value });
-    };
-
-
-
 
     const activeItems = useMemo(() => {
         const rawItems = bqItems.filter(item => item.projectId === currentProjectId && item.versionId === selectedVersionId);
@@ -185,12 +128,12 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     const optionalItems = useMemo(() => activeItems.filter(item => item.isOptional), [activeItems]);
 
     // Group items by category (Standard)
-    const groupedItems = standardItems.reduce((acc, item) => {
+    const groupedItems = useMemo(() => standardItems.reduce((acc, item) => {
         const cat = item.category || 'Uncategorized';
         if (!acc[cat]) acc[cat] = [];
         acc[cat].push(item);
         return acc;
-    }, {} as Record<string, BQItem[]>);
+    }, {} as Record<string, BQItem[]>), [standardItems]);
 
     const filteredProjects = useMemo(() => {
         let result = projects.filter(p =>
@@ -248,77 +191,9 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         return activeProject?.sst ?? 0;
     })();
 
-    // --- Pagination Logic ---
-    const pages = useMemo(() => {
-        // 1. Flatten all data into render rows
-        const allRows: RenderRow[] = [];
-
-        // Standard Items
-        Object.entries(groupedItems).forEach(([cat, items]) => {
-            allRows.push({ type: 'category', label: cat });
-            (items as BQItem[]).forEach(item => allRows.push({ type: 'item', data: item }));
-        });
-
-        // Insert Totals Marker
-        allRows.push({ type: 'totals' });
-
-        // Optional Items
-        if (optionalItems.length > 0) {
-            allRows.push({ type: 'section_header', label: 'OPTIONAL ITEMS' });
-            optionalItems.forEach(item => allRows.push({ type: 'item', data: item }));
-        }
-
-        // 2. Chunk into pages
-        const _pages: RenderRow[][] = [];
-        let currentBatch: RenderRow[] = [];
-
-        const LIMIT = ITEMS_PER_PAGE_DEFAULT;
-        let weight = 0;
-
-        allRows.forEach((row) => {
-            if (row.type === 'totals') {
-                weight += 2;
-            } else {
-                weight += 1;
-            }
-
-            currentBatch.push(row);
-
-            if (weight >= LIMIT) {
-                _pages.push(currentBatch);
-                currentBatch = [];
-                weight = 0;
-            }
-        });
-
-        if (currentBatch.length > 0) {
-            _pages.push(currentBatch);
-        }
-
-        // 3. Check footer space on last page
-        if (_pages.length > 0) {
-            const lastPage = _pages[_pages.length - 1];
-            const lastWeight = lastPage.reduce((acc, r) => acc + (r.type === 'totals' ? 2 : 1), 0);
-            if (lastWeight > (LIMIT - FOOTER_BUFFER_ITEMS)) {
-                _pages.push([]); // New page for footer
-            }
-        } else {
-            _pages.push([]);
-        }
-
-        return _pages;
-    }, [groupedItems, optionalItems]);
-
-
-    const handleExportPDF = async () => {
-        if (hasUnsavedChanges) {
-            alert("Please save your changes before exporting.");
-            return;
-        }
-
+    const createPdfDoc = useCallback(async () => {
         if (!activeProject || !selectedVersionId) {
-            alert("No project or version selected.");
-            return;
+            return null;
         }
 
         try {
@@ -368,16 +243,8 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     }
 
                     doc.addImage(appSettings.companyLogo, 'PNG', marginLeft, currentY, finalW, finalH);
-                    // Adjust currentY based on actual height used? 
-                    // The text starts at fixed offset usually, or we can check overlap. 
-                    // Text is "QUOTE" on right, and Company Name below logo.
-                    // Original code: currentY += 20; 
-                    // Let's keep space reserve but image fits inside.
-
                 } catch (e) {
                     console.warn("Failed to load company logo:", e);
-                    // Fallback if load fails? Just skip or use fixed box?
-                    // doc.addImage(appSettings.companyLogo, 'PNG', marginLeft, currentY, 40, 16);
                 }
             }
 
@@ -575,12 +442,12 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             doc.text(formatNumber(subtotal), totalsX + totalsWidth, currentY, { align: 'right' });
             currentY += 6;
 
-            const postDiscountTotal = subtotal - discount;
+            const postDiscountTotal = subtotal - effectiveDiscount;
 
             // Special Discount (if applicable)
-            if (discount > 0) {
+            if (effectiveDiscount > 0) {
                 doc.text(`Special Discount (${appSettings.currencySymbol}):`, totalsX, currentY, { align: 'left' });
-                doc.text(`- ${formatNumber(discount)}`, totalsX + totalsWidth, currentY, { align: 'right' });
+                doc.text(`- ${formatNumber(effectiveDiscount)}`, totalsX + totalsWidth, currentY, { align: 'right' });
                 currentY += 4;
 
                 // Big Underline
@@ -788,12 +655,75 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             doc.text('Name:', rightSigX, sigY + 18);
             doc.text('Mobile:', rightSigX, sigY + 26);
 
-            // =============================================
-            // 6. SAVE PDF
-            // =============================================
+            return doc;
+        } catch (err) {
+            console.error("PDF Generation Failed", err);
+            return null;
+        }
+    }, [
+        activeProject,
+        selectedVersionId,
+        appSettings,
+        groupedItems,
+        optionalItems,
+        subtotal,
+        effectiveDiscount,
+        effectiveSST,
+        bqItemEdits,
+        displayTerms
+    ]);
 
-            doc.save(`Quotation-${activeProject.quoteId || 'draft'}.pdf`);
+    useEffect(() => {
+        let active = true;
+        let urlToRevoke: string | null = null;
 
+        const buildPdf = async () => {
+            if (!activeProject || !selectedVersionId) {
+                setPdfPreviewUrl(null);
+                return;
+            }
+
+            const doc = await createPdfDoc();
+            if (!active) return;
+
+            if (doc) {
+                const blob = doc.output('blob');
+                const url = URL.createObjectURL(blob);
+                urlToRevoke = url;
+                setPdfPreviewUrl(url);
+            } else {
+                setPdfPreviewUrl(null);
+            }
+        };
+
+        buildPdf();
+
+        return () => {
+            active = false;
+            if (urlToRevoke) {
+                URL.revokeObjectURL(urlToRevoke);
+            }
+        };
+    }, [createPdfDoc, activeProject, selectedVersionId]);
+
+    const handleExportPDF = async () => {
+        if (hasUnsavedChanges) {
+            alert("Please save your changes before exporting.");
+            return;
+        }
+
+        if (!activeProject || !selectedVersionId) {
+            alert("No project or version selected.");
+            return;
+        }
+
+        try {
+            const doc = await createPdfDoc();
+            if (doc) {
+                doc.save(`Quotation-${activeProject.quoteId || 'draft'}.pdf`);
+            } else {
+                alert("Failed to generate PDF. Please try again.");
+            }
         } catch (err) {
             console.error("PDF Export Failed", err);
             alert("Failed to generate PDF. Please try again.");
@@ -1039,345 +969,20 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 </div>
             </div>
 
-            {activeItems.length === 0 && pages.length <= 1 ? (
+            {!pdfPreviewUrl ? (
                 <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in flex-1">
                     <div className="bg-gray-100 dark:bg-slate-800 p-6 rounded-full mb-4">
-                        <FileText size={48} className="text-slate-400" />
+                        <FileText size={48} className="text-slate-400 animate-pulse" />
                     </div>
-                    <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-300">{t.noData}</h2>
-                    <p className="text-sm text-slate-500 mt-2">Ensure the selected version has items.</p>
+                    <h2 className="text-xl font-semibold text-slate-700 dark:text-slate-300">Generating PDF Preview...</h2>
                 </div>
             ) : (
-                /* Pagination Wrapper */
-                <div className="flex-1 overflow-auto bg-gray-200 dark:bg-slate-950 p-8 flex flex-col items-center gap-8">
-                    {pages.map((pageRows, pageIndex) => {
-                        const isFirstPage = pageIndex === 0;
-                        const isLastPage = pageIndex === pages.length - 1;
-
-                        return (
-                            <div
-                                key={pageIndex}
-                                className="quotation-page bg-white text-black p-[10mm] w-[210mm] min-h-[297mm] shadow-2xl relative font-sans flex flex-col shrink-0"
-                                style={{ fontSize: '10pt', lineHeight: '1.3' }}
-                            >
-                                {/* 1. Header Section (First Page Only) */}
-                                {isFirstPage && (
-                                    <>
-                                        <div className="flex justify-between items-start mb-4">
-                                            {/* Left: Company Details */}
-                                            <div className="w-[60%] pb-2">
-                                                {appSettings.companyLogo && (
-                                                    <img
-                                                        src={appSettings.companyLogo}
-                                                        alt="Company Logo"
-                                                        className="max-h-20 w-auto mb-3"
-                                                        style={{ objectFit: 'contain' }} // Fallback safety
-                                                        onError={(e) => {
-                                                            e.currentTarget.style.display = 'none'; // Hide if broken
-                                                        }}
-                                                    />
-                                                )}
-                                                <h2 className="font-bold text-xl text-red-600 mb-2">{appSettings.companyName}</h2>
-                                                <p className="whitespace-pre-line text-xs leading-normal">{appSettings.companyAddress}</p>
-                                            </div>
-
-                                            {/* Right: QUOTE Title */}
-                                            <div className="w-[40%] text-right pb-2">
-                                                <h1 className="text-3xl font-bold tracking-widest uppercase mb-4">QUOTE</h1>
-                                            </div>
-                                        </div>
-
-                                        {/* 2. Bill To / Reference Section */}
-                                        <div className="flex justify-between gap-8 mb-6">
-                                            {/* Bill To */}
-                                            <div className="w-[55%]">
-                                                <div className="mb-3">
-                                                    <span className="font-bold text-xs uppercase border-b border-black pb-1 inline-block">BILL / SHIP TO:</span>
-                                                </div>
-                                                <table className="w-full text-xs text-black border-collapse">
-                                                    <tbody>
-                                                        <tr>
-                                                            <td className="w-20 font-semibold align-top py-0.5">Attn to:</td>
-                                                            <td className="align-top py-0.5 uppercase">{activeProject?.clientContact || 'N/A'}</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td className="w-20 font-semibold align-top py-0.5">Client:</td>
-                                                            <td className="align-top py-0.5 uppercase">{activeProject?.clientName}</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td className="w-20 font-semibold align-top py-0.5">Address:</td>
-                                                            <td className="align-top py-0.5 whitespace-pre-wrap">{activeProject?.clientAddress}</td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-
-                                            {/* Quote Reference */}
-                                            <div className="w-[40%]">
-                                                <div className="mb-3">
-                                                    <span className="font-bold text-xs uppercase border-b border-black pb-1 inline-block">QUOTE REFERENCE:</span>
-                                                </div>
-                                                <table className="w-full text-xs text-black border-collapse">
-                                                    <tbody>
-                                                        <tr>
-                                                            <td className="w-24 font-semibold align-top py-0.5">Quote #:</td>
-                                                            <td className="align-top py-0.5">{activeProject?.quoteId}</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td className="w-24 font-semibold align-top py-0.5">Date:</td>
-                                                            <td className="align-top py-0.5">{activeProject?.date}</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td className="w-24 font-semibold align-top py-0.5">Valid for:</td>
-                                                            <td className="align-top py-0.5">{activeProject?.validityPeriod} Days</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td className="w-24 font-semibold align-top py-0.5">Issued by:</td>
-                                                            <td className="align-top py-0.5">{appSettings.profileName}</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td className="w-24 font-semibold align-top py-0.5">Contact:</td>
-                                                            <td className="align-top py-0.5">{appSettings.profileContact}</td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
-
-                                {/* Block A (Standard Items) */}
-                                <div className="mb-6">
-                                    {pageRows.filter(r => r.type === 'category' || (r.type === 'item' && !r.data.isOptional)).length > 0 && (
-                                        <table className="w-full border-collapse border border-black text-xs text-black">
-                                            <colgroup>
-                                                <col className="w-8" />
-                                                <col className="w-32" />
-                                                <col className="w-auto" />
-                                                <col className="w-20" />
-                                                <col className="w-10" />
-                                                <col className="w-12" />
-                                                <col className="w-24" />
-                                            </colgroup>
-                                            {isFirstPage && (
-                                                <thead>
-                                                    <tr className="bg-gray-100">
-                                                        <th className="border border-black py-3 px-1 w-8 text-center font-bold text-[10px]">NO</th>
-                                                        <th className="border border-black py-3 px-1 w-32 text-left font-bold text-[10px]">ITEM</th>
-                                                        <th className="border border-black py-3 px-1 text-left font-bold text-[10px]">DESCRIPTION</th>
-                                                        <th className="border border-black py-3 px-1 w-20 text-right font-bold text-[10px]">Unit Price ({appSettings.currencySymbol})</th>
-                                                        <th className="border border-black py-3 px-1 w-10 text-center font-bold text-[10px]">QTY</th>
-                                                        <th className="border border-black py-3 px-1 w-12 text-center font-bold text-[10px]">UOM</th>
-                                                        <th className="border border-black py-3 px-1 w-24 text-right font-bold text-[10px]">Total Price ({appSettings.currencySymbol})</th>
-                                                    </tr>
-                                                </thead>
-                                            )}
-                                            <tbody>
-                                                {pageRows.map((row, idx) => {
-                                                    if (row.type === 'category') {
-                                                        return (
-                                                            <tr key={`cat-${idx}`}>
-                                                                <td className="border border-black p-1 bg-gray-200"></td>
-                                                                <td className="border border-black p-1 font-bold bg-gray-50 uppercase pl-2 text-[10px]" colSpan={6}>
-                                                                    {row.label}
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    } else if (row.type === 'item' && !row.data.isOptional) {
-                                                        const item = row.data;
-                                                        const displayDescription = bqItemEdits[item.id]?.description ?? item.description;
-                                                        return (
-                                                            <tr key={item.id}>
-                                                                <td className="border border-black p-1 text-center align-top text-[10px]">{globalRowCounter++}</td>
-                                                                <td className="border border-black p-1 align-top">
-                                                                    <div className="font-bold text-[10px] mb-1 leading-tight">{item.itemName}</div>
-                                                                </td>
-                                                                <td className="border border-black p-1 align-top whitespace-pre-wrap text-[10px] leading-tight">
-                                                                    <AutoResizeTextarea
-                                                                        value={displayDescription}
-                                                                        onChange={(e) => setBQItemEdit(item.id, { description: e.target.value })}
-                                                                        className="w-full bg-transparent border-none p-0 text-[10px] text-black whitespace-pre-wrap leading-tight focus:ring-0"
-                                                                    />
-                                                                </td>
-                                                                <td className="border border-black p-1 text-right align-top text-[10px]">{formatNumber(item.price)}</td>
-                                                                <td className="border border-black p-1 text-center align-top text-[10px]">{item.qty}</td>
-                                                                <td className="border border-black p-1 text-center align-top text-[10px]">{item.uom}</td>
-                                                                <td className="border border-black p-1 text-right align-top font-semibold text-[10px]">{formatNumber(item.total)}</td>
-                                                            </tr>
-                                                        );
-                                                    }
-                                                    return null;
-                                                })}
-                                            </tbody>
-                                        </table>
-                                    )}
-
-                                    {/* Block B (The Totals Box) */}
-                                    {pageRows.some(r => r.type === 'totals') && (
-                                        <div className="flex justify-end my-6 text-black break-inside-avoid">
-                                            <div className="w-[45%]">
-                                                <div className="flex justify-between py-1">
-                                                    <span className="text-[11px]">Subtotal ({appSettings.currencySymbol}):</span>
-                                                    <span className="text-[11px]">{formatNumber(subtotal)}</span>
-                                                </div>
-
-                                                {effectiveDiscount > 0 && (
-                                                    <>
-                                                        <div className="flex justify-between py-1">
-                                                            <span className="text-[11px]">Special Discount ({appSettings.currencySymbol}):</span>
-                                                            <span className="text-[11px]">- {formatNumber(effectiveDiscount)}</span>
-                                                        </div>
-                                                        <div className="border-t-[1.5px] border-black my-1"></div>
-                                                        <div className="flex justify-between py-1">
-                                                            <span className="text-[11px]">Total After Discount ({appSettings.currencySymbol}):</span>
-                                                            <span className="text-[11px]">{formatNumber(subtotal - effectiveDiscount)}</span>
-                                                        </div>
-                                                    </>
-                                                )}
-
-                                                {effectiveSST > 0 && (
-                                                    <div className="flex justify-between py-1">
-                                                        <span className="text-[11px]">SST of {effectiveSST}%:</span>
-                                                        <span className="text-[11px]">{formatNumber((subtotal - effectiveDiscount) * (effectiveSST / 100))}</span>
-                                                    </div>
-                                                )}
-
-                                                <div className="border-t border-black my-1"></div>
-
-                                                <div className="flex justify-between py-1 font-bold uppercase">
-                                                    <span className="text-[11px]">
-                                                        {effectiveSST > 0 ? `TOTAL INCLUSIVE SST (${appSettings.currencySymbol}):` : `TOTAL (${appSettings.currencySymbol}):`}
-                                                    </span>
-                                                    <span className="text-[11px]">{formatNumber((subtotal - effectiveDiscount) * (1 + effectiveSST / 100))}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Block C (Optional Items) */}
-                                    {pageRows.filter(r => r.type === 'section_header' || (r.type === 'item' && r.data.isOptional)).length > 0 && (
-                                        <table className="w-full border-collapse border border-black text-xs text-black mt-6 break-inside-avoid">
-                                            <colgroup>
-                                                <col className="w-8" />
-                                                <col className="w-32" />
-                                                <col className="w-auto" />
-                                                <col className="w-20" />
-                                                <col className="w-10" />
-                                                <col className="w-12" />
-                                                <col className="w-24" />
-                                            </colgroup>
-                                            <tbody>
-                                                {pageRows.map((row, idx) => {
-                                                    if (row.type === 'section_header') {
-                                                        return (
-                                                            <tr key={`header-${idx}`}>
-                                                                <td className="border border-black p-1 bg-gray-200"></td>
-                                                                <td className="border border-black p-1 font-bold bg-gray-100 text-center uppercase text-[10px]" colSpan={6}>
-                                                                    {row.label}
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    } else if (row.type === 'item' && row.data.isOptional) {
-                                                        const item = row.data;
-                                                        const displayDescription = bqItemEdits[item.id]?.description ?? item.description;
-                                                        return (
-                                                            <tr key={item.id}>
-                                                                <td className="border border-black p-1 text-center align-top text-[10px]">{globalRowCounter++}</td>
-                                                                <td className="border border-black p-1 align-top">
-                                                                    <div className="font-bold text-[10px] mb-1 leading-tight">{item.itemName}</div>
-                                                                </td>
-                                                                <td className="border border-black p-1 align-top whitespace-pre-wrap text-[10px] leading-tight">
-                                                                    <AutoResizeTextarea
-                                                                        value={displayDescription}
-                                                                        onChange={(e) => setBQItemEdit(item.id, { description: e.target.value })}
-                                                                        className="w-full bg-transparent border-none p-0 text-[10px] text-black whitespace-pre-wrap leading-tight focus:ring-0"
-                                                                    />
-                                                                </td>
-                                                                <td className="border border-black p-1 text-right align-top text-[10px]">{formatNumber(item.price)}</td>
-                                                                <td className="border border-black p-1 text-center align-top text-[10px]">{item.qty}</td>
-                                                                <td className="border border-black p-1 text-center align-top text-[10px]">{item.uom}</td>
-                                                                <td className="border border-black p-1 text-right align-top font-semibold text-[10px]">{formatNumber(item.total)}</td>
-                                                            </tr>
-                                                        );
-                                                    }
-                                                    return null;
-                                                })}
-                                            </tbody>
-                                        </table>
-                                    )}
-                                </div>
-
-                                {/* 4. Footer Section (Last Page Only) */}
-                                {isLastPage && (
-                                    <div className="mt-4">
-                                        {/* Terms & Signature */}
-                                        <div className="text-black">
-                                            <div className="text-xs mb-6">
-                                                <div className="mb-3 flex items-center justify-between">
-                                                    <span className="font-bold border-b border-black pb-1 inline-block">TERMS & CONDITIONS:</span>
-                                                </div>
-                                                <AutoResizeTextarea
-                                                    value={displayTerms}
-                                                    onChange={handleTermsChange}
-                                                    className="w-full text-black bg-transparent border-none p-0 focus:ring-1 focus:ring-blue-200 rounded resize-none overflow-hidden whitespace-pre-wrap"
-                                                    style={{ minHeight: '80px', lineHeight: '1.4' }}
-                                                    placeholder="Enter Terms & Conditions..."
-                                                />
-                                            </div>
-
-                                            <div className="flex justify-between items-end text-xs italic">
-                                                <div className="w-[50%]"><p>Thank you for your business,</p></div>
-                                                <div className="w-[40%] text-center font-bold text-[10px] not-italic"><p>Sign and return to confirm your order.</p></div>
-                                            </div>
-
-                                            <div className="h-16"></div>
-
-                                            <div className="flex justify-between items-start text-xs">
-                                                <div className="w-[50%] relative">
-                                                    <div className="border-t border-black pt-1">
-                                                        <div className="text-[10px] space-y-1">
-                                                            <p className="font-bold text-xs">{appSettings.companyName}</p>
-                                                            <p className="text-blue-600 underline">{appSettings.companyEmail || 'email@example.com'}</p>
-                                                            <div className="mt-2">
-                                                                <p className="italic mb-1">All cheques should be crossed and made to :</p>
-                                                                <p className="font-bold">{appSettings.companyName}</p>
-                                                                <p>Bank Name: <span className="font-semibold">{appSettings.bankName}</span></p>
-                                                                <p>Bank Account: <span className="font-semibold">{appSettings.bankAccount}</span></p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    {appSettings.profileSignature && (
-                                                        <img
-                                                            src={appSettings.profileSignature}
-                                                            alt="Signature"
-                                                            className="absolute left-0 bottom-full mb-2 h-16 w-auto object-contain mix-blend-multiply"
-                                                            onError={(e) => {
-                                                                e.currentTarget.style.display = 'none';
-                                                            }}
-                                                        />
-                                                    )}
-                                                </div>
-
-                                                <div className="w-[40%]">
-                                                    <div className="border-t border-black pt-1">
-                                                        <div className="flex justify-between text-[10px] text-black font-bold mb-4 items-start">
-                                                            <div className="flex flex-col"><span>Company Stamp</span><span className="font-normal italic text-[9px] text-gray-500">(if any)</span></div>
-                                                            <div className="flex flex-col text-right"><span>Authorized</span><span>Signature</span></div>
-                                                        </div>
-                                                        <div className="space-y-3 font-bold text-black text-[10px]">
-                                                            <div className="flex items-end gap-2"><span className="w-12">Name:</span></div>
-                                                            <div className="flex items-end gap-2"><span className="w-12">Mobile:</span></div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                            </div>
-                        )
-                    })}
+                <div className="flex-1 w-full bg-gray-200 dark:bg-slate-950 overflow-hidden flex justify-center">
+                    <iframe
+                        src={`${pdfPreviewUrl}#toolbar=0`}
+                        className="w-full max-w-[210mm] h-full bg-white shadow-2xl border-none"
+                        title="PDF Preview"
+                    />
                 </div>
             )}
         </div>
