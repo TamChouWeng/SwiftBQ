@@ -1,83 +1,61 @@
-# SwiftBQ
-**Version**: Beta 3.8.1
+# SwiftBQ Project Architecture & Features
 
 ## 📝 Overview
 SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management system designed for the construction industry. It solves the critical challenge of maintaining a live "Master Price Book" while ensuring that historical quotations remain immutable through robust data independence.
 
-## 🚀 Key Features (Beta 3.8.1)
+## 🚀 Core Features
 
-### 1. High-Fidelity PDF Preview
-- **PDF-First Architecture**: Replaced manual DOM-based pagination and HTML table rendering with a centralized jsPDF generation approach.
-- **1:1 WYSIWYG Accuracy**: The Web UI now seamlessly embeds the live-generated PDF via an iframe using an in-memory `bloburl`. This guarantees a flawless, pixel-perfect match between the responsive on-screen preview and the final exported document.
-- **Real-Time Generation**: Modifying project settings (like discounts or SST) instantaneously triggers a background regeneration of the preview document.
+### Data Integrity & Reliability
+- **Immutable Quotes (Snapshots):** Guarantees that historical quotations are completely insulated from future price adjustments. Creating a project version captures a static snapshot of the Master List, preserving 100% accuracy for auditing and client trust.
+- **Transactional Save System:** Eliminates the risk of fragmented or corrupted records. Edits are batch-committed to cloud storage in a single transaction, ensuring comprehensive data consistency.
+- **Cascading Precision:** Maintains a clean and performant database over time. Deleting a project automatically triggers a synchronized cleanup of all its associated versions and sub-items.
 
-## 🚀 Key Features (Beta 3.8)
+### User Experience & Performance
+- **Optimistic UI:** Provides a zero-latency experience for users. The BQ Builder saves data locally first, providing instantaneous feedback without waiting for network responses.
+- **High-Fidelity Quotation Preview:** Empowers teams to review exactly what clients will see. Replaced artificial DOM layouts with an embedded, real-time jsPDF engine preview that guarantees a pixel-perfect, 1:1 visual match with the exported document.
+- **Smart UI Infrastructure:** Prevents interface friction and data loss. Intelligent dropdowns adjust to viewport boundaries, and strict state management ensures inputs are reliably captured during complex strategy adjustments.
 
-### 1. Financial Control Enhancements
-- **Advanced Taxation & Discounts**: Introduced dynamic Sales and Service Tax (SST) selection and Special Discount inputs directly within the Quotation View.
-- **State Buffer Integration**: Custom financial modifiers are buffered into the global `pendingProjectEdits` state, allowing real-time preview updates without taxing the database until explicitly saved.
+### Financial Control & Security
+- **Dynamic Pricing Engine:** Accelerates the quoting process and margin analysis. Calculates prices on the fly using customizable formulas, allowing rapid toggling between distinct pricing strategies to assess margin impacts immediately.
+- **Advanced Taxation & Discounts:** Seamlessly apply Sales and Service Tax (SST) and Special Discounts directly from the Quotation View. Values are persisted to the database and cleanly formatted into the exported PDF.
+- **Enterprise-Grade Security:** Enforces strict data privacy. Supabase Row Level Security (RLS) ensures that user records and client datasets are aggressively isolated by account.
 
-## 🚀 Key Features (Beta 3.7)
+## 🏗 Architecture & Tech Stack
 
-### 1. Authoritative Pricing Sync
-- **Dynamic Price Resolution**: Fixed critical discrepancy where the Builder Catalog view calculated row totals based on dynamic Master List snapshots, but the bottom bar Grand Totals aggregated stale database cache. 
-- **Consolidated Mathematics**: All project bottom bar and global Grand Total metrics now mathematically guarantee perfect parity with the on-screen generated item prices, resolving database sync ghosts entirely by enforcing the Snapshot as the absolute source of truth.
+### Frontend Ecosystem
+- **React 19:** Component-driven user interface.
+- **TypeScript:** End-to-end type safety and enhanced developer experience.
+- **Vite:** Lightning-fast module bundling and local dev server.
+- **Tailwind CSS:** Utility-first framework for responsive and consistent styling.
+- **jsPDF:** Robust client-side PDF document generation.
 
-## 🚀 Key Features (Beta 3.6)
+### Backend & Infrastructure
+- **Supabase (PostgreSQL):** Powerful relational database management.
+- **Real-time Sync:** Continuous synchronization of profiles, catalogs, and project states across sessions.
+- **Row Level Security (RLS):** Database-level access policies governing strictly partitioned datasets.
 
-### 1. Robust State Management & Data Integrity
-- **Granular Database Updates**: Eliminated dangerous "whole-object" database writes. Saves now only update specific modified columns, preventing cross-tab data overwrites.
-- **Eliminated Save Race Conditions**: Fixed critical synchronization bugs where rapidly switching between the BQ Builder and Quotation View would cause description edits or quantity changes to mutually overwrite.
-- **Independent Tab Buffers**: Quotation-specific edits (like descriptions and discounts) are now securely buffered in the global state independently from Catalog edits, guaranteeing that changes naturally merge without conflict.
+## 📁 Directory Structure
+- `/components/`: The UI view layer (e.g., `BQBuilderView`, `QuotationView`, `SettingsView`).
+- `/utils/`: Pure helper functions and data sanitizers.
+- `/store.tsx`: The heart of the application. Contains the React `AppContext`, Supabase client initialization, all data mappers between DB and UI, and the global optimistic state buffers.
+- `/types.ts`: TypeScript interfaces defining the database schema and application entities (`MasterItem`, `Project`, `BQItem`).
+- `/pricingStrategies.ts` & `/mathUtils.ts`: The dynamic pricing engine containing formulas for DDP, SP, and RSP strategies.
+- `/App.tsx`: The main entry point handling high-level layout and rendering.
 
-### 2. Intelligent Save Guard
-- **Foolproof Tab Switching**: The "Unsaved Changes" guard dialog now correctly detects and protects all pending edits (including catalog changes and special discounts) before allowing tab navigation.
-- **Predictable Discard Logic**: Removed premature background database writes. Clicking "Discard Changes" now flawlessly reverts all visual inputs and uncommitted states back to the last known database snapshot, ensuring complete user control.
+## 🧠 State Management & Data Flow
+SwiftBQ employs a highly **Optimistic UI** driven by a centralized React Context (`AppContext`) inside `store.tsx`. 
 
-## 🚀 Key Features (Beta 3.5)
-- **Add Custom Items to BQ**: Users can now add custom items directly to a specific quotation (project & version) without adding them to the global master list. Custom items persist in the project snapshot and automatically appear in both Catalog and Review views.
+- **Independent Edit Buffers:** Instead of binding inputs directly to the main state, user edits are captured in isolated state dictionaries (e.g., `masterListEdits`, `versionEdits`, `bqStagedEdits`, `pendingProjectEdits`).
+- **Conflict Resolution:** By buffering edits based on context, the system allows users to freely navigate between tabs without triggering race conditions or premature database writes.
+- **Transactional Commits:** Changes only hit the Supabase database when explicitly saved via `saveAllChanges()` or specific `commit` functions, allowing users to safely discard complex UI experiments without data corruption.
 
-### 1. UI Refinements & Bug Fixes
-- **Smart Dropdowns**: Smart Price Strategy dropdowns now intelligently align themselves (upwards or to the right) to prevent clipping by screen or modal edges.
-- **Reliable State Management**: Eliminated data loss bugs in the BQ Builder Catalog where newly typed quantities or prices would randomly disappear when choosing a pricing strategy because of stale React closures.
-- **Header Cleanup**: Removed the redundant "Add Custom Item" Plus button from the main BQ Builder header to provide a cleaner layout.
-
-## 🚀 Key Features (Beta 3.3)
-
-### 1. High-Fidelity Quotation Preview
-- **Continuous Layout**: Replaced paginated view with a seamless, single-scroll experience.
-- **WYSIWYG Accuracy**: On-screen preview now exactly mirrors the PDF output, including headers, footers, and item flow.
-- **Smart Layout**: Headers appear logically at the start, and totals/signatures naturally at the end, without artificial page breaks interrupting the view.
-
-### 2. Data Independence (Snapshots)
-- **Immutable Quotes**: When a new project version is created, the system takes a "snapshot" of the Master List.
-- **Safety**: Subsequent price increases in the Master List do **not** affect existing quotes. Your historical data remains 100% accurate to the time it was created.
-
-### 3. Transactional Save System
-- **Optimistic UI**: Experience instant feedback in the BQ Builder. Data is saved locally first for zero latency.
-- **Batch Commits**: Changes are synced to the cloud (Supabase) in a single transaction only when you click "Save", ensuring data integrity and preventing partial updates.
-
-### 4. Dynamic Pricing Engine
-- **Smart Formulas**: Prices are calculated automatically using configurable "Recipes" (e.g., `(FOB * Forex * SST) / OPTA`).
-- **Real-time Updates**: Toggle between pricing strategies to instantly see the impact on your margins.
-
-### 5. Enterprise-Grade Security
-- **Data Isolation**: Strict Row Level Security ensures users can only access their own projects.
-- **Cascading Precision**: Deleting a project automatically cleans up all related versions and items, keeping your database pristine.
-
-## �️ Database Integration (Supabase)
+## 🗄️ Database Integration (Supabase)
 SwiftBQ leverages **Supabase** (PostgreSQL) for robust cloud persistence and authentication.
 
 - **Real-time Sync**: User profiles, company details, and project data are synchronized across devices.
-- **Row Level Security (RLS)**: ensures data privacy by strictly isolating records based on `user_id`.
+- **Row Level Security (RLS)**: Ensures data privacy by strictly isolating records based on `user_id`.
 - **Tables Structure**:
   - `master_list_items`: Global price book.
   - `projects` & `project_versions`: Project metadata and version snapshots.
   - `bq_items`: Individual bill of quantities items linked to versions.
   - `profiles`: User settings and signatures.
-
-## �💻 Tech Stack
-- **Frontend**: React 19, TypeScript, Vite
-- **Styling**: Tailwind CSS
-- **Backend**: Supabase (PostgreSQL)
-- **PDF Engine**: Client-side generation with `jspdf`
