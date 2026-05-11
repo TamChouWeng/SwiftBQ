@@ -1163,12 +1163,12 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                                 <thead>
                                                     <tr className="bg-gray-100">
                                                         <th className="border border-black py-3 px-1 w-8 text-center font-bold text-[10px]">NO</th>
-                                                        <th className="border border-black py-3 px-1 w-32 text-left font-bold text-[10px]">ITEM</th>
-                                                        <th className="border border-black py-3 px-1 text-left font-bold text-[10px]">DESCRIPTION</th>
-                                                        <th className="border border-black py-3 px-1 w-20 text-right font-bold text-[10px]">Unit Price ({appSettings.currencySymbol})</th>
+                                                        <th className="border border-black py-3 px-1 w-32 text-center font-bold text-[10px]">ITEM</th>
+                                                        <th className="border border-black py-3 px-1 text-center font-bold text-[10px]">DESCRIPTION</th>
+                                                        <th className="border border-black py-3 px-1 w-20 text-center font-bold text-[10px]">Unit Price ({appSettings.currencySymbol})</th>
                                                         <th className="border border-black py-3 px-1 w-10 text-center font-bold text-[10px]">QTY</th>
                                                         <th className="border border-black py-3 px-1 w-12 text-center font-bold text-[10px]">UOM</th>
-                                                        <th className="border border-black py-3 px-1 w-24 text-right font-bold text-[10px]">Total Price ({appSettings.currencySymbol})</th>
+                                                        <th className="border border-black py-3 px-1 w-24 text-center font-bold text-[10px]">Total Price ({appSettings.currencySymbol})</th>
                                                     </tr>
                                                 </thead>
                                             )}
