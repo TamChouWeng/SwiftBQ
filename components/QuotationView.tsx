@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { Download, FileText, AlertCircle, ArrowLeft, Search, Calendar, Clock, User, ChevronDown, Save, RotateCcw, ArrowUpDown } from 'lucide-react';
 import { useAppStore } from '../store';
@@ -14,9 +13,10 @@ interface Props {
     isSidebarOpen: boolean;
 }
 
-// Pagination Constants
-const ITEMS_PER_PAGE_DEFAULT = 14;
-const FOOTER_BUFFER_ITEMS = 6; // If last page has more than (Max - this) items, push footer to new page
+// Pagination Constants (Updated to dynamic weights to match jsPDF export line calculations)
+const MAX_WEIGHT_FIRST_PAGE = 45;
+const MAX_WEIGHT_OTHER_PAGES = 60;
+const FOOTER_WEIGHT = 18; // If last page has more than (Max - this) weight, push footer to new page
 
 type SortKey = 'date' | 'validityPeriod';
 type SortDirection = 'asc' | 'desc';
@@ -145,9 +145,6 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         setVersionEdit(selectedVersionId, { termsConditions: e.target.value });
     };
 
-
-
-
     const activeItems = useMemo(() => {
         const rawItems = bqItems.filter(item => item.projectId === currentProjectId && item.versionId === selectedVersionId);
         const version = activeProject?.versions.find(v => v.id === selectedVersionId);
@@ -268,27 +265,47 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             optionalItems.forEach(item => allRows.push({ type: 'item', data: item }));
         }
 
-        // 2. Chunk into pages
+        // 2. Chunk into pages using dynamic line-weight algorithm
         const _pages: RenderRow[][] = [];
         let currentBatch: RenderRow[] = [];
 
-        const LIMIT = ITEMS_PER_PAGE_DEFAULT;
-        let weight = 0;
+        let currentWeight = 0;
+        let isFirstPage = true;
 
         allRows.forEach((row) => {
+            let rowWeight = 0;
+
             if (row.type === 'totals') {
-                weight += 2;
-            } else {
-                weight += 1;
+                rowWeight = 6;
+            } else if (row.type === 'category' || row.type === 'section_header') {
+                rowWeight = 2;
+            } else if (row.type === 'item') {
+                const desc = bqItemEdits[row.data.id]?.description ?? row.data.description ?? '';
+                const itemName = row.data.itemName ?? '';
+
+                // Count explicit newlines
+                const descLines = (desc.match(/\n/g) || []).length + 1;
+                const nameLines = (itemName.match(/\n/g) || []).length + 1;
+
+                // Rough character wrap estimation (assuming ~55 chars per line for desc column)
+                const descWrap = Math.ceil(desc.length / 55);
+                const nameWrap = Math.ceil(itemName.length / 25);
+
+                rowWeight = Math.max(descLines, nameLines, descWrap, nameWrap, 1);
+                rowWeight += 0.5; // Padding buffer per row
+            }
+
+            const limit = isFirstPage ? MAX_WEIGHT_FIRST_PAGE : MAX_WEIGHT_OTHER_PAGES;
+
+            if (currentWeight + rowWeight > limit && currentBatch.length > 0) {
+                _pages.push(currentBatch);
+                currentBatch = [];
+                currentWeight = 0;
+                isFirstPage = false;
             }
 
             currentBatch.push(row);
-
-            if (weight >= LIMIT) {
-                _pages.push(currentBatch);
-                currentBatch = [];
-                weight = 0;
-            }
+            currentWeight += rowWeight;
         });
 
         if (currentBatch.length > 0) {
@@ -298,8 +315,16 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         // 3. Check footer space on last page
         if (_pages.length > 0) {
             const lastPage = _pages[_pages.length - 1];
-            const lastWeight = lastPage.reduce((acc, r) => acc + (r.type === 'totals' ? 2 : 1), 0);
-            if (lastWeight > (LIMIT - FOOTER_BUFFER_ITEMS)) {
+            const limit = _pages.length === 1 ? MAX_WEIGHT_FIRST_PAGE : MAX_WEIGHT_OTHER_PAGES;
+
+            let lastWeight = 0;
+            lastPage.forEach(row => {
+                if (row.type === 'totals') lastWeight += 6;
+                else if (row.type === 'category' || row.type === 'section_header') lastWeight += 2;
+                else lastWeight += 2; // rough fallback average
+            });
+
+            if (lastWeight > (limit - FOOTER_WEIGHT)) {
                 _pages.push([]); // New page for footer
             }
         } else {
@@ -307,8 +332,7 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         }
 
         return _pages;
-    }, [groupedItems, optionalItems]);
-
+    }, [groupedItems, optionalItems, bqItemEdits]);
 
     const handleExportPDF = async () => {
         if (hasUnsavedChanges) {
@@ -368,23 +392,15 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                     }
 
                     doc.addImage(appSettings.companyLogo, 'PNG', marginLeft, currentY, finalW, finalH);
-                    // Adjust currentY based on actual height used? 
-                    // The text starts at fixed offset usually, or we can check overlap. 
-                    // Text is "QUOTE" on right, and Company Name below logo.
-                    // Original code: currentY += 20; 
-                    // Let's keep space reserve but image fits inside.
-
                 } catch (e) {
                     console.warn("Failed to load company logo:", e);
-                    // Fallback if load fails? Just skip or use fixed box?
-                    // doc.addImage(appSettings.companyLogo, 'PNG', marginLeft, currentY, 40, 16);
                 }
             }
 
             // QUOTE Title (right aligned)
             doc.setFontSize(24);
             doc.setFont('helvetica', 'bold');
-            doc.text('QUOTE', pageWidth - marginRight, currentY + 10, { align: 'right' }); // Moved up (was +10)
+            doc.text('QUOTE', pageWidth - marginRight, currentY + 10, { align: 'right' });
 
             currentY += 20;
 
@@ -1162,13 +1178,13 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                             {isFirstPage && (
                                                 <thead>
                                                     <tr className="bg-gray-100">
-                                                        <th className="border border-black py-3 px-1 w-8 text-center font-bold text-[10px]">NO</th>
-                                                        <th className="border border-black py-3 px-1 w-32 text-center font-bold text-[10px]">ITEM</th>
-                                                        <th className="border border-black py-3 px-1 text-center font-bold text-[10px]">DESCRIPTION</th>
-                                                        <th className="border border-black py-3 px-1 w-20 text-center font-bold text-[10px]">Unit Price ({appSettings.currencySymbol})</th>
-                                                        <th className="border border-black py-3 px-1 w-10 text-center font-bold text-[10px]">QTY</th>
-                                                        <th className="border border-black py-3 px-1 w-12 text-center font-bold text-[10px]">UOM</th>
-                                                        <th className="border border-black py-3 px-1 w-24 text-center font-bold text-[10px]">Total Price ({appSettings.currencySymbol})</th>
+                                                        <th className="border border-black py-1.5 px-1 w-8 text-center font-bold text-[10px]">NO</th>
+                                                        <th className="border border-black py-1.5 px-1 w-32 text-center font-bold text-[10px]">ITEM</th>
+                                                        <th className="border border-black py-1.5 px-1 text-center font-bold text-[10px]">DESCRIPTION</th>
+                                                        <th className="border border-black py-1.5 px-1 w-20 text-center font-bold text-[10px]">Unit Price ({appSettings.currencySymbol})</th>
+                                                        <th className="border border-black py-1.5 px-1 w-10 text-center font-bold text-[10px]">QTY</th>
+                                                        <th className="border border-black py-1.5 px-1 w-12 text-center font-bold text-[10px]">UOM</th>
+                                                        <th className="border border-black py-1.5 px-1 w-24 text-center font-bold text-[10px]">Total Price ({appSettings.currencySymbol})</th>
                                                     </tr>
                                                 </thead>
                                             )}
