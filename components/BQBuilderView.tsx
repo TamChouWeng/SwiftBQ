@@ -374,7 +374,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         document.body.style.cursor = '';
     };
 
-    const { grandTotal } = currentProjectId && currentVersionId ? getProjectTotal(currentProjectId, currentVersionId) : { grandTotal: 0 };
+    const { grandTotal, discount } = currentProjectId && currentVersionId ? getProjectTotal(currentProjectId, currentVersionId) : { grandTotal: 0, discount: 0 };
     const totalItemsSelected = activeItems.reduce((acc, item) => acc + (Number(item.qty) || 0), 0);
 
 
@@ -418,8 +418,9 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     const totalTSP = useMemo(() => resolvedActiveItems.reduce((sum, item) => sum + (item.qty * (getPriceValue(item.rexSp) || 0)), 0), [resolvedActiveItems]);
     // Total TRSP is essentially the sum of Item Totals (Selling Price * Qty)
     const totalTRSP = useMemo(() => resolvedActiveItems.reduce((sum, item) => sum + (item.qty * (getPriceValue(item.rexRsp) || 0)), 0), [resolvedActiveItems]);
-    const totalGP = totalTRSP - totalTSC;
-    const totalGPPerc = totalTRSP !== 0 ? totalGP / totalTRSP : 0;
+    const discountedTotalTRSP = Math.max(0, totalTRSP - (isNaN(discount) ? 0 : discount));
+    const totalGP = discountedTotalTRSP - totalTSC;
+    const totalGPPerc = discountedTotalTRSP !== 0 ? totalGP / discountedTotalTRSP : 0;
 
     const filteredItems = useMemo(() => {
         let items = catalogSource;
@@ -862,8 +863,14 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 rowRexTrsp = numQty * getPriceValue(displayItem.rexRsp);
             }
 
-            const rowRexGp = rowRexTrsp - rowRexTsc;
-            const rowRexGpPercent = rowRexTrsp ? rowRexGp / rowRexTrsp : 0;
+            const safeDiscount = isNaN(discount) ? 0 : discount;
+            const rowDiscount = (totalTRSP > 0 && safeDiscount > 0)
+                ? (rowRexTrsp / totalTRSP) * safeDiscount
+                : 0;
+            const effectiveRowTrsp = Math.max(0, rowRexTrsp - rowDiscount);
+
+            const rowRexGp = effectiveRowTrsp - rowRexTsc;
+            const rowRexGpPercent = effectiveRowTrsp ? rowRexGp / effectiveRowTrsp : 0;
             const isOptional = isReview && bqItem ? !!bqItem.isOptional : false;
 
             // Drag & Select States
@@ -1870,6 +1877,15 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             <span className="text-slate-400 uppercase font-semibold mr-1">TRSP:</span>
                             <span className="font-mono font-bold text-slate-900 dark:text-white">{formatNumber(totalTRSP)}</span>
                         </div>
+                        {discount > 0 && (
+                            <>
+                                <div className="w-px h-3 bg-gray-300 dark:bg-slate-600 hidden sm:block"></div>
+                                <div className="flex flex-col items-center sm:block">
+                                    <span className="text-slate-400 uppercase font-semibold mr-1" title="Special Discount">Disc:</span>
+                                    <span className="font-mono font-medium text-red-500">-{formatNumber(discount)}</span>
+                                </div>
+                            </>
+                        )}
                         <div className="w-px h-3 bg-gray-300 dark:bg-slate-600 hidden sm:block"></div>
                         <div className="flex flex-col items-center sm:block">
                             <span className="text-slate-400 uppercase font-semibold mr-1">GP:</span>

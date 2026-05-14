@@ -1654,7 +1654,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // --- Calculations ---
   const getProjectTotal = (projectId: string, versionId: string) => {
     const project = projects.find(p => p.id === projectId);
-    const discount = project?.discount || 0;
+    const pendingDiscount = pendingProjectEdits[projectId]?.discount;
+    const discount = pendingDiscount !== undefined ? pendingDiscount : (project?.discount || 0);
     const projectItems = bqItems.filter(i => i.projectId === projectId && i.versionId === versionId && !i.isOptional);
 
     // Helper to extract value since rexRsp can be an object or a number
