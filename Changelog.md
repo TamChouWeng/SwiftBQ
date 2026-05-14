@@ -2,6 +2,14 @@
 
 All notable changes to SwiftBQ will be documented in this file.
 
+## [Beta 3.8.2]
+
+### Discount-Aware Quotation Margins
+- **Dynamic Margins**: Updated row-level Gross Profit (`GP`) and `GP%` calculation logic in the BQ Builder to distribute project-level Special Discounts proportionally based on an item's slice of total revenue.
+- **Accurate Project Summary**: The bottom bar internal metrics panel now calculates overall project `GP` and `GP%` against the discounted Net Revenue, ensuring true profitability tracking.
+- **Visual Discount Indicator**: Added a dedicated **`Disc:`** indicator inside the bottom bar metrics ribbon when a special discount is active, providing clear visual feedback on revenue adjustments.
+- **Centralized Reactivity**: Refactored `getProjectTotal` in `store.tsx` to read buffered `pendingProjectEdits` discount overrides instantly, guaranteeing seamless, zero-latency feedback across all panels as you type.
+
 ## [Beta 3.8.1]
 
 ### High-Fidelity PDF Preview
