@@ -2,6 +2,13 @@
 
 All notable changes to SwiftBQ will be documented in this file.
 
+## [Beta 3.8.3]
+
+### PDF Export Layout Optimization
+- **Address Wrapping**: Implemented automatic text wrapping for both Company and Client addresses in the exported PDF, preventing horizontal overflow and ensuring clean alignment.
+- **Horizontal Reservation**: Ensured that wrapped address lines maintain consistent horizontal indentation (20mm), preserving a dedicated visual "reserved space" for labels like "Address:".
+- **Dynamic Positioning**: Updated the PDF generation engine to dynamically calculate the vertical space occupied by addresses, preventing overlap with subsequent document sections regardless of content length.
+
 ## [Beta 3.8.2]
 
 ### Discount-Aware Quotation Margins

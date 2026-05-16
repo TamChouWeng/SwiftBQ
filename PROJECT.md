@@ -17,7 +17,7 @@ SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management syste
 
 ### Financial Control & Security
 - **Dynamic Pricing Engine:** Accelerates the quoting process and margin analysis. Calculates prices on the fly using customizable formulas, allowing rapid toggling between distinct pricing strategies to assess margin impacts immediately.
-- **Advanced Taxation & Discount-Aware Margins:** Seamlessly apply Sales and Service Tax (SST) and Special Discounts directly from the Quotation View. Values are dynamically distributed across row-level items to calculate net margins proportionally, buffered in real-time via `pendingProjectEdits` for instantaneous UI calculations, and cleanly formatted into the exported PDF.
+- **Advanced Taxation & Discount-Aware Margins:** Seamlessly apply Sales and Service Tax (SST) and Special Discounts directly from the Quotation View. Values are dynamically distributed across row-level items to calculate net margins proportionally, buffered in real-time via `pendingProjectEdits` for instantaneous UI calculations, and cleanly formatted into the exported PDF with high-fidelity address wrapping and alignment.
 - **Enterprise-Grade Security:** Enforces strict data privacy. Supabase Row Level Security (RLS) ensures that user records and client datasets are aggressively isolated by account.
 
 ## 🏗 Architecture & Tech Stack
