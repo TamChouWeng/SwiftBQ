@@ -415,8 +415,9 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             doc.setFontSize(9);
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(0, 0, 0);
-            const addressLines = appSettings.companyAddress.split('\n');
-            addressLines.forEach(line => {
+            // Company Address (wrapped)
+            const companyAddressLines = doc.splitTextToSize(appSettings.companyAddress, contentWidth * 0.6);
+            companyAddressLines.forEach(line => {
                 doc.text(line, marginLeft, currentY);
                 currentY += 4;
             });
@@ -450,7 +451,8 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             doc.setFont('helvetica', 'bold');
             doc.text('Address:', leftColX, billY);
             doc.setFont('helvetica', 'normal');
-            const clientAddressLines = activeProject.clientAddress.split('\n');
+            const maxAddrWidth = (rightColX - leftColX) - 22; // 20mm reserved for label + 2mm safety margin
+            const clientAddressLines = doc.splitTextToSize(activeProject.clientAddress || '', maxAddrWidth);
             clientAddressLines.forEach((line, idx) => {
                 doc.text(line, leftColX + 20, billY + (idx * 4));
             });
