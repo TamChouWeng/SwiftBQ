@@ -17,6 +17,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
 
+export const DEFAULT_TERMS = `(1) No cancellation, suspension or variation of an accepted customer's order shall be valid unless agreed in writing by our company.
+(2) Any goods return request shall be reported within 30 days from date of invoice and we reserve the right to decide on the acceptance of the case.
+(3) Dates of delivery are approximate. We are neither responsible nor liable for losses or damages incurred by reason of delay or inability to delivery caused by unforeseen circumstances.
+(4) Prices quoted are based on the stated quantities. Should the overall required quantities vary by more than 5% when compared to the overall quantities quoted, we reserve the right to revise the pricing.`;
+
 
 // --- Mappers ---
 /* Copy of Mappers from mappers.ts */
@@ -202,6 +207,7 @@ export const mapProfileToSettings = (profile: any): Partial<AppSettings> => {
   settings.profileRole = profile.role || "user";
   settings.profileSignature = profile.signature || "";
   settings.companyEmail = profile.company_email || "";
+  settings.defaultTnc = profile.default_tnc || DEFAULT_TERMS;
 
   return settings;
 };
@@ -425,6 +431,7 @@ const INITIAL_SETTINGS: AppSettings = {
   profileRole: 'admin',
   profileSignature: '',
   companyEmail: '',
+  defaultTnc: DEFAULT_TERMS,
 };
 
 
@@ -512,6 +519,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (updates.bankAccount !== undefined) dbUpdates.bank_account = updates.bankAccount;
       if (updates.companyLogo !== undefined) dbUpdates.company_logo = updates.companyLogo;
       if (updates.companyEmail !== undefined) dbUpdates.company_email = updates.companyEmail;
+      if (updates.defaultTnc !== undefined) dbUpdates.default_tnc = updates.defaultTnc;
 
       if (Object.keys(dbUpdates).length > 0) {
         const { error } = await supabase
@@ -543,7 +551,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           // Update user object if DB has changed (e.g. role updated elsewhere)
           // We use a simple check to avoid infinite loops if objects are identical
-          if (user.company_logo !== data.company_logo || user.company_name !== data.company_name) {
+          if (
+            user.company_logo !== data.company_logo ||
+            user.company_name !== data.company_name ||
+            user.default_tnc !== data.default_tnc
+          ) {
             setUser(data);
             localStorage.setItem('swiftbq_user', JSON.stringify(data));
           }
@@ -950,10 +962,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     const projectWithUser = { ...project, userId: user.id };
 
-    const DEFAULT_TERMS = `(1) No cancellation, suspension or variation of an accepted customer's order shall be valid unless agreed in writing by our company.
-(2) Any goods return request shall be reported within 30 days from date of invoice and we reserve the right to decide on the acceptance of the case.
-(3) Dates of delivery are approximate. We are neither responsible nor liable for losses or damages incurred by reason of delay or inability to delivery caused by unforeseen circumstances.
-(4) Prices quoted are based on the stated quantities. Should the overall required quantities vary by more than 5% when compared to the overall quantities quoted, we reserve the right to revise the pricing.`;
+    const defaultTerms = appSettings.defaultTnc || DEFAULT_TERMS;
 
     // Initial Version
     const initialVersion: ProjectVersion = {
@@ -961,7 +970,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       name: 'Version 1',
       createdAt: new Date().toISOString(),
       masterSnapshot: masterData, // Snapshot current master list
-      termsConditions: DEFAULT_TERMS
+      termsConditions: defaultTerms
     };
 
     // Attach version to project for optimistic UI

@@ -123,6 +123,7 @@ export interface AppSettings {
   profileRole: string;
   profileSignature?: string; // New: Signature Image URL
   companyEmail?: string; // New: Company Email
+  defaultTnc?: string; // New: Default Terms and Conditions
 }
 
 export interface Translations {
