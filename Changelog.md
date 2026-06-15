@@ -2,8 +2,15 @@
 
 All notable changes to SwiftBQ will be documented in this file.
 
-## [Beta 3.8.3]
+## [Beta 3.8.4]
 
+### Default Terms & Conditions Feature
+- Added `default_tnc` column to `profiles` table with standardized T&C text.
+- Integrated default T&C into new project creation flow.
+- Updated UI to allow editing default T&C in Settings.
+- Ensured synchronization between DB and local state.
+
+## [Beta 3.8.3]
 ### PDF Export Layout Optimization
 - **Address Wrapping**: Implemented automatic text wrapping for both Company and Client addresses in the exported PDF, preventing horizontal overflow and ensuring clean alignment.
 - **Horizontal Reservation**: Ensured that wrapped address lines maintain consistent horizontal indentation (20mm), preserving a dedicated visual "reserved space" for labels like "Address:".
