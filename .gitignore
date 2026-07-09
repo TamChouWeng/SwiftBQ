@@ -25,3 +25,4 @@ Logo
 *.sln
 *.sw?
 /Database
+/.agents
