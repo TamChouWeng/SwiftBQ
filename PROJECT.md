@@ -13,6 +13,7 @@ SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management syste
 ### User Experience & Performance
 - **Optimistic UI:** Provides a zero-latency experience for users. The BQ Builder saves data locally first, providing instantaneous feedback without waiting for network responses.
 - **High-Fidelity Quotation Preview:** Empowers teams to review exactly what clients will see. Replaced artificial DOM layouts with an embedded, real-time jsPDF engine preview that guarantees a pixel-perfect, 1:1 visual match with the exported document.
+- **Parallel Multi-Column Sorting:** Provides sequential, hierarchical sorting across key attributes (Category, Item name, and REX SC FOB prices) simultaneously, enabling granular and structured data views.
 - **Smart UI Infrastructure:** Prevents interface friction and data loss. Intelligent dropdowns adjust to viewport boundaries, and strict state management ensures inputs are reliably captured during complex strategy adjustments.
 
 ### Financial Control & Security

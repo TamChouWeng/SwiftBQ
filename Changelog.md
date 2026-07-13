@@ -2,6 +2,13 @@
 
 All notable changes to SwiftBQ will be documented in this file.
 
+## [Beta 3.8.5]
+
+### Parallel Multi-Column Sorting
+- **Hierarchical Sorting**: Implemented multi-column sorting that evaluates sorting criteria sequentially (Category, Item name, and REX SC (FOB) price).
+- **Sort Levels Configurator**: Redesigned the Sort Dropdown into a "Sort Levels" panel allowing addition of up to 3 hierarchical sorting criteria with independent direction controls.
+- **Smart Select Validation**: Automatically restricts selection options in sort level dropdowns to columns not already configured, preventing duplicate sort criteria.
+
 ## [Beta 3.8.4]
 
 ### Default Terms & Conditions Feature
