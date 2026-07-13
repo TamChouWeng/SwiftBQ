@@ -44,10 +44,9 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
   const [showSortDropdown, setShowSortDropdown] = useState(false);
 
   // Sort State
-  const [sortConfig, setSortConfig] = useState<{ column: string; direction: 'asc' | 'desc' }>({
-    column: 'category',
-    direction: 'asc'
-  });
+  const [sortConfig, setSortConfig] = useState<Array<{ column: string; direction: 'asc' | 'desc' }>>([
+    { column: 'category', direction: 'asc' }
+  ]);
 
   // Advanced Filter State (Multi-select)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -203,22 +202,23 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
   const sortedData = useMemo(() => {
     const sortableItems = [...filteredData];
 
+    // ponytail: multi-column sorting up to 3 levels, stable search priority
     sortableItems.sort((a, b) => {
-      const col = sortConfig.column as keyof MasterItem;
-      let aValue = a[col];
-      let bValue = b[col];
+      for (const criterion of sortConfig) {
+        const col = criterion.column as keyof MasterItem;
+        const aValue = a[col];
+        const bValue = b[col];
 
-      // Handle alphabet sort
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortConfig.direction === 'asc'
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      }
-      // Handle numerical sort
-      else if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortConfig.direction === 'asc'
-          ? aValue - bValue
-          : bValue - aValue;
+        let comparison = 0;
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          comparison = aValue.localeCompare(bValue);
+        } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+          comparison = aValue - bValue;
+        }
+
+        if (comparison !== 0) {
+          return criterion.direction === 'asc' ? comparison : -comparison;
+        }
       }
       return 0;
     });
@@ -451,33 +451,66 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
             {showSortDropdown && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowSortDropdown(false)} />
-                <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 z-20 p-4 flex flex-col gap-3">
-                  <div className="text-sm font-semibold text-slate-900 dark:text-white">Sort By</div>
-                  <div className="flex items-center gap-2">
+                <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 z-20 p-4 flex flex-col gap-3 animate-fade-in">
+                  <div className="text-sm font-semibold text-slate-900 dark:text-white">Sort Levels</div>
+                  <div className="flex flex-col gap-2">
+                    {sortConfig.map((item, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <select
+                          value={item.column}
+                          onChange={(e) => {
+                            const next = [...sortConfig];
+                            next[index] = { ...next[index], column: e.target.value };
+                            setSortConfig(next);
+                          }}
+                          className="flex-1 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white cursor-pointer"
+                        >
+                          <option value="category" disabled={sortConfig.some((s, idx) => idx !== index && s.column === 'category')}>Category</option>
+                          <option value="itemName" disabled={sortConfig.some((s, idx) => idx !== index && s.column === 'itemName')}>Item</option>
+                          <option value="rexScFob" disabled={sortConfig.some((s, idx) => idx !== index && s.column === 'rexScFob')}>REX SC (FOB)</option>
+                        </select>
 
-                    {/* Column Selection */}
-                    <select
-                      value={sortConfig.column}
-                      onChange={(e) => setSortConfig({ ...sortConfig, column: e.target.value })}
-                      className="flex-1 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white cursor-pointer"
-                    >
-                      <option value="category">Category</option>
-                      <option value="itemName">Item</option>
-                      <option value="rexScFob">REX SC (FOB)</option>
-                    </select>
+                        {/* Direction Toggle */}
+                        <button
+                          onClick={() => {
+                            const next = [...sortConfig];
+                            next[index] = { ...next[index], direction: next[index].direction === 'asc' ? 'desc' : 'asc' };
+                            setSortConfig(next);
+                          }}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors shrink-0"
+                          title={item.direction === 'asc' ? 'Sort Ascending' : 'Sort Descending'}
+                        >
+                          {item.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+                        </button>
 
-                    {/* Ascending / Descending Toggle */}
-                    <button
-                      onClick={() => setSortConfig({
-                        ...sortConfig,
-                        direction: sortConfig.direction === 'asc' ? 'desc' : 'asc'
-                      })}
-                      className="w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors shrink-0"
-                      title={sortConfig.direction === 'asc' ? 'Sort Ascending' : 'Sort Descending'}
-                    >
-                      {sortConfig.direction === 'asc' ? <ArrowUp size={18} /> : <ArrowDown size={18} />}
-                    </button>
+                        {/* Delete Button */}
+                        {sortConfig.length > 1 && (
+                          <button
+                            onClick={() => setSortConfig(sortConfig.filter((_, i) => i !== index))}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-transparent hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition-colors shrink-0"
+                            title="Remove sort level"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
 
+                    {/* Add Sort Level Button */}
+                    {sortConfig.length < 3 && (
+                      <button
+                        onClick={() => {
+                          const keys = ['category', 'itemName', 'rexScFob'];
+                          const unused = keys.find(k => !sortConfig.some(s => s.column === k));
+                          if (unused) {
+                            setSortConfig([...sortConfig, { column: unused, direction: 'asc' }]);
+                          }
+                        }}
+                        className="mt-1 py-1.5 border border-dashed border-gray-300 dark:border-slate-600 rounded-lg text-xs text-primary-500 hover:bg-primary-50/50 dark:hover:bg-primary-950/20 font-medium transition-all text-center w-full flex items-center justify-center gap-1"
+                      >
+                        <Plus size={12} /> Add Sort Level
+                      </button>
+                    )}
                   </div>
                 </div>
               </>
