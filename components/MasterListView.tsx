@@ -1,6 +1,9 @@
-
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Plus, Trash2, Search, ChevronLeft, ChevronRight, Filter, X, Eye, LayoutTemplate, Check, EyeOff, Save, Edit2 } from 'lucide-react';
+import {
+  Plus, Trash2, Search, ChevronLeft, ChevronRight, Filter,
+  X, Eye, LayoutTemplate, Check, EyeOff, Save, Edit2,
+  ArrowUpDown, ArrowUp, ArrowDown
+} from 'lucide-react';
 import { useAppStore, calculateDerivedFields } from '../store';
 import { AppLanguage, MasterItem, PriceField } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -38,6 +41,13 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
   // Dropdown States
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showColumnDropdown, setShowColumnDropdown] = useState(false);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+
+  // Sort State
+  const [sortConfig, setSortConfig] = useState<{ column: string; direction: 'asc' | 'desc' }>({
+    column: 'category',
+    direction: 'asc'
+  });
 
   // Advanced Filter State (Multi-select)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -189,12 +199,39 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
     });
   }, [masterData, selectedCategories, selectedTypes, searchQuery]);
 
-  // 4. Paginate
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  // 4. Sort Data
+  const sortedData = useMemo(() => {
+    const sortableItems = [...filteredData];
+
+    sortableItems.sort((a, b) => {
+      const col = sortConfig.column as keyof MasterItem;
+      let aValue = a[col];
+      let bValue = b[col];
+
+      // Handle alphabet sort
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortConfig.direction === 'asc'
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+      // Handle numerical sort
+      else if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortConfig.direction === 'asc'
+          ? aValue - bValue
+          : bValue - aValue;
+      }
+      return 0;
+    });
+
+    return sortableItems;
+  }, [filteredData, sortConfig]);
+
+  // 5. Paginate
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    return filteredData.slice(start, start + itemsPerPage);
-  }, [filteredData, currentPage, itemsPerPage]);
+    return sortedData.slice(start, start + itemsPerPage);
+  }, [sortedData, currentPage, itemsPerPage]);
 
   const hasUnsavedMasterChanges = Object.keys(masterListEdits).length > 0;
 
@@ -202,7 +239,7 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCategories, selectedTypes, searchQuery, itemsPerPage]);
+  }, [selectedCategories, selectedTypes, searchQuery, itemsPerPage, sortConfig]);
 
   const handleEdit = useCallback((id: string, field: keyof MasterItem, value: any) => {
     setMasterListEdit(id, field, value);
@@ -385,8 +422,8 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[200px] xl:w-56">
+          {/* Search - shifted left via xl:mr-4 */}
+          <div className="relative flex-1 min-w-[200px] xl:w-56 xl:mr-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               type="text"
@@ -395,6 +432,56 @@ const MasterListView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => 
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white"
             />
+          </div>
+
+          {/* Sort Button (Square) */}
+          <div className="relative">
+            <button
+              onClick={() => setShowSortDropdown(!showSortDropdown)}
+              className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-colors ${showSortDropdown
+                ? 'bg-primary-50 border-primary-500 text-primary-600 dark:bg-primary-900/20 dark:border-primary-400 dark:text-primary-400'
+                : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                }`}
+              title="Sort Data"
+            >
+              <ArrowUpDown size={20} />
+            </button>
+
+            {/* Sort Dropdown */}
+            {showSortDropdown && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowSortDropdown(false)} />
+                <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 z-20 p-4 flex flex-col gap-3">
+                  <div className="text-sm font-semibold text-slate-900 dark:text-white">Sort By</div>
+                  <div className="flex items-center gap-2">
+
+                    {/* Column Selection */}
+                    <select
+                      value={sortConfig.column}
+                      onChange={(e) => setSortConfig({ ...sortConfig, column: e.target.value })}
+                      className="flex-1 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white cursor-pointer"
+                    >
+                      <option value="category">Category</option>
+                      <option value="itemName">Item</option>
+                      <option value="rexScFob">REX SC (FOB)</option>
+                    </select>
+
+                    {/* Ascending / Descending Toggle */}
+                    <button
+                      onClick={() => setSortConfig({
+                        ...sortConfig,
+                        direction: sortConfig.direction === 'asc' ? 'desc' : 'asc'
+                      })}
+                      className="w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors shrink-0"
+                      title={sortConfig.direction === 'asc' ? 'Sort Ascending' : 'Sort Descending'}
+                    >
+                      {sortConfig.direction === 'asc' ? <ArrowUp size={18} /> : <ArrowDown size={18} />}
+                    </button>
+
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Advanced Filter Button (Square) */}
