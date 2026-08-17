@@ -4,6 +4,11 @@ import React, { useState, useEffect, useRef } from 'react';
 interface Props {
     value: number | undefined | null;
     onChange: (value: number) => void;
+    // Fired once with the final parsed value when the field loses focus (or Enter is
+    // pressed). Use this instead of onChange for anything that persists to the backend —
+    // onChange fires on every keystroke (including a momentary '' while retyping), so
+    // wiring a save/delete directly to it commits on every keystroke, not the final value.
+    onCommit?: (value: number) => void;
     className?: string;
     placeholder?: string;
     disabled?: boolean;
@@ -19,6 +24,7 @@ interface Props {
 const FormattedNumberInput: React.FC<Props> = ({
     value,
     onChange,
+    onCommit,
     className = '',
     placeholder = '',
     disabled = false,
@@ -66,6 +72,11 @@ const FormattedNumberInput: React.FC<Props> = ({
 
         // Ensure final consistency if value didn't change but input did (e.g. user typed "1000" and blurred)
         // The onChange would have fired, updating `value` prop, so useEffect will handle re-formatting.
+
+        if (onCommit) {
+            const parsed = inputValue === '' ? 0 : parseFloat(inputValue);
+            onCommit(isNaN(parsed) ? 0 : parsed);
+        }
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,6 +123,10 @@ const FormattedNumberInput: React.FC<Props> = ({
                 // Prevent typing '-' if min >= 0
                 if (min !== undefined && min >= 0 && e.key === '-') {
                     e.preventDefault();
+                }
+                // Let Enter commit immediately instead of requiring the user to tab away
+                if (e.key === 'Enter') {
+                    (e.target as HTMLInputElement).blur();
                 }
             }}
         />
