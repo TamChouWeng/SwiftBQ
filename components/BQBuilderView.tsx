@@ -391,25 +391,28 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         return version?.masterSnapshot || [];
     }, [activeProject, currentVersionId, masterData]);
 
-    // Resolve activeItems pricing with the authoritative master snapshot to override stale DB records
+    // The BQItem is authoritative once a line is added (Issue 1 fix). This only overlays
+    // a live, uncommitted Catalog edit (bqStagedEdits) so Catalog and Review preview the
+    // same in-progress change consistently; once saved, the BQItem itself carries the value
+    // and this passes the item through unchanged.
     const resolvedActiveItems = useMemo(() => {
         return activeItems.map(item => {
-            if (item.masterId) {
-                const master = catalogSource.find(m => m.id === item.masterId);
-                if (master) {
-                    const staged = stagedEdits[item.masterId] || {};
-                    const merged = { ...master, ...staged };
-                    return {
-                        ...item,
-                        rexScFob: merged.rexScFob,
-                        rexScDdp: merged.rexScDdp,
-                        rexSp: merged.rexSp,
-                        rexRsp: merged.rexRsp,
-                        price: getPriceValue(merged.rexRsp) || 0,
-                    };
-                }
-            }
-            return item;
+            const staged = item.masterId ? stagedEdits[item.masterId] : undefined;
+            if (!staged) return item;
+
+            const master = catalogSource.find(m => m.id === item.masterId) || item;
+            const merged = { ...master, ...staged };
+            return {
+                ...item,
+                rexScFob: merged.rexScFob,
+                forex: merged.forex,
+                sst: merged.sst,
+                opta: merged.opta,
+                rexScDdp: merged.rexScDdp,
+                rexSp: merged.rexSp,
+                rexRsp: merged.rexRsp,
+                price: getPriceValue(merged.rexRsp) || 0,
+            };
         });
     }, [activeItems, catalogSource, stagedEdits]);
 
@@ -805,9 +808,11 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 let baseItem = master;
 
                 if (existingBQ) {
+                    // BQItem is authoritative for an already-selected line (Issue 1 fix):
+                    // Catalog must show the same pricing Review shows, not whatever the
+                    // Master Price Book currently holds for this master row.
                     baseItem = {
                         ...master,
-                        // Sync visual fields from the active BQ item
                         description: existingBQ.description,
                         uom: existingBQ.uom,
                         brand: existingBQ.brand,
@@ -816,10 +821,14 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         mpn: existingBQ.mpn,
                         group: existingBQ.group,
                         category: existingBQ.category,
-                        // Pricing? If BQ item has price override, it should show?
-                        // Catalog usually shows "Master" price, but if we are "building" for a project,
-                        // we probably want to see "Project" price.
-                        // However, let's stick to content fields first as requested.
+                        rexScFob: existingBQ.rexScFob,
+                        forex: existingBQ.forex,
+                        sst: existingBQ.sst,
+                        opta: existingBQ.opta,
+                        rexScDdp: existingBQ.rexScDdp,
+                        rexSp: existingBQ.rexSp,
+                        rexRsp: existingBQ.rexRsp,
+                        price: existingBQ.price,
                     };
                 }
 
@@ -1000,7 +1009,8 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                             min={0}
                             placeholder="0"
                             value={Number(currentQty) || 0}
-                            onChange={(val) => {
+                            onChange={() => { /* live typing only; persisted on commit (blur/Enter) below */ }}
+                            onCommit={(val) => {
                                 const safeVal = Math.max(0, val);
                                 if (isReview) {
                                     updateBQItem(itemId, 'qty', safeVal);
