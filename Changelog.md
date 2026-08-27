@@ -2,6 +2,15 @@
 
 All notable changes to SwiftBQ will be documented in this file.
 
+## [Beta 3.9.0]
+
+### Critical Fix: BQ Builder Data Loss
+- **Eliminated Snapshot Overwrite Race**: `project_versions.master_list_snapshot` writes (catalog Save, custom item add) now merge onto the current database state instead of the client's in-memory copy, so a tab left open for a while — or a second device — can no longer silently erase items another session had already saved.
+- **Eliminated Temp-ID Insert Race**: New BQ item rows now use their final ID from the moment of creation instead of a temporary ID swapped in after the insert completes, closing the window where a fast follow-up quantity edit could be silently written to a row the database never matched.
+- **Serialized Row Writes**: Writes to the same BQ item are now queued and executed strictly in the order they were made, preventing network latency from delivering them out of order.
+- **Focus-Triggered Resync**: Projects and BQ items now automatically refresh when a tab regains focus (skipped while there are unsaved local edits), reducing drift between long-open sessions and other devices.
+- **Visible Save Failures**: A failed save now shows an on-screen alert instead of failing silently, so issues surface immediately instead of appearing as unexplained missing data later.
+
 ## [Beta 3.8.5]
 
 ### Parallel Multi-Column Sorting

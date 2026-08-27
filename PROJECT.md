@@ -9,6 +9,7 @@ SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management syste
 - **Immutable Quotes (Snapshots):** Guarantees that historical quotations are completely insulated from future price adjustments. Creating a project version captures a static snapshot of the Master List, preserving 100% accuracy for auditing and client trust.
 - **Transactional Save System:** Eliminates the risk of fragmented or corrupted records. Edits are batch-committed to cloud storage in a single transaction, ensuring comprehensive data consistency.
 - **Cascading Precision:** Maintains a clean and performant database over time. Deleting a project automatically triggers a synchronized cleanup of all its associated versions and sub-items.
+- **Resilient Cross-Session Writes:** BQ item and Master List snapshot writes merge onto the current database state (rather than the client's local copy) and are serialized per row, so a long-open tab or a second device can never silently overwrite another session's changes. Save failures now surface an on-screen alert instead of failing silently.
 
 ### User Experience & Performance
 - **Optimistic UI:** Provides a zero-latency experience for users. The BQ Builder saves data locally first, providing instantaneous feedback without waiting for network responses.
@@ -32,7 +33,7 @@ SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management syste
 
 ### Backend & Infrastructure
 - **Supabase (PostgreSQL):** Powerful relational database management.
-- **Real-time Sync:** Continuous synchronization of profiles, catalogs, and project states across sessions.
+- **Focus-Triggered Sync:** Projects and BQ items are re-pulled from the database whenever a tab regains focus (skipped while there are unsaved local edits), keeping long-open sessions and other devices from drifting too far out of sync.
 - **Row Level Security (RLS):** Database-level access policies governing strictly partitioned datasets.
 
 ## 📁 Directory Structure
@@ -53,7 +54,7 @@ SwiftBQ employs a highly **Optimistic UI** driven by a centralized React Context
 ## 🗄️ Database Integration (Supabase)
 SwiftBQ leverages **Supabase** (PostgreSQL) for robust cloud persistence and authentication.
 
-- **Real-time Sync**: User profiles, company details, and project data are synchronized across devices.
+- **Focus-Triggered Sync**: User profiles, company details, and project data are re-fetched on login and whenever a tab regains focus, keeping devices reasonably in sync without a persistent realtime connection.
 - **Row Level Security (RLS)**: Ensures data privacy by strictly isolating records based on `user_id`.
 - **Tables Structure**:
   - `master_list_items`: Global price book.
