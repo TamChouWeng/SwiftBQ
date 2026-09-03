@@ -799,16 +799,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     Object.keys(pendingProjectEdits).length > 0,
     [masterListEdits, versionEdits, bqItemEdits, bqStagedEdits, pendingProjectEdits]);
 
+  // Tracks an in-flight saveAllChanges()/commit* call. Edit buffers above are cleared
+  // optimistically the instant Save is clicked — before the network write resolves — so
+  // hasUnsavedChanges alone can't tell the idle-refetch below that a save is still in flight.
+  const [isSaving, setIsSaving] = useState(false);
+
   // Projects/BQ items are only fetched once per login (see effects above), so a tab left
   // open overnight — or a second device — drifts out of sync with what other sessions saved.
-  // Re-pull on regained focus (skipped while there are unsaved local edits, to avoid
-  // clobbering in-progress work) so that drift can't grow unbounded.
+  // Re-pull on regained focus (skipped while there are unsaved local edits, or mid-save, to
+  // avoid clobbering in-progress work) so that drift can't grow unbounded.
   useEffect(() => {
     if (!user?.id) return;
     let lastFetch = Date.now();
     const refetchIfIdle = () => {
       if (document.visibilityState !== 'visible') return;
-      if (hasUnsavedChanges) return;
+      if (hasUnsavedChanges || isSaving) return;
       if (Date.now() - lastFetch < 30000) return;
       lastFetch = Date.now();
       fetchProjects();
@@ -820,7 +825,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       window.removeEventListener('focus', refetchIfIdle);
       document.removeEventListener('visibilitychange', refetchIfIdle);
     };
-  }, [user?.id, hasUnsavedChanges]);
+  }, [user?.id, hasUnsavedChanges, isSaving]);
 
   // --- Persistence Effects ---
 
@@ -1874,8 +1879,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Write staged edits back to the project snapshot
     await updateProjectSnapshot(currentProjectId, currentVersionId, updates);
   };
-
-  const [isSaving, setIsSaving] = useState(false);
 
   // --- Pending Project Edits (discount etc.) ---
   const setPendingProjectEdit = (projectId: string, updates: Partial<Project>) => {
