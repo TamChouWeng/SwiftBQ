@@ -33,7 +33,7 @@ SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management syste
 
 ### Backend & Infrastructure
 - **Supabase (PostgreSQL):** Powerful relational database management.
-- **Focus-Triggered Sync:** Projects and BQ items are re-pulled from the database whenever a tab regains focus (skipped while there are unsaved local edits), keeping long-open sessions and other devices from drifting too far out of sync.
+- **Focus-Triggered Sync:** Projects and BQ items are re-pulled from the database whenever a tab regains focus (skipped while there are unsaved local edits or a save is still in flight), keeping long-open sessions and other devices from drifting too far out of sync without clobbering a save in progress.
 - **Row Level Security (RLS):** Database-level access policies governing strictly partitioned datasets.
 
 ## 📁 Directory Structure

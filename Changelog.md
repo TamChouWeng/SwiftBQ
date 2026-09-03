@@ -2,6 +2,12 @@
 
 All notable changes to SwiftBQ will be documented in this file.
 
+## [Beta 3.9.1]
+
+### Critical Fix: Save Clobbered by Cross-Device Refetch
+- **Closed the Idle-Refetch Race**: The focus-triggered resync added in 3.9.0 only checked for unsaved edits, but every Save clears its edit buffer optimistically *before* the network write resolves — so a focus/visibility event during that window (e.g. switching back from a second logged-in device) could refetch stale data from the database and stomp an in-flight save. The refetch now also waits for any active save to finish.
+- **Unified the Catalog Save Path**: The BQ Builder's catalog "Save" button wrote directly to the database without awaiting the result, bypassing the app's save-tracking entirely. It now routes through the same `saveAllChanges` path used everywhere else, so it's covered by the fix above.
+
 ## [Beta 3.9.0]
 
 ### Critical Fix: BQ Builder Data Loss
