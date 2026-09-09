@@ -4,9 +4,12 @@ All notable changes to SwiftBQ will be documented in this file.
 
 ## [Beta 3.9.1]
 
-### Critical Fix: Save Clobbered by Cross-Device Refetch
-- **Closed the Idle-Refetch Race**: The focus-triggered resync added in 3.9.0 only checked for unsaved edits, but every Save clears its edit buffer optimistically *before* the network write resolves — so a focus/visibility event during that window (e.g. switching back from a second logged-in device) could refetch stale data from the database and stomp an in-flight save. The refetch now also waits for any active save to finish.
+### Critical Fix: Save Clobbered by Cross-Device Refetch & Race Hardening
+- **Closed the Idle-Refetch Race**: The focus-triggered resync added in 3.9.0 only checked for unsaved edits, but every Save clears its edit buffer optimistically *before* the network write resolves — so a focus/visibility event during that window (e.g. switching back from a second logged-in device) could refetch stale data from the database and stomp an in-flight save. The refetch now also waits for any active save to finish (`isSaving`) as well as in-flight row writes (`writeQueueRef.current.size > 0`), ensuring background cell updates (quantity, price, optional toggles) are never clobbered.
 - **Unified the Catalog Save Path**: The BQ Builder's catalog "Save" button wrote directly to the database without awaiting the result, bypassing the app's save-tracking entirely. It now routes through the same `saveAllChanges` path used everywhere else, so it's covered by the fix above.
+- **Atomic Snapshot Read-Modify-Write**: Consolidated snapshot read and merge-write cycles into a single atomic `runExclusive` block per version ID in `updateProjectSnapshot` and `addCustomBQItem`, preventing concurrent snapshot writes from interleaving and overwriting each other.
+- **Queue Fault-Tolerance & Network Error Handling**: Refactored the `runExclusive` serialization queue to recover cleanly from rejections (`prev.catch(() => {}).then(fn)`) and attached `.catch()` handlers across single-row DB mutation calls to eliminate unhandled promise rejections on network dropouts.
+- **Functional State Updates**: Swapped `removeBQItem` to functional state updates (`prev => prev.filter(...)`) to eliminate stale React closures.
 
 ## [Beta 3.9.0]
 
