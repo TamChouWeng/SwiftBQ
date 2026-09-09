@@ -34,7 +34,6 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         createVersion,
         updateVersionName,
         deleteVersion,
-        updateProjectSnapshot,
         addBQItem,
         addCustomBQItem,
         syncMasterToBQ,
@@ -48,7 +47,6 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         saveAllChanges,
         bqStagedEdits,
         setBqStagedEdits,
-        clearBqStagedEdits,
         bqItemEdits,
     } = useAppStore();
 
@@ -502,25 +500,14 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
 
     // --- Handlers ---
 
+    // Routes through saveAllChanges (same path as the Sidebar's "Save & Continue") instead of
+    // firing updateProjectSnapshot directly and unawaited: that bypassed `isSaving`, so the
+    // idle cross-device refetch (store.tsx) could see hasUnsavedChanges flip false the instant
+    // stagedEdits was cleared and refetch stale data over this save while it was still in flight.
     const commitCatalogChanges = () => {
         if (!activeProject || !stagedEdits || Object.keys(stagedEdits).length === 0) return;
-
-        const updates = Object.entries(stagedEdits).map(([id, edits]) => ({
-            id,
-            ...(edits as Partial<MasterItem>)
-        }));
-
-        if (currentVersionId) {
-            updateProjectSnapshot(activeProject.id, currentVersionId, updates);
-            clearBqStagedEdits();
-        }
-
-        // Force reload BQ items that use these master items to ensure they stay in sync?
-        // Actually, BQ items are snapshots of Master items *at add time*.
-        // If we update the Project Snapshot, subsequent Adds will be correct.
-        // Existing BQ items: User might want them updated? 
-        // For now, versioning philosophy says "Snapshot on Add". 
-        // If user wants to update BQ Item, they should re-add or we could implement a "Refresh Prices" feature later.
+        if (!currentVersionId) return;
+        saveAllChanges();
     };
 
 

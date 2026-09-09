@@ -472,13 +472,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem('swiftbq_user');
   };
 
-  // Serializes writes per row id so a fast follow-up edit on the same bq_items row
-  // always waits for the previous write to actually land, instead of racing it over
-  // the network (root cause of qty edits silently reverting/vanishing under latency).
+  // ponytail: per-key in-memory write serialization queue
   const writeQueueRef = useRef(new Map<string, Promise<any>>());
   const runExclusive = <T,>(key: string, fn: () => PromiseLike<T>): Promise<T> => {
     const prev = writeQueueRef.current.get(key) || Promise.resolve();
-    const next = prev.then(fn, fn);
+    const next = prev.catch(() => {}).then(fn);
     writeQueueRef.current.set(key, next);
     next.finally(() => {
       if (writeQueueRef.current.get(key) === next) writeQueueRef.current.delete(key);
@@ -799,16 +797,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     Object.keys(pendingProjectEdits).length > 0,
     [masterListEdits, versionEdits, bqItemEdits, bqStagedEdits, pendingProjectEdits]);
 
+  // Tracks an in-flight saveAllChanges()/commit* call. Edit buffers above are cleared
+  // optimistically the instant Save is clicked — before the network write resolves — so
+  // hasUnsavedChanges alone can't tell the idle-refetch below that a save is still in flight.
+  const [isSaving, setIsSaving] = useState(false);
+
   // Projects/BQ items are only fetched once per login (see effects above), so a tab left
   // open overnight — or a second device — drifts out of sync with what other sessions saved.
-  // Re-pull on regained focus (skipped while there are unsaved local edits, to avoid
-  // clobbering in-progress work) so that drift can't grow unbounded.
+  // Re-pull on regained focus (skipped while there are unsaved local edits, or mid-save, to
+  // avoid clobbering in-progress work) so that drift can't grow unbounded.
   useEffect(() => {
     if (!user?.id) return;
     let lastFetch = Date.now();
     const refetchIfIdle = () => {
       if (document.visibilityState !== 'visible') return;
-      if (hasUnsavedChanges) return;
+      if (hasUnsavedChanges || isSaving || writeQueueRef.current.size > 0) return;
       if (Date.now() - lastFetch < 30000) return;
       lastFetch = Date.now();
       fetchProjects();
@@ -820,7 +823,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       window.removeEventListener('focus', refetchIfIdle);
       document.removeEventListener('visibilitychange', refetchIfIdle);
     };
-  }, [user?.id, hasUnsavedChanges]);
+  }, [user?.id, hasUnsavedChanges, isSaving]);
 
   // --- Persistence Effects ---
 
@@ -1204,34 +1207,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateProjectSnapshot = async (projectId: string, versionId: string, snapshotUpdates: Partial<MasterItem>[]) => {
-    // 1. Merge onto the CURRENT DB snapshot, not the client's in-memory copy — the client's copy
-    //    only gets refreshed once per login, so a tab open for a while (or a second device) would
-    //    otherwise merge its edit onto a stale array and overwrite whatever another session added.
-    const { data: versionRow, error: fetchError } = await runExclusive(versionId, () =>
-      supabase.from('project_versions').select('master_list_snapshot').eq('id', versionId).single()
-    );
+    // ponytail: atomic read-modify-write per version in one runExclusive lock
+    let mergedSnapshot: MasterItem[] = [];
+    const ok = await runExclusive(versionId, async () => {
+      const { data: versionRow, error: fetchError } = await supabase
+        .from('project_versions')
+        .select('master_list_snapshot')
+        .eq('id', versionId)
+        .single();
 
-    if (fetchError || !versionRow) {
-      console.error('updateProjectSnapshot: failed to read current snapshot', fetchError);
+      if (fetchError || !versionRow) {
+        console.error('updateProjectSnapshot: failed to read current snapshot', fetchError);
+        alert('Could not save your changes — please check your connection and try again.');
+        return false;
+      }
+
+      const freshSnapshot: MasterItem[] = versionRow.master_list_snapshot || [];
+      mergedSnapshot = freshSnapshot.map(m => {
+        const update = snapshotUpdates.find(u => u.id === m.id);
+        return update ? { ...m, ...update } : m;
+      });
+
+      const { error: writeError } = await supabase
+        .from('project_versions')
+        .update({ master_list_snapshot: mergedSnapshot })
+        .eq('id', versionId);
+
+      if (writeError) {
+        console.error('updateProjectSnapshot: failed to save snapshot', writeError);
+        alert('Could not save your changes — please check your connection and try again.');
+        return false;
+      }
+      return true;
+    }).catch(err => {
+      console.error('updateProjectSnapshot error:', err);
       alert('Could not save your changes — please check your connection and try again.');
-      return;
-    }
-
-    const freshSnapshot: MasterItem[] = versionRow.master_list_snapshot || [];
-    const mergedSnapshot = freshSnapshot.map(m => {
-      const update = snapshotUpdates.find(u => u.id === m.id);
-      return update ? { ...m, ...update } : m;
+      return false;
     });
 
-    const { error: writeError } = await runExclusive(versionId, () =>
-      supabase.from('project_versions').update({ master_list_snapshot: mergedSnapshot }).eq('id', versionId)
-    );
-
-    if (writeError) {
-      console.error('updateProjectSnapshot: failed to save snapshot', writeError);
-      alert('Could not save your changes — please check your connection and try again.');
-      return;
-    }
+    if (!ok) return;
 
     setProjects(prev => prev.map(p => {
       if (p.id === projectId) {
@@ -1387,31 +1401,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addCustomBQItem = async (projectId: string, versionId: string, item: MasterItem) => {
     if (!user || !user.id) return;
 
-    // 1. Append onto the CURRENT DB snapshot (not the client's in-memory copy, which only
-    //    refreshes once per login) so this can't silently erase another session's additions.
-    const { data: versionRow, error: fetchError } = await runExclusive(versionId, () =>
-      supabase.from('project_versions').select('master_list_snapshot').eq('id', versionId).single()
-    );
+    // ponytail: atomic snapshot read-modify-write per version in one runExclusive lock
+    let newSnapshot: MasterItem[] = [];
+    const ok = await runExclusive(versionId, async () => {
+      const { data: versionRow, error: fetchError } = await supabase
+        .from('project_versions')
+        .select('master_list_snapshot')
+        .eq('id', versionId)
+        .single();
 
-    if (fetchError || !versionRow) {
-      console.error('addCustomBQItem: failed to read current snapshot', fetchError);
+      if (fetchError || !versionRow) {
+        console.error('addCustomBQItem: failed to read current snapshot', fetchError);
+        alert('Could not add the item — please check your connection and try again.');
+        return false;
+      }
+
+      const freshSnapshot: MasterItem[] = versionRow.master_list_snapshot || [];
+      if (freshSnapshot.find(s => s.id === item.id)) return false;
+      newSnapshot = [...freshSnapshot, item];
+
+      const { error: snapshotError } = await supabase
+        .from('project_versions')
+        .update({ master_list_snapshot: newSnapshot })
+        .eq('id', versionId);
+
+      if (snapshotError) {
+        console.error('Error updating snapshot:', snapshotError);
+        alert('Could not add the item — please check your connection and try again.');
+        return false;
+      }
+      return true;
+    }).catch(err => {
+      console.error('addCustomBQItem error:', err);
       alert('Could not add the item — please check your connection and try again.');
-      return;
-    }
+      return false;
+    });
 
-    const freshSnapshot: MasterItem[] = versionRow.master_list_snapshot || [];
-    // Guard: don't add duplicate
-    if (freshSnapshot.find(s => s.id === item.id)) return;
-    const newSnapshot = [...freshSnapshot, item];
-
-    const { error: snapshotError } = await runExclusive(versionId, () =>
-      supabase.from('project_versions').update({ master_list_snapshot: newSnapshot }).eq('id', versionId)
-    );
-    if (snapshotError) {
-      console.error('Error updating snapshot:', snapshotError);
-      alert('Could not add the item — please check your connection and try again.');
-      return;
-    }
+    if (!ok) return;
 
     setProjects(prev => prev.map(p => {
       if (p.id !== projectId) return p;
@@ -1461,9 +1487,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // already the row's real primary key, so no post-insert id swap is needed.
     const dbItemObj = mapBQItemToDB(newBQItem);
     delete dbItemObj.master_id; // FK violation fix: custom items have no master_list_items row
-    const { error } = await runExclusive(id, () => supabase.from('bq_items').insert(dbItemObj));
+    const { error } = await runExclusive(id, () => supabase.from('bq_items').insert(dbItemObj)).catch(err => ({ error: err }));
     if (error) {
-      console.error('Error inserting custom BQ item:', JSON.stringify(error));
+      console.error('Error inserting custom BQ item:', error);
       alert('Could not add the item — please check your connection and try again.');
       // Revert optimistic update
       setBqItems(prev => prev.filter(i => i.id !== id));
@@ -1499,7 +1525,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // DB Insert — serialized so an immediate follow-up edit on this row (e.g. the user
     // tweaking qty right after adding) can't race ahead of this insert landing.
     const dbItem = mapBQItemToDB(newItem);
-    const { error } = await runExclusive(newItem.id, () => supabase.from('bq_items').insert(dbItem));
+    const { error } = await runExclusive(newItem.id, () => supabase.from('bq_items').insert(dbItem)).catch(err => ({ error: err }));
     if (error) {
       console.error('Error inserting BQ item:', error);
       alert('Could not save your change — please check your connection and try again.');
@@ -1531,7 +1557,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // DB — serialized per row id so this can't race ahead of an insert/update still in flight
       const { error } = await runExclusive(existingItem.id, () =>
         supabase.from('bq_items').delete().eq('id', existingItem.id)
-      );
+      ).catch(err => ({ error: err }));
       if (error) {
         console.error('Error deleting BQ item:', error);
         alert('Could not save your change — please check your connection and try again.');
@@ -1605,7 +1631,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const { error: updateError } = await runExclusive(existingItem.id, () =>
         supabase.from('bq_items').update(updates).eq('id', existingItem.id)
-      );
+      ).catch(err => ({ error: err }));
       if (updateError) {
         console.error('Error updating BQ item:', updateError);
         alert('Could not save your change — please check your connection and try again.');
@@ -1649,7 +1675,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // DB
       const dbItemObj = mapBQItemToDB(newItem);
 
-      const { error } = await runExclusive(id, () => supabase.from('bq_items').insert(dbItemObj));
+      const { error } = await runExclusive(id, () => supabase.from('bq_items').insert(dbItemObj)).catch(err => ({ error: err }));
 
       if (error) {
         console.error("Error inserting BQ Item:", error);
@@ -1660,8 +1686,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const removeBQItem = async (id: string) => {
-    setBqItems(bqItems.filter((item) => item.id !== id));
-    const { error } = await runExclusive(id, () => supabase.from('bq_items').delete().eq('id', id));
+    setBqItems(prev => prev.filter((item) => item.id !== id));
+    const { error } = await runExclusive(id, () => supabase.from('bq_items').delete().eq('id', id)).catch(err => ({ error: err }));
     if (error) {
       console.error('Error removing BQ item:', error);
       alert('Could not save your change — please check your connection and try again.');
@@ -1677,7 +1703,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Handle Qty <= 0 Delete
     if (field === 'qty' && processedValue <= 0) {
       setBqItems(prev => prev.filter(item => item.id !== id));
-      const { error } = await runExclusive(id, () => supabase.from('bq_items').delete().eq('id', id));
+      const { error } = await runExclusive(id, () => supabase.from('bq_items').delete().eq('id', id)).catch(err => ({ error: err }));
       if (error) {
         console.error('Error deleting BQ item:', error);
         alert('Could not save your change — please check your connection and try again.');
@@ -1704,12 +1730,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           // the correct current item values (no stale closure).
           const toSave = mapBQItemToDB(updated);
           delete toSave.id;
-          runExclusive(id, () => supabase.from('bq_items').update(toSave).eq('id', id)).then(({ error }) => {
-            if (error) {
-              console.error('Error updating BQ item:', error);
+          runExclusive(id, () => supabase.from('bq_items').update(toSave).eq('id', id))
+            .then(({ error }) => {
+              if (error) {
+                console.error('Error updating BQ item:', error);
+                alert('Could not save your change — please check your connection and try again.');
+              }
+            })
+            .catch(err => {
+              console.error('Error updating BQ item:', err);
               alert('Could not save your change — please check your connection and try again.');
-            }
-          });
+            });
           return updated;
         }
         return item;
@@ -1874,8 +1905,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Write staged edits back to the project snapshot
     await updateProjectSnapshot(currentProjectId, currentVersionId, updates);
   };
-
-  const [isSaving, setIsSaving] = useState(false);
 
   // --- Pending Project Edits (discount etc.) ---
   const setPendingProjectEdit = (projectId: string, updates: Partial<Project>) => {
