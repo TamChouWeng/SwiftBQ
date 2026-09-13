@@ -9,13 +9,15 @@ SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management syste
 - **Immutable Quotes (Snapshots):** Guarantees that historical quotations are completely insulated from future price adjustments. Creating a project version captures a static snapshot of the Master List, preserving 100% accuracy for auditing and client trust.
 - **Transactional Save System:** Eliminates the risk of fragmented or corrupted records. Edits are batch-committed to cloud storage in a single transaction, ensuring comprehensive data consistency.
 - **Cascading Precision:** Maintains a clean and performant database over time. Deleting a project automatically triggers a synchronized cleanup of all its associated versions and sub-items.
-- **Resilient Cross-Session Writes:** BQ item and Master List snapshot writes merge onto the current database state (rather than the client's local copy) and are serialized atomically per row and version, so a long-open tab or a second device can never silently overwrite another session's changes. Save failures now surface an on-screen alert instead of failing silently.
+- **Resilient Cross-Session Writes:** BQ item and Master List snapshot writes merge onto the current database state (rather than the client's local copy) and are serialized atomically per row and version — including the catalog/master snapshot sync path, which excludes quantity entirely — so a long-open tab or a second device can never silently overwrite another session's changes. Save failures now surface an on-screen alert instead of failing silently.
+- **Save-Gated Quantity & Pricing:** Quantity, SC DDP/SP/RSP pricing, and the "isOptional" toggle are buffered locally and committed to the database only on Save — the same pattern already used for description edits — instead of writing per keystroke. The underlying insert/update/delete decision is made race-proof so rapid quantity entry across many items can never create a duplicate row for one line item. A browser warning now guards against losing unsaved edits on accidental tab close.
 
 ### User Experience & Performance
 - **Optimistic UI:** Provides a zero-latency experience for users. The BQ Builder saves data locally first, providing instantaneous feedback without waiting for network responses.
 - **High-Fidelity Quotation Preview:** Empowers teams to review exactly what clients will see. Replaced artificial DOM layouts with an embedded, real-time jsPDF engine preview that guarantees a pixel-perfect, 1:1 visual match with the exported document.
 - **Parallel Multi-Column Sorting:** Provides sequential, hierarchical sorting across key attributes (Category, Item name, and REX SC FOB prices) simultaneously, enabling granular and structured data views.
 - **Smart UI Infrastructure:** Prevents interface friction and data loss. Intelligent dropdowns adjust to viewport boundaries, and strict state management ensures inputs are reliably captured during complex strategy adjustments.
+- **Toolbar Parity & Manual Refresh:** Search, Category filter, and Save are available from both the Catalog and Review tabs (previously Save/Search/Filter were Catalog-only). A Refresh button pulls the open project version's latest server data on demand, disabled while there are unsaved changes so it can't silently discard them.
 
 ### Financial Control & Security
 - **Dynamic Pricing Engine:** Accelerates the quoting process and margin analysis. Calculates prices on the fly using customizable formulas, allowing rapid toggling between distinct pricing strategies to assess margin impacts immediately.
@@ -47,7 +49,7 @@ SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management syste
 ## 🧠 State Management & Data Flow
 SwiftBQ employs a highly **Optimistic UI** driven by a centralized React Context (`AppContext`) inside `store.tsx`. 
 
-- **Independent Edit Buffers:** Instead of binding inputs directly to the main state, user edits are captured in isolated state dictionaries (e.g., `masterListEdits`, `versionEdits`, `bqStagedEdits`, `pendingProjectEdits`).
+- **Independent Edit Buffers:** Instead of binding inputs directly to the main state, user edits are captured in isolated state dictionaries (e.g., `masterListEdits`, `versionEdits`, `bqItemEdits`, `bqStagedEdits`, `pendingProjectEdits`), plus a `pendingNewItemIds` set tracking BQ items created locally but not yet persisted to the database.
 - **Conflict Resolution:** By buffering edits based on context, the system allows users to freely navigate between tabs without triggering race conditions or premature database writes.
 - **Transactional Commits:** Changes only hit the Supabase database when explicitly saved via `saveAllChanges()` or specific `commit` functions, allowing users to safely discard complex UI experiments without data corruption.
 

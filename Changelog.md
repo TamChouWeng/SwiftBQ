@@ -2,6 +2,23 @@
 
 All notable changes to SwiftBQ will be documented in this file.
 
+## [Beta 3.9.2]
+
+### Critical Fix: Quantity Loss From a Client-Side Duplicate-Row Race
+- **Root cause found**: `syncMasterToBQ` (BQ Builder Catalog tab quantity entry) decided insert-vs-update for a row from a stale render closure. Typing a quantity fast enough into a not-yet-added item could fire two calls that both saw "not found" and both inserted a row for the same item — a client-side race entirely independent of Download, Review-tab layout, or multiple devices, matching what customers were experiencing at scale when quantifying many items in one session.
+- **Made the decision race-proof**: the insert/update/delete decision now runs inside a `setBqItems` functional updater, so it always reads the freshest state no matter how fast input arrives — no more duplicate rows, no more quantities reverting after a refresh.
+- **Snapshot sync no longer touches quantity**: `updateProjectSnapshot`'s per-item catalog sync write is now serialized per-row (`runExclusive`) and excludes `qty` from its payload, closing a second, independent path where a catalog/price update could silently revert an item's saved quantity.
+
+### Save-Gated Quantity, Pricing & Optional Toggle
+- Quantity, SC DDP/SP/RSP pricing, and the "isOptional" toggle no longer write to the database on every keystroke — they're staged locally (the same buffered pattern description edits already used) and flushed together when Save is clicked, replacing a large burst of per-keystroke network writes with one commit.
+- Reducing an item's quantity to zero no longer deletes it instantly — it's marked for removal and only actually deleted on Save, consistent with everything else now being Save-gated.
+- "Discard Changes" now re-pulls the last-saved state from the server, since quantity/pricing edits are applied optimistically to local state ahead of Save.
+- Added a browser "unsaved changes" warning on tab close/refresh, since quantity edits no longer autosave instantly.
+
+### BQ Builder Toolbar
+- **Manual Refresh**: new button between Save and Columns that pulls just the currently open project version's latest data from the server on demand, disabled while there are unsaved changes so it can't silently discard them.
+- **Review/Catalog Parity**: Search and Category filter now also work in the Review tab, and Save is available from both tabs (previously Catalog-only).
+
 ## [Beta 3.9.1]
 
 ### Critical Fix: Save Clobbered by Cross-Device Refetch & Race Hardening

@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical, AlertTriangle, Copy, ChevronDown, Save, ChevronLeft, ChevronRight, Filter, ListFilter } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, FolderPlus, Search, Calendar, User, Clock, FileText, Edit2, X, ArrowUpDown, LayoutTemplate, Eye, EyeOff, Layers, CheckSquare, GripVertical, AlertTriangle, Copy, ChevronDown, Save, ChevronLeft, ChevronRight, Filter, ListFilter, RefreshCw } from 'lucide-react';
 import { useAppStore, calculateDerivedFields } from '../store';
 import { AppLanguage, Project, BQItem, MasterItem, PriceField } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -45,6 +45,8 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         bqViewMode,
         setBqViewMode,
         saveAllChanges,
+        hasUnsavedChanges,
+        refreshCurrentVersion,
         bqStagedEdits,
         setBqStagedEdits,
         bqItemEdits,
@@ -455,6 +457,29 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         return items;
     }, [catalogSource, selectedCategory, searchQuery, quantityFilterMode, activeItemsMap]);
 
+    // Review tab's counterpart to filteredItems — same Search/Category controls, applied to
+    // the already-added line items (resolvedActiveItems) instead of the full catalog.
+    const filteredReviewItems = useMemo(() => {
+        let items = resolvedActiveItems;
+
+        if (selectedCategory !== 'All') {
+            items = items.filter(item => item.category === selectedCategory);
+        }
+
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            items = items.filter(item =>
+                item.itemName.toLowerCase().includes(q) ||
+                item.description.toLowerCase().includes(q) ||
+                (item.brand || '').toLowerCase().includes(q) ||
+                (item.axsku || '').toLowerCase().includes(q) ||
+                (item.mpn || '').toLowerCase().includes(q)
+            );
+        }
+
+        return items;
+    }, [resolvedActiveItems, selectedCategory, searchQuery]);
+
     // Reset page when filters change
     useEffect(() => {
         setCurrentPage(1);
@@ -504,9 +529,10 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     // firing updateProjectSnapshot directly and unawaited: that bypassed `isSaving`, so the
     // idle cross-device refetch (store.tsx) could see hasUnsavedChanges flip false the instant
     // stagedEdits was cleared and refetch stale data over this save while it was still in flight.
+    // Shared by both the Catalog and Review Save buttons — gated on the global hasUnsavedChanges
+    // (not just catalog `stagedEdits`) so a qty-only edit in either tab still gets saved.
     const commitCatalogChanges = () => {
-        if (!activeProject || !stagedEdits || Object.keys(stagedEdits).length === 0) return;
-        if (!currentVersionId) return;
+        if (!activeProject || !currentVersionId || !hasUnsavedChanges) return;
         saveAllChanges();
     };
 
@@ -1542,69 +1568,77 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                 {/* Toggle View & Custom Item Actions */}
                 <div className="flex gap-2 items-center w-full xl:w-auto self-end xl:self-center">
 
-                    {/* Catalog Search & Filter: Only visible in Catalog View */}
-                    {bqViewMode === 'catalog' && (
-                        <>
-                            {/* Search Bar */}
-                            <div className="relative">
-                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                                <input
-                                    type="text"
-                                    placeholder="Search..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-40 xl:w-64 pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white transition-all"
-                                />
-                            </div>
+                    {/* Search & Category Filter: shared by Catalog (filters the catalog list)
+                        and Review (filters the added line items) */}
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input
+                            type="text"
+                            placeholder="Search..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-40 xl:w-64 pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:outline-none dark:text-white transition-all"
+                        />
+                    </div>
 
-                            {/* Category Filter Dropdown */}
-                            <div className="relative">
-                                <button
-                                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                                    className={`w-10 h-10 flex items-center justify-center border hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg transition-colors ${selectedCategory !== 'All'
-                                        ? 'bg-primary-50 text-primary-600 border-primary-200 dark:bg-primary-900/30 dark:border-primary-800 dark:text-primary-400'
-                                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-gray-200 dark:border-slate-600'}`}
-                                    title="Filter Category"
-                                >
-                                    <Filter size={20} />
-                                </button>
-                                {showCategoryDropdown && (
-                                    <>
-                                        <div className="fixed inset-0 z-10 cursor-default" onClick={() => setShowCategoryDropdown(false)} />
-                                        <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 z-20 p-2 grid grid-cols-1 gap-1 max-h-[300px] overflow-y-auto">
-                                            {categories.map((cat) => (
-                                                <button
-                                                    key={cat}
-                                                    onClick={() => handleCategorySelect(cat)}
-                                                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors ${selectedCategory === cat
-                                                        ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400'
-                                                        : 'text-slate-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
-                                                >
-                                                    <span className="truncate font-medium">{cat}</span>
-                                                    {selectedCategory === cat && <CheckSquare size={14} />}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        </>
-                    )}
-
-                    {/* Catalog Save Button: Only visible in Catalog View */}
-                    {bqViewMode === 'catalog' && (
+                    <div className="relative">
                         <button
-                            onClick={commitCatalogChanges}
-                            disabled={Object.keys(stagedEdits).length === 0}
-                            className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${Object.keys(stagedEdits).length > 0
-                                ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/50 shadow-sm'
-                                : 'bg-white dark:bg-slate-800 text-gray-300 dark:text-gray-600 border-gray-200 dark:border-slate-700 cursor-not-allowed opacity-60'
-                                }`}
-                            title="Save Catalog Changes"
+                            onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                            className={`w-10 h-10 flex items-center justify-center border hover:bg-gray-50 dark:hover:bg-slate-700 rounded-lg transition-colors ${selectedCategory !== 'All'
+                                ? 'bg-primary-50 text-primary-600 border-primary-200 dark:bg-primary-900/30 dark:border-primary-800 dark:text-primary-400'
+                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-gray-200 dark:border-slate-600'}`}
+                            title="Filter Category"
                         >
-                            <Save size={20} />
+                            <Filter size={20} />
                         </button>
-                    )}
+                        {showCategoryDropdown && (
+                            <>
+                                <div className="fixed inset-0 z-10 cursor-default" onClick={() => setShowCategoryDropdown(false)} />
+                                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-600 z-20 p-2 grid grid-cols-1 gap-1 max-h-[300px] overflow-y-auto">
+                                    {categories.map((cat) => (
+                                        <button
+                                            key={cat}
+                                            onClick={() => handleCategorySelect(cat)}
+                                            className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors ${selectedCategory === cat
+                                                ? 'bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400'
+                                                : 'text-slate-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
+                                        >
+                                            <span className="truncate font-medium">{cat}</span>
+                                            {selectedCategory === cat && <CheckSquare size={14} />}
+                                        </button>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Save Button - shared by Catalog and Review; gated on the global
+                        hasUnsavedChanges so a qty-only edit in either tab enables it */}
+                    <button
+                        onClick={commitCatalogChanges}
+                        disabled={!hasUnsavedChanges}
+                        className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-all ${hasUnsavedChanges
+                            ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/50 shadow-sm'
+                            : 'bg-white dark:bg-slate-800 text-gray-300 dark:text-gray-600 border-gray-200 dark:border-slate-700 cursor-not-allowed opacity-60'
+                            }`}
+                        title="Save Changes"
+                    >
+                        <Save size={20} />
+                    </button>
+
+                    {/* Refresh Button - pulls this project version's latest server data.
+                        Disabled while there are unsaved changes so it can't silently discard them. */}
+                    <button
+                        onClick={() => refreshCurrentVersion()}
+                        disabled={hasUnsavedChanges}
+                        className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-colors ${hasUnsavedChanges
+                            ? 'bg-white dark:bg-slate-800 text-gray-300 dark:text-gray-600 border-gray-200 dark:border-slate-700 cursor-not-allowed opacity-60'
+                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700'
+                            }`}
+                        title={hasUnsavedChanges ? "Save or discard changes before refreshing" : "Refresh from server"}
+                    >
+                        <RefreshCw size={20} />
+                    </button>
 
                     {/* Columns Button - Shared for both views */}
                     <div className="relative">
@@ -1830,7 +1864,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                                     {visibleColumns.action && <col style={{ width: colWidths.action }} />}
                                 </colgroup>
                                 <tbody className="divide-y divide-gray-100 dark:divide-slate-700 text-sm">
-                                    {renderTableRows(resolvedActiveItems, 'review')}
+                                    {renderTableRows(filteredReviewItems, 'review')}
                                 </tbody>
                             </table>
                         </div>
