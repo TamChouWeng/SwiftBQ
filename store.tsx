@@ -1759,15 +1759,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const [movedItem] = reordered.splice(sourceIndex, 1);
       reordered.splice(destinationIndex, 0, movedItem);
 
-      // Assign new orderIndex values and persist each to DB
+      // Assign new orderIndex values. Persistence is Save-gated (see setBQItemEdit/
+      // commitBQItemEdits) — stage instead of writing directly, so a drag doesn't fire an
+      // unguarded, unlocked DB write per item in the version on every drop.
       const withOrder = reordered.map((item, idx) => ({ ...item, orderIndex: idx }));
-      withOrder.forEach(item => {
-        supabase
-          .from('bq_items')
-          .update({ order_index: item.orderIndex })
-          .eq('id', item.id)
-          .then(({ error }) => { if (error) console.error('Failed to save reorder:', error); });
-      });
+      withOrder.forEach(item => setBQItemEdit(item.id, { orderIndex: item.orderIndex }));
 
       return [...otherItems, ...withOrder];
     });
