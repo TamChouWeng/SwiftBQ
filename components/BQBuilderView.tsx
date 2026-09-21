@@ -46,7 +46,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         setBqViewMode,
         saveAllChanges,
         hasUnsavedChanges,
-        refreshCurrentVersion,
+        refreshCurrentProject,
         bqStagedEdits,
         setBqStagedEdits,
         bqItemEdits,
@@ -669,21 +669,14 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
     const handleCopyVersion = () => {
         if (!activeProject || !currentVersionId) return;
 
-        const currentVersionName = activeProject.versions.find(v => v.id === currentVersionId)?.name || 'Version';
-
-        // Determine next version number logic
-        let newName = `${currentVersionName}-copy`;
-        const match = currentVersionName.match(/Version (\d+)$/i);
-        if (match) {
-            const nextNum = parseInt(match[1]) + 1;
-            newName = `Version ${nextNum}`;
-        } else {
-            let counter = 2;
-            while (activeProject.versions.some(v => v.name === `Version ${counter}`)) {
-                counter++;
-            }
-            newName = `Version ${counter}`;
+        // Always derive the new name from how many versions currently exist, then bump
+        // past any collision — regardless of what the source version is named — so
+        // duplicating never produces a colliding "Version N" (e.g. two "Version 2"s).
+        let counter = activeProject.versions.length + 1;
+        while (activeProject.versions.some(v => v.name === `Version ${counter}`)) {
+            counter++;
         }
+        const newName = `Version ${counter}`;
 
         const newVersionId = self.crypto.randomUUID();
         createVersion(activeProject.id, currentVersionId, newName, newVersionId);
@@ -1626,16 +1619,17 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         <Save size={20} />
                     </button>
 
-                    {/* Refresh Button - pulls this project version's latest server data.
-                        Disabled while there are unsaved changes so it can't silently discard them. */}
+                    {/* Refresh Button - pulls this project's latest server data, every version
+                        (not just the one being viewed). Disabled while there are unsaved
+                        changes so it can't silently discard them. */}
                     <button
-                        onClick={() => refreshCurrentVersion()}
+                        onClick={() => refreshCurrentProject()}
                         disabled={hasUnsavedChanges}
                         className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-colors ${hasUnsavedChanges
                             ? 'bg-white dark:bg-slate-800 text-gray-300 dark:text-gray-600 border-gray-200 dark:border-slate-700 cursor-not-allowed opacity-60'
                             : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700'
                             }`}
-                        title={hasUnsavedChanges ? "Save or discard changes before refreshing" : "Refresh from server"}
+                        title={hasUnsavedChanges ? "Save or discard changes before refreshing" : "Refresh all versions from server"}
                     >
                         <RefreshCw size={20} />
                     </button>

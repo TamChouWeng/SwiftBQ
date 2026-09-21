@@ -298,7 +298,7 @@ interface AppContextType {
   isSaving: boolean;
   saveAllChanges: () => Promise<void>;
   discardAllChanges: () => void;
-  refreshCurrentVersion: () => Promise<void>;
+  refreshCurrentProject: () => Promise<void>;
 
   /* Authentication */
   user: any | null; // Profile object
@@ -758,34 +758,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Manual "Refresh" button — pulls just the open project version's latest server data,
-  // instead of fetchProjects/fetchBQItems above which pull everything for the user.
-  const refreshCurrentVersion = async () => {
+  // Manual "Refresh" button — pulls the open project's latest server data (every version,
+  // not just the one currently being viewed, so switching versions afterward shows fresh
+  // data too) instead of fetchProjects/fetchBQItems above which pull everything for the user.
+  const refreshCurrentProject = async () => {
     if (!currentProjectId || !currentVersionId) return;
 
-    const { data: versionData, error: versionError } = await supabase
+    const { data: versionsData, error: versionsError } = await supabase
       .from('project_versions')
       .select('*')
-      .eq('id', currentVersionId)
-      .single();
+      .eq('project_id', currentProjectId);
 
-    if (versionError) {
-      console.error('Error refreshing version:', versionError);
+    if (versionsError) {
+      console.error('Error refreshing versions:', versionsError);
       alert('Could not refresh — please check your connection and try again.');
       return;
     }
-    if (versionData) {
-      const freshVersion = mapVersionFromDB(versionData);
+    if (versionsData) {
+      const freshVersions = versionsData.map(mapVersionFromDB);
       setProjects(prev => prev.map(p => p.id !== currentProjectId ? p : {
         ...p,
-        versions: p.versions.map(v => v.id === currentVersionId ? freshVersion : v),
+        versions: freshVersions,
       }));
     }
 
     const { data: itemsData, error: itemsError } = await supabase
       .from('bq_items')
       .select('*')
-      .eq('version_id', currentVersionId)
+      .eq('project_id', currentProjectId)
       .order('order_index', { ascending: true })
       .order('created_at', { ascending: true });
 
@@ -796,7 +796,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     if (itemsData) {
       const freshItems = itemsData.map(mapBQItemFromDB);
-      setBqItems(prev => [...prev.filter(i => i.versionId !== currentVersionId), ...freshItems]);
+      setBqItems(prev => [...prev.filter(i => i.projectId !== currentProjectId), ...freshItems]);
     }
   };
 
@@ -2012,7 +2012,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bqItemEdits, setBQItemEdit, commitBQItemEdits, discardBQItemEdits,
         bqStagedEdits, setBqStagedEdits, clearBqStagedEdits, commitBqStagedEdits,
         pendingProjectEdits, setPendingProjectEdit, discardPendingProjectEdits,
-        hasUnsavedChanges, isSaving, saveAllChanges, discardAllChanges, refreshCurrentVersion,
+        hasUnsavedChanges, isSaving, saveAllChanges, discardAllChanges, refreshCurrentProject,
         user, login, logout, updateUserProfile, updateCompanyProfile, uploadCompanyLogo, uploadProfileSignature
       }}
 
