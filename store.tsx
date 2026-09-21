@@ -298,6 +298,7 @@ interface AppContextType {
   isSaving: boolean;
   saveAllChanges: () => Promise<void>;
   discardAllChanges: () => void;
+  refreshCurrentProject: () => Promise<void>;
 
   /* Authentication */
   user: any | null; // Profile object
@@ -757,6 +758,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Manual "Refresh" button — pulls the open project's latest server data (every version,
+  // not just the one currently being viewed, so switching versions afterward shows fresh
+  // data too) instead of fetchProjects/fetchBQItems above which pull everything for the user.
+  const refreshCurrentProject = async () => {
+    if (!currentProjectId || !currentVersionId) return;
+
+    const { data: versionsData, error: versionsError } = await supabase
+      .from('project_versions')
+      .select('*')
+      .eq('project_id', currentProjectId);
+
+    if (versionsError) {
+      console.error('Error refreshing versions:', versionsError);
+      alert('Could not refresh — please check your connection and try again.');
+      return;
+    }
+    if (versionsData) {
+      const freshVersions = versionsData.map(mapVersionFromDB);
+      setProjects(prev => prev.map(p => p.id !== currentProjectId ? p : {
+        ...p,
+        versions: freshVersions,
+      }));
+    }
+
+    const { data: itemsData, error: itemsError } = await supabase
+      .from('bq_items')
+      .select('*')
+      .eq('project_id', currentProjectId)
+      .order('order_index', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (itemsError) {
+      console.error('Error refreshing BQ items:', itemsError);
+      alert('Could not refresh — please check your connection and try again.');
+      return;
+    }
+    if (itemsData) {
+      const freshItems = itemsData.map(mapBQItemFromDB);
+      setBqItems(prev => [...prev.filter(i => i.projectId !== currentProjectId), ...freshItems]);
+    }
+  };
+
 
 
   const [appSettings, setAppSettings] = useState<AppSettings>(() => {
@@ -787,6 +830,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [bqItemEdits, setBqItemEdits] = useState<Record<string, Partial<BQItem>>>({});
   const [bqStagedEdits, setBqStagedEdits] = useState<Record<string, Partial<MasterItem>>>({});
   const [pendingProjectEdits, setPendingProjectEdits] = useState<Record<string, Partial<Project>>>({});
+  // ponytail: ids of bq_items rows created locally this session but not yet persisted —
+  // lets commitBQItemEdits know to insert (or silently discard) rather than update.
+  const [pendingNewItemIds, setPendingNewItemIds] = useState<Set<string>>(new Set());
   const clearBqStagedEdits = () => setBqStagedEdits({});
 
   const hasUnsavedChanges = useMemo(() =>
@@ -794,8 +840,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     Object.keys(versionEdits).length > 0 ||
     Object.keys(bqItemEdits).length > 0 ||
     Object.keys(bqStagedEdits).length > 0 ||
-    Object.keys(pendingProjectEdits).length > 0,
-    [masterListEdits, versionEdits, bqItemEdits, bqStagedEdits, pendingProjectEdits]);
+    Object.keys(pendingProjectEdits).length > 0 ||
+    pendingNewItemIds.size > 0,
+    [masterListEdits, versionEdits, bqItemEdits, bqStagedEdits, pendingProjectEdits, pendingNewItemIds]);
 
   // Tracks an in-flight saveAllChanges()/commit* call. Edit buffers above are cleared
   // optimistically the instant Save is clicked — before the network write resolves — so
@@ -824,6 +871,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       document.removeEventListener('visibilitychange', refetchIfIdle);
     };
   }, [user?.id, hasUnsavedChanges, isSaving]);
+
+  // Warn before closing/refreshing a tab with unsaved changes — quantity/pricing edits no
+  // longer autosave per keystroke, so an accidental close can now lose typed-but-unsaved work.
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   // --- Persistence Effects ---
 
@@ -1314,13 +1373,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return item;
       });
 
-      // DB writes — full row update for each changed item
+      // DB writes — full row update for each changed item, excluding qty (user-owned, not a
+      // catalog field) and serialized per-row so this can't race ahead of a queued qty write.
       for (const item of updatesToProcess) {
         const dbItem = mapBQItemToDB(item);
         delete dbItem.id;
-        supabase.from('bq_items').update(dbItem).eq('id', item.id).then(({error}) => {
-          if (error) console.error('Error updating BQ item during snapshot sync:', error);
-        });
+        delete dbItem.qty;
+        runExclusive(item.id, () => supabase.from('bq_items').update(dbItem).eq('id', item.id))
+          .then(({ error }) => {
+            if (error) console.error('Error updating BQ item during snapshot sync:', error);
+          });
       }
 
       return newItems;
@@ -1533,115 +1595,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const syncMasterToBQ = async (projectId: string, versionId: string, masterItem: MasterItem, qty: number) => {
-    // 1. Determine Action based on CURRENT state (bqItems)
-    // Note: We rely on 'bqItems' from closure. In high-concurrency this might be slightly stale but acceptable for UI.
-    const existingIndex = bqItems.findIndex(item => item.projectId === projectId && item.versionId === versionId && item.masterId === masterItem.id);
-    const existingItem = existingIndex > -1 ? bqItems[existingIndex] : null;
+  const syncMasterToBQ = (projectId: string, versionId: string, masterItem: MasterItem, qty: number) => {
+    // ponytail: decide insert/update/delete from `prev` inside the functional updater, not the
+    // `bqItems` closure — two rapid keystrokes for the same masterId can no longer both see
+    // "not found" and both insert a duplicate row (was the root cause of the reported bug).
+    setBqItems(prev => {
+      const existingIndex = prev.findIndex(item => item.projectId === projectId && item.versionId === versionId && item.masterId === masterItem.id);
+      const existingItem = existingIndex > -1 ? prev[existingIndex] : null;
 
-    let action: 'insert' | 'update' | 'delete' | 'none' = 'none';
+      let action: 'insert' | 'update' | 'delete' | 'none' = 'none';
+      if (qty <= 0) {
+        if (existingItem) action = 'delete';
+      } else {
+        action = existingItem ? 'update' : 'insert';
+      }
+      if (action === 'none') return prev;
 
-    if (qty <= 0) {
-      if (existingItem) action = 'delete';
-    } else {
-      if (existingItem) action = 'update';
-      else action = 'insert';
-    }
+      // Persistence is Save-gated (see setBQItemEdit/pendingNewItemIds/commitBQItemEdits) —
+      // this only updates local state optimistically; the DB write happens at Save time.
 
-    if (action === 'none') return;
-
-    // 2. Perform Optimistic Update & Prepare DB Ops
-    if (action === 'delete' && existingItem) {
-      // Optimistic
-      setBqItems(prev => prev.filter(i => i.id !== existingItem.id));
-      // DB — serialized per row id so this can't race ahead of an insert/update still in flight
-      const { error } = await runExclusive(existingItem.id, () =>
-        supabase.from('bq_items').delete().eq('id', existingItem.id)
-      ).catch(err => ({ error: err }));
-      if (error) {
-        console.error('Error deleting BQ item:', error);
-        alert('Could not save your change — please check your connection and try again.');
+      if (action === 'delete' && existingItem) {
+        // Keep the row locally at qty 0 (visible as "pending removal") until Save actually deletes it.
+        setBQItemEdit(existingItem.id, { qty: 0, total: 0 });
+        return prev.map(i => i.id === existingItem.id ? { ...i, qty: 0, total: 0 } : i);
       }
 
-    } else if (action === 'update' && existingItem) {
       // Use price from the incoming masterItem (which already has staged catalog edits merged in)
       const rspVal =
         masterItem.rexRsp && typeof masterItem.rexRsp === 'object' && 'value' in masterItem.rexRsp
           ? (masterItem.rexRsp as any).value
-          : (masterItem.price ?? existingItem.price);
+          : (masterItem.price ?? existingItem?.price ?? 0);
       const safePrice = isNaN(rspVal) ? 0 : rspVal;
       const safeQty = isNaN(qty) ? 0 : qty;
       const updatedTotal = safePrice * safeQty;
 
-      // For fields editable in QuotationView, prefer any pending (unsaved) QV edits over
-      // the incoming master values — otherwise changing Qty in BQBuilder overwrites what
-      // the user just typed in QV even before they've had a chance to save.
-      const pendingQVEdits = bqItemEdits[existingItem.id] || {};
-      const resolvedDescription = pendingQVEdits.description !== undefined
-        ? pendingQVEdits.description
-        : masterItem.description;
-      const resolvedUom = pendingQVEdits.uom !== undefined
-        ? pendingQVEdits.uom
-        : masterItem.uom;
+      if (action === 'update' && existingItem) {
+        // For fields editable in QuotationView, prefer any pending (unsaved) QV edits over
+        // the incoming master values — otherwise changing Qty in BQBuilder overwrites what
+        // the user just typed in QV even before they've had a chance to save.
+        const pendingQVEdits = bqItemEdits[existingItem.id] || {};
+        const resolvedDescription = pendingQVEdits.description !== undefined
+          ? pendingQVEdits.description
+          : masterItem.description;
+        const resolvedUom = pendingQVEdits.uom !== undefined
+          ? pendingQVEdits.uom
+          : masterItem.uom;
 
-      // Optimistic — sync ALL fields so in-memory state matches what we persist
-      setBqItems(prev => prev.map(i => i.id === existingItem.id ? {
-        ...i,
-        qty: safeQty,
-        price: safePrice,
-        total: updatedTotal,
-        description: resolvedDescription,
-        uom: resolvedUom,
-        brand: masterItem.brand,
-        axsku: masterItem.axsku,
-        mpn: masterItem.mpn,
-        group: masterItem.group,
-        category: masterItem.category,
-        itemName: masterItem.itemName,
-        rexScFob: masterItem.rexScFob,
-        forex: masterItem.forex,
-        sst: masterItem.sst,
-        opta: masterItem.opta,
-        rexScDdp: masterItem.rexScDdp,
-        rexSp: masterItem.rexSp,
-        rexRsp: masterItem.rexRsp,
-      } : i));
+        const fields: Partial<BQItem> = {
+          qty: safeQty,
+          price: safePrice,
+          total: updatedTotal,
+          description: resolvedDescription,
+          uom: resolvedUom,
+          brand: masterItem.brand,
+          axsku: masterItem.axsku,
+          mpn: masterItem.mpn,
+          group: masterItem.group,
+          category: masterItem.category,
+          itemName: masterItem.itemName,
+          rexScFob: masterItem.rexScFob,
+          forex: masterItem.forex,
+          sst: masterItem.sst,
+          opta: masterItem.opta,
+          rexScDdp: masterItem.rexScDdp,
+          rexSp: masterItem.rexSp,
+          rexRsp: masterItem.rexRsp,
+        };
 
-      // DB — persist ALL fields including price/pricing strategy fields
-      const updates = {
-        qty: safeQty,
-        price: safePrice,
-        total: updatedTotal,
-        description: resolvedDescription,
-        uom: resolvedUom,
-        brand: masterItem.brand,
-        axsku: masterItem.axsku,
-        mpn: masterItem.mpn,
-        group: masterItem.group,
-        category: masterItem.category,
-        item_name: masterItem.itemName,
-        rex_sc_fob: masterItem.rexScFob,
-        forex: masterItem.forex,
-        sst: masterItem.sst,
-        opta: masterItem.opta,
-        rex_sc_ddp: masterItem.rexScDdp,
-        rex_sp: masterItem.rexSp,
-        rex_rsp: masterItem.rexRsp,
-      };
-
-      const { error: updateError } = await runExclusive(existingItem.id, () =>
-        supabase.from('bq_items').update(updates).eq('id', existingItem.id)
-      ).catch(err => ({ error: err }));
-      if (updateError) {
-        console.error('Error updating BQ item:', updateError);
-        alert('Could not save your change — please check your connection and try again.');
+        setBQItemEdit(existingItem.id, fields);
+        return prev.map(i => i.id === existingItem.id ? { ...i, ...fields } : i);
       }
 
-    } else if (action === 'insert') {
+      // action === 'insert'
       // Client-generated id doubles as the real row id — no post-insert id swap, so a fast
       // follow-up edit on this row (update/delete) never races a stale temp id.
       const id = self.crypto.randomUUID();
-
       const newItem: BQItem = {
         id,
         userId: user?.id || 'unknown',
@@ -1656,9 +1684,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         axsku: masterItem.axsku,
         mpn: masterItem.mpn,
         group: masterItem.group,
-        price: masterItem.rexRsp && typeof masterItem.rexRsp === 'object' && 'value' in masterItem.rexRsp ? (masterItem.rexRsp as any).value : (masterItem.price || 0),
-        qty: qty,
-        total: (masterItem.rexRsp && typeof masterItem.rexRsp === 'object' && 'value' in masterItem.rexRsp ? (masterItem.rexRsp as any).value : (masterItem.price || 0)) * (qty || 0),
+        price: safePrice,
+        qty: safeQty,
+        total: updatedTotal,
         rexScFob: masterItem.rexScFob,
         forex: masterItem.forex,
         sst: masterItem.sst,
@@ -1669,20 +1697,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isOptional: false,
       };
 
-      // Optimistic
-      setBqItems(prev => [...prev, newItem]);
-
-      // DB
-      const dbItemObj = mapBQItemToDB(newItem);
-
-      const { error } = await runExclusive(id, () => supabase.from('bq_items').insert(dbItemObj)).catch(err => ({ error: err }));
-
-      if (error) {
-        console.error("Error inserting BQ Item:", error);
-        alert('Could not save your change — please check your connection and try again.');
-        setBqItems(prev => prev.filter(i => i.id !== id));
-      }
-    }
+      setPendingNewItemIds(prevIds => new Set(prevIds).add(id));
+      return [...prev, newItem];
+    });
   };
 
   const removeBQItem = async (id: string) => {
@@ -1694,56 +1711,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const updateBQItem = async (id: string, field: keyof BQItem, value: any) => {
+  const updateBQItem = (id: string, field: keyof BQItem, value: any) => {
     let processedValue = value;
     if (field === 'qty' || field === 'price') {
       processedValue = Number(value);
     }
 
-    // Handle Qty <= 0 Delete
-    if (field === 'qty' && processedValue <= 0) {
-      setBqItems(prev => prev.filter(item => item.id !== id));
-      const { error } = await runExclusive(id, () => supabase.from('bq_items').delete().eq('id', id)).catch(err => ({ error: err }));
-      if (error) {
-        console.error('Error deleting BQ item:', error);
-        alert('Could not save your change — please check your connection and try again.');
-      }
-      return;
-    }
-
-    // Use functional updater so the DB write always sees the freshest item values,
-    // avoiding the stale-closure bug where bqItems captured at call-time was stale.
+    // Persistence is Save-gated (see setBQItemEdit/commitBQItemEdits) — this only updates
+    // local state optimistically; the DB write (or delete, for qty <= 0) happens at Save time.
     setBqItems((prev) => {
       return prev.map((item) => {
-        if (item.id === id) {
-          const updated = { ...item, [field]: processedValue };
-          if (field === 'rexRsp') {
-             const rspVal = processedValue && typeof processedValue === 'object' && 'value' in processedValue ? processedValue.value : Number(processedValue);
-             updated.price = isNaN(rspVal) ? 0 : rspVal;
-             updated.total = updated.price * updated.qty;
-          } else if (field === 'price' || field === 'qty') {
-            const p = field === 'price' ? processedValue : item.price;
-            const q = field === 'qty' ? processedValue : item.qty;
-            updated.total = (isNaN(p) ? 0 : p) * (isNaN(q) ? 0 : q);
-          }
-          // Fire DB write from inside the functional updater so we always have
-          // the correct current item values (no stale closure).
-          const toSave = mapBQItemToDB(updated);
-          delete toSave.id;
-          runExclusive(id, () => supabase.from('bq_items').update(toSave).eq('id', id))
-            .then(({ error }) => {
-              if (error) {
-                console.error('Error updating BQ item:', error);
-                alert('Could not save your change — please check your connection and try again.');
-              }
-            })
-            .catch(err => {
-              console.error('Error updating BQ item:', err);
-              alert('Could not save your change — please check your connection and try again.');
-            });
-          return updated;
+        if (item.id !== id) return item;
+
+        const updated = { ...item, [field]: processedValue };
+        const staged: Partial<BQItem> = { [field]: processedValue };
+
+        if (field === 'qty' && processedValue <= 0) {
+          updated.qty = 0;
+          updated.total = 0;
+          staged.qty = 0;
+          staged.total = 0;
+        } else if (field === 'rexRsp') {
+          const rspVal = processedValue && typeof processedValue === 'object' && 'value' in processedValue ? processedValue.value : Number(processedValue);
+          updated.price = isNaN(rspVal) ? 0 : rspVal;
+          updated.total = updated.price * updated.qty;
+          staged.price = updated.price;
+          staged.total = updated.total;
+        } else if (field === 'price' || field === 'qty') {
+          const p = field === 'price' ? processedValue : item.price;
+          const q = field === 'qty' ? processedValue : item.qty;
+          updated.total = (isNaN(p) ? 0 : p) * (isNaN(q) ? 0 : q);
+          staged.total = updated.total;
         }
-        return item;
+
+        setBQItemEdit(id, staged);
+        return updated;
       });
     });
   };
@@ -1757,15 +1759,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const [movedItem] = reordered.splice(sourceIndex, 1);
       reordered.splice(destinationIndex, 0, movedItem);
 
-      // Assign new orderIndex values and persist each to DB
+      // Assign new orderIndex values. Persistence is Save-gated (see setBQItemEdit/
+      // commitBQItemEdits) — stage instead of writing directly, so a drag doesn't fire an
+      // unguarded, unlocked DB write per item in the version on every drop.
       const withOrder = reordered.map((item, idx) => ({ ...item, orderIndex: idx }));
-      withOrder.forEach(item => {
-        supabase
-          .from('bq_items')
-          .update({ order_index: item.orderIndex })
-          .eq('id', item.id)
-          .then(({ error }) => { if (error) console.error('Failed to save reorder:', error); });
-      });
+      withOrder.forEach(item => setBQItemEdit(item.id, { orderIndex: item.orderIndex }));
 
       return [...otherItems, ...withOrder];
     });
@@ -1860,9 +1858,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const commitBQItemEdits = async () => {
-    if (Object.keys(bqItemEdits).length === 0) return;
+    if (Object.keys(bqItemEdits).length === 0 && pendingNewItemIds.size === 0) return;
 
-    // 1. Optimistic Update
+    // 1. Optimistic Update — covers QuotationView's description-only edits, which stage into
+    // bqItemEdits but never touch bqItems until commit; updateBQItem/syncMasterToBQ already
+    // applied their optimistic update at edit time, so this is a no-op re-application for them.
     setBqItems(prev => prev.map(item => {
       if (bqItemEdits[item.id]) {
         return { ...item, ...bqItemEdits[item.id] };
@@ -1870,24 +1870,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return item;
     }));
 
-    // 2. DB Update
+    // 2. Snapshot + clear buffers immediately, DB writes happen in the background
     const editsToSave = { ...bqItemEdits };
+    const newIdsToSave = new Set<string>(pendingNewItemIds);
     setBqItemEdits({});
+    setPendingNewItemIds(new Set());
 
-    for (const [itemId, updates] of Object.entries(editsToSave)) {
-      const dbUpdates = mapBQItemToDB(updates);
+    const idsToRemoveLocally: string[] = [];
+    const idsToProcess = new Set<string>(Object.keys(editsToSave));
+    newIdsToSave.forEach(id => idsToProcess.add(id));
+
+    for (const itemId of idsToProcess) {
+      const edits = editsToSave[itemId] || {};
+      const liveItem = bqItems.find(i => i.id === itemId);
+      const finalQty = edits.qty !== undefined ? edits.qty : liveItem?.qty;
+
+      if (newIdsToSave.has(itemId)) {
+        // Never persisted yet — insert now, or silently discard if qty ended up <= 0 before ever saving.
+        if (liveItem && finalQty !== undefined && finalQty > 0) {
+          const { error } = await runExclusive(itemId, () =>
+            supabase.from('bq_items').insert(mapBQItemToDB({ ...liveItem, ...edits }))
+          ).catch(err => ({ error: err }));
+          if (error) console.error('Error inserting BQ item:', error);
+        } else {
+          idsToRemoveLocally.push(itemId);
+        }
+        continue;
+      }
+
+      if (finalQty !== undefined && finalQty <= 0) {
+        const { error } = await runExclusive(itemId, () =>
+          supabase.from('bq_items').delete().eq('id', itemId)
+        ).catch(err => ({ error: err }));
+        if (error) console.error('Error deleting BQ item:', error);
+        else idsToRemoveLocally.push(itemId);
+        continue;
+      }
+
+      if (Object.keys(edits).length === 0) continue;
+      const dbUpdates = mapBQItemToDB(edits);
       delete dbUpdates.id; // Don't update ID or keys
       delete dbUpdates.user_id;
       delete dbUpdates.project_id;
       delete dbUpdates.version_id;
 
-      const { error } = await supabase.from('bq_items').update(dbUpdates).eq('id', itemId);
+      const { error } = await runExclusive(itemId, () =>
+        supabase.from('bq_items').update(dbUpdates).eq('id', itemId)
+      ).catch(err => ({ error: err }));
       if (error) console.error("Error saving BQ Item edits:", error);
+    }
+
+    if (idsToRemoveLocally.length > 0) {
+      setBqItems(prev => prev.filter(i => !idsToRemoveLocally.includes(i.id)));
     }
   };
 
   const discardBQItemEdits = () => {
     setBqItemEdits({});
+    setPendingNewItemIds(new Set());
+    // Quantity/pricing edits are applied optimistically to bqItems at edit time (unlike
+    // description, which only ever lives in bqItemEdits) — a plain buffer-clear can't revert
+    // those, so re-pull the last-saved state from the server instead.
+    fetchBQItems();
   };
 
   // --- BQ Staged Edits Commit ---
@@ -1968,7 +2012,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bqItemEdits, setBQItemEdit, commitBQItemEdits, discardBQItemEdits,
         bqStagedEdits, setBqStagedEdits, clearBqStagedEdits, commitBqStagedEdits,
         pendingProjectEdits, setPendingProjectEdit, discardPendingProjectEdits,
-        hasUnsavedChanges, isSaving, saveAllChanges, discardAllChanges,
+        hasUnsavedChanges, isSaving, saveAllChanges, discardAllChanges, refreshCurrentProject,
         user, login, logout, updateUserProfile, updateCompanyProfile, uploadCompanyLogo, uploadProfileSignature
       }}
 

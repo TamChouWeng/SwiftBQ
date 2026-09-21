@@ -26,3 +26,4 @@ Logo
 *.sw?
 /Database
 /.agents
+/.claude
