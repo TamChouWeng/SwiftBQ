@@ -47,6 +47,8 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         saveAllChanges,
         hasUnsavedChanges,
         refreshCurrentProject,
+        projectsLoadError,
+        retryFetchProjects,
         bqStagedEdits,
         setBqStagedEdits,
         bqItemEdits,
@@ -390,6 +392,8 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         const version = activeProject.versions.find(v => v.id === currentVersionId);
         return version?.masterSnapshot || [];
     }, [activeProject, currentVersionId, masterData]);
+    // Snapshot is fetched when the project is opened — distinguish "loading" from "empty".
+    const isCatalogLoading = activeProject?.versions.find(v => v.id === currentVersionId)?.snapshotLoaded === false;
 
     // Resolve activeItems pricing with the authoritative master snapshot to override stale DB records
     const resolvedActiveItems = useMemo(() => {
@@ -779,7 +783,7 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
             return (
                 <tr>
                     <td colSpan={20} className="p-12 text-center text-slate-400 italic">
-                        {mode === 'catalog' ? 'No items found in catalog.' : 'No items selected. Go to Catalog to add items.'}
+                        {isCatalogLoading ? 'Loading project data…' : mode === 'catalog' ? 'No items found in catalog.' : 'No items selected. Go to Catalog to add items.'}
                     </td>
                 </tr>
             );
@@ -1383,6 +1387,13 @@ const BQBuilderView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                     </div>
                 </div>
+
+                {projectsLoadError && (
+                    <div className="flex items-center justify-between gap-3 p-4 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm">
+                        <span>{projectsLoadError}</span>
+                        <button onClick={retryFetchProjects} className="px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium">Retry</button>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {filteredProjects.map(project => (
