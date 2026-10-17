@@ -55,6 +55,9 @@ export interface ProjectVersion {
   name: string;
   createdAt: string;
   masterSnapshot: MasterItem[]; // Data Independence: Per-Version Price Book
+  // false when masterSnapshot hasn't been fetched yet (the project list omits it — it's the
+  // bulk of the payload); [] alone can't tell "not loaded" from "really empty".
+  snapshotLoaded?: boolean;
   termsConditions?: string; // Dynamic T&C
 }
 

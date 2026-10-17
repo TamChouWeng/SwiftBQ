@@ -10,14 +10,15 @@ SwiftBQ is a professional Bill of Quantities (BQ) and Quotation management syste
 - **Transactional Save System:** Eliminates the risk of fragmented or corrupted records. Edits are batch-committed to cloud storage in a single transaction, ensuring comprehensive data consistency.
 - **Cascading Precision:** Maintains a clean and performant database over time. Deleting a project automatically triggers a synchronized cleanup of all its associated versions and sub-items.
 - **Resilient Cross-Session Writes:** BQ item and Master List snapshot writes merge onto the current database state (rather than the client's local copy) and are serialized atomically per row and version — including the catalog/master snapshot sync path, which excludes quantity entirely — so a long-open tab or a second device can never silently overwrite another session's changes. Save failures now surface an on-screen alert instead of failing silently.
-- **Save-Gated Quantity & Pricing:** Quantity, SC DDP/SP/RSP pricing, and the "isOptional" toggle are buffered locally and committed to the database only on Save — the same pattern already used for description edits — instead of writing per keystroke. The underlying insert/update/delete decision is made race-proof so rapid quantity entry across many items can never create a duplicate row for one line item. A browser warning now guards against losing unsaved edits on accidental tab close.
+- **Save-Gated Quantity, Pricing & Sequence:** Quantity, SC DDP/SP/RSP pricing, the "isOptional" toggle, and drag-and-drop row reordering are buffered locally and committed to the database only on Save — the same pattern already used for description edits — instead of writing per keystroke or drop event. The underlying insert/update/delete decision is made race-proof so rapid quantity entry across many items can never create a duplicate row for one line item. A browser warning now guards against losing unsaved edits on accidental tab close.
+- **Lazy-Loaded Snapshots & Timeout Prevention:** Initial project queries deliberately omit heavyweight `master_list_snapshot` payloads to eliminate Postgres statement timeouts (57014) on large accounts. Price book snapshots and BQ items are fetched on-demand via `loadProjectData` when a project is opened, with automatic connection retry and user-facing retry alerts.
 
 ### User Experience & Performance
 - **Optimistic UI:** Provides a zero-latency experience for users. The BQ Builder saves data locally first, providing instantaneous feedback without waiting for network responses.
 - **High-Fidelity Quotation Preview:** Empowers teams to review exactly what clients will see. Replaced artificial DOM layouts with an embedded, real-time jsPDF engine preview that guarantees a pixel-perfect, 1:1 visual match with the exported document.
 - **Parallel Multi-Column Sorting:** Provides sequential, hierarchical sorting across key attributes (Category, Item name, and REX SC FOB prices) simultaneously, enabling granular and structured data views.
 - **Smart UI Infrastructure:** Prevents interface friction and data loss. Intelligent dropdowns adjust to viewport boundaries, and strict state management ensures inputs are reliably captured during complex strategy adjustments.
-- **Toolbar Parity & Manual Refresh:** Search, Category filter, and Save are available from both the Catalog and Review tabs (previously Save/Search/Filter were Catalog-only). A Refresh button pulls the open project version's latest server data on demand, disabled while there are unsaved changes so it can't silently discard them.
+- **Toolbar Parity & Project Refresh:** Search, Category filter, and Save are available from both the Catalog and Review tabs (previously Save/Search/Filter were Catalog-only). A Refresh button pulls all versions and BQ items for the active project from the server on demand, disabled while there are unsaved changes so it can't silently discard them.
 
 ### Financial Control & Security
 - **Dynamic Pricing Engine:** Accelerates the quoting process and margin analysis. Calculates prices on the fly using customizable formulas, allowing rapid toggling between distinct pricing strategies to assess margin impacts immediately.
@@ -56,7 +57,8 @@ SwiftBQ employs a highly **Optimistic UI** driven by a centralized React Context
 ## 🗄️ Database Integration (Supabase)
 SwiftBQ leverages **Supabase** (PostgreSQL) for robust cloud persistence and authentication.
 
-- **Focus-Triggered Sync**: User profiles, company details, and project data are re-fetched on login and whenever a tab regains focus, keeping devices reasonably in sync without a persistent realtime connection.
+- **Focus-Triggered Sync**: User profiles, company details, and project metadata are re-fetched on login and whenever a tab regains focus, keeping devices reasonably in sync without a persistent realtime connection.
+- **On-Demand Lazy Loading**: Heavy version price book snapshots (`master_list_snapshot`) and version-specific `bq_items` are fetched on-demand when entering a project to prevent Postgres statement execution timeouts (`57014`).
 - **Row Level Security (RLS)**: Ensures data privacy by strictly isolating records based on `user_id`.
 - **Tables Structure**:
   - `master_list_items`: Global price book.

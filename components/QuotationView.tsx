@@ -89,6 +89,8 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
         setBQItemEdit,
         pendingProjectEdits,
         setPendingProjectEdit,
+        projectsLoadError,
+        retryFetchProjects,
     } = useAppStore();
     const t = TRANSLATIONS[currentLanguage];
     const [searchQuery, setSearchQuery] = useState('');
@@ -866,6 +868,13 @@ const QuotationView: React.FC<Props> = ({ currentLanguage, isSidebarOpen }) => {
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                     </div>
                 </div>
+
+                {projectsLoadError && (
+                    <div className="flex items-center justify-between gap-3 p-4 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm">
+                        <span>{projectsLoadError}</span>
+                        <button onClick={retryFetchProjects} className="px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium">Retry</button>
+                    </div>
+                )}
 
                 {/* Project List */}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">

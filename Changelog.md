@@ -2,6 +2,24 @@
 
 All notable changes to SwiftBQ will be documented in this file.
 
+## [Beta 3.9.3]
+
+### Lazy Loading & DB Statement Timeout Prevention
+- **Eliminated Statement Timeouts (57014)**: The initial project list query (`fetchProjects`) now deliberately omits `master_list_snapshot` payloads. Previously, fetching every price book snapshot across every project version in a single query exceeded Postgres execution limits for accounts with large project catalogs.
+- **On-Demand Project Data Loading**: Added `loadProjectData(projectId)` to lazily fetch snapshots and BQ items only when a project is actively opened.
+- **Snapshot Load State Tracking**: Added `snapshotLoaded` indicator to `ProjectVersion` to distinguish between an unpopulated snapshot and an empty snapshot.
+- **Connection Resilience & UI Error Banner**: Added automatic retry for timeout errors (`57014`) and an on-screen retry banner in Quotation View (`projectsLoadError` / `retryFetchProjects`).
+- **Safe Version/Project Duplication**: `duplicateProject` and `createVersion` now read snapshots and BQ items directly from the server if they are not yet cached in memory.
+
+### Project-Wide Manual Refresh
+- **Full Project Refresh**: The toolbar manual refresh button (`RefreshCw`) now pulls all versions and BQ items for the entire active project (`refreshCurrentProject`), ensuring version switches immediately display refreshed server data.
+
+### Collision-Proof Version Duplication
+- **Unique Version Naming**: `handleCopyVersion` dynamically checks all existing project version names and increments past any collisions, eliminating duplicate version names (e.g. creating two "Version 2" entries).
+
+### Save-Gated Row Sequence Reordering
+- **Buffered Drag-and-Drop**: Line item drag-and-drop reordering is now staged locally in `bqItemEdits` (Save-gated) instead of firing unqueued, direct database updates per row on drop.
+
 ## [Beta 3.9.2]
 
 ### Critical Fix: Quantity Loss From a Client-Side Duplicate-Row Race

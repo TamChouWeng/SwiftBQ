@@ -107,6 +107,7 @@ export const mapVersionFromDB = (dbVersion: any): ProjectVersion => ({
   name: dbVersion.version_name,
   createdAt: dbVersion.created_at,
   masterSnapshot: dbVersion.master_list_snapshot || [],
+  snapshotLoaded: 'master_list_snapshot' in dbVersion,
   termsConditions: dbVersion.terms_and_conditions || '',
 });
 
@@ -299,6 +300,8 @@ interface AppContextType {
   saveAllChanges: () => Promise<void>;
   discardAllChanges: () => void;
   refreshCurrentProject: () => Promise<void>;
+  projectsLoadError: string | null;
+  retryFetchProjects: () => void;
 
   /* Authentication */
   user: any | null; // Profile object
@@ -691,16 +694,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   /* Projects State - Supabase */
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoadError, setProjectsLoadError] = useState<string | null>(null);
+  // Projects whose versions (with master_list_snapshot) and BQ items have been fetched.
+  // Cleared on every project-list refetch so a project reopened later pulls fresh data.
+  const loadedProjectIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
+    loadedProjectIdsRef.current.clear();
     if (user && user.id) {
       fetchProjects();
     } else {
       setProjects([]); // Clear projects if logged out
+      setBqItems([]);
     }
   }, [user?.id]); // Refetch when user changes
 
-  const fetchProjects = async () => {
+  // The list deliberately omits master_list_snapshot: each version carries a full copy of the
+  // price list, and embedding every one for every project made this query exceed Postgres'
+  // statement timeout (57014) for users with many projects. Snapshots and BQ items are loaded
+  // per project on open — see loadProjectData.
+  const fetchProjects = async (isRetry = false) => {
     if (!user || !user.id) return;
 
     const { data: projectsData, error } = await supabase
@@ -708,96 +721,96 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .select(`
         *,
         project_versions (
-          *
+          id, project_id, version_name, created_at, terms_and_conditions
         )
       `)
       .eq('user_id', user.id) // Filter by User
-      .order('date', { ascending: false });
+      .order('date', { ascending: false })
+      .order('created_at', { referencedTable: 'project_versions', ascending: true });
 
     if (error) {
       console.error('Error fetching projects:', error);
+      // Keep whatever is already on screen; retry once on a statement timeout.
+      if (error.code === '57014' && !isRetry) {
+        setTimeout(() => fetchProjects(true), 2000);
+        return;
+      }
+      setProjectsLoadError('Could not load your projects — please check your connection and try again.');
       return;
     }
 
+    setProjectsLoadError(null);
     if (projectsData) {
-      const mappedProjects = projectsData.map(p => {
-        // Map versions
-        const mappedVersions = (p.project_versions || [])
-          .map(mapVersionFromDB);
-        return mapProjectFromDB(p, mappedVersions);
+      setProjects(prev => {
+        // Keep snapshots already in memory so an open project doesn't flash empty;
+        // the open project is re-pulled below.
+        const loadedVersions = new Map<string, ProjectVersion>();
+        prev.forEach(p => p.versions.forEach(v => { if (v.snapshotLoaded) loadedVersions.set(v.id, v); }));
+        return projectsData.map(p => {
+          const mappedVersions = (p.project_versions || []).map((dbV: any) => {
+            const v = mapVersionFromDB(dbV);
+            const loaded = loadedVersions.get(v.id);
+            return loaded ? { ...v, masterSnapshot: loaded.masterSnapshot, snapshotLoaded: true } : v;
+          });
+          return mapProjectFromDB(p, mappedVersions);
+        });
       });
-      setProjects(mappedProjects);
+    }
+
+    loadedProjectIdsRef.current.clear();
+    if (currentProjectIdRef.current) {
+      loadProjectData(currentProjectIdRef.current);
     }
   };
 
   /* BQ Items State - Supabase */
-  // Fetching ALL for POC simplicity, but ideally should be per project
+  // Holds items only for projects that have been opened (loaded per project, not all at once).
   const [bqItems, setBqItems] = useState<BQItem[]>([]);
 
-  useEffect(() => {
-    if (user && user.id) {
-      fetchBQItems();
-    } else {
-      setBqItems([]);
-    }
-  }, [user?.id]);
+  // Pulls one project's versions (including master_list_snapshot) and BQ items from the server.
+  // Returns false if either request failed.
+  const loadProjectData = async (projectId: string): Promise<boolean> => {
+    const [versionsRes, itemsRes] = await Promise.all([
+      supabase
+        .from('project_versions')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('bq_items')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('order_index', { ascending: true }) // Preserve drag order
+        .order('created_at', { ascending: true }), // Deterministic tiebreaker
+    ]);
 
-  const fetchBQItems = async () => {
-    if (!user || !user.id) return;
+    if (versionsRes.error) console.error('Error loading versions:', versionsRes.error);
+    if (itemsRes.error) console.error('Error loading BQ items:', itemsRes.error);
 
-    const { data, error } = await supabase
-      .from('bq_items')
-      .select('*')
-      .eq('user_id', user.id) // Filter by User
-      .order('order_index', { ascending: true }) // Preserve drag order
-      .order('created_at', { ascending: true }); // Deterministic tiebreaker
-
-    if (error) console.error('Error fetching BQ items:', error);
-    if (data) {
-      setBqItems(data.map(mapBQItemFromDB));
-    }
-  };
-
-  // Manual "Refresh" button — pulls the open project's latest server data (every version,
-  // not just the one currently being viewed, so switching versions afterward shows fresh
-  // data too) instead of fetchProjects/fetchBQItems above which pull everything for the user.
-  const refreshCurrentProject = async () => {
-    if (!currentProjectId || !currentVersionId) return;
-
-    const { data: versionsData, error: versionsError } = await supabase
-      .from('project_versions')
-      .select('*')
-      .eq('project_id', currentProjectId);
-
-    if (versionsError) {
-      console.error('Error refreshing versions:', versionsError);
-      alert('Could not refresh — please check your connection and try again.');
-      return;
-    }
-    if (versionsData) {
-      const freshVersions = versionsData.map(mapVersionFromDB);
-      setProjects(prev => prev.map(p => p.id !== currentProjectId ? p : {
+    if (versionsRes.data) {
+      const freshVersions = versionsRes.data.map(mapVersionFromDB);
+      setProjects(prev => prev.map(p => p.id !== projectId ? p : {
         ...p,
         versions: freshVersions,
       }));
     }
-
-    const { data: itemsData, error: itemsError } = await supabase
-      .from('bq_items')
-      .select('*')
-      .eq('project_id', currentProjectId)
-      .order('order_index', { ascending: true })
-      .order('created_at', { ascending: true });
-
-    if (itemsError) {
-      console.error('Error refreshing BQ items:', itemsError);
-      alert('Could not refresh — please check your connection and try again.');
-      return;
+    if (itemsRes.data) {
+      const freshItems = itemsRes.data.map(mapBQItemFromDB);
+      setBqItems(prev => [...prev.filter(i => i.projectId !== projectId), ...freshItems]);
     }
-    if (itemsData) {
-      const freshItems = itemsData.map(mapBQItemFromDB);
-      setBqItems(prev => [...prev.filter(i => i.projectId !== currentProjectId), ...freshItems]);
-    }
+
+    const ok = !versionsRes.error && !itemsRes.error;
+    if (ok) loadedProjectIdsRef.current.add(projectId);
+    return ok;
+  };
+
+  // Manual "Refresh" button — pulls the open project's latest server data (every version,
+  // not just the one currently being viewed, so switching versions afterward shows fresh
+  // data too).
+  const refreshCurrentProject = async () => {
+    if (!currentProjectId || !currentVersionId) return;
+    const ok = await loadProjectData(currentProjectId);
+    if (!ok) alert('Could not refresh — please check your connection and try again.');
   };
 
 
@@ -819,6 +832,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentVersionId, setCurrentVersionId] = useState<string | null>(() => {
     return localStorage.getItem('swiftbq_currentVersionId');
   });
+
+  // fetchProjects runs from stale closures (focus listener, retry timer) — read the open project via ref.
+  const currentProjectIdRef = useRef(currentProjectId);
+  currentProjectIdRef.current = currentProjectId;
+
+  // Load the opened project's snapshots and BQ items (the project list doesn't carry them).
+  useEffect(() => {
+    if (!user?.id || !currentProjectId) return;
+    if (loadedProjectIdsRef.current.has(currentProjectId)) return;
+    loadProjectData(currentProjectId);
+  }, [user?.id, currentProjectId]);
 
   const [bqViewMode, setBqViewMode] = useState<BQViewMode>(() => {
     const saved = localStorage.getItem('swiftbq_bqViewMode');
@@ -861,8 +885,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (hasUnsavedChanges || isSaving || writeQueueRef.current.size > 0) return;
       if (Date.now() - lastFetch < 30000) return;
       lastFetch = Date.now();
-      fetchProjects();
-      fetchBQItems();
+      fetchProjects(); // also re-pulls the open project's versions and BQ items
     };
     window.addEventListener('focus', refetchIfIdle);
     document.addEventListener('visibilitychange', refetchIfIdle);
@@ -1069,8 +1092,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       name: 'Version 1',
       createdAt: new Date().toISOString(),
       masterSnapshot: masterData, // Snapshot current master list
+      snapshotLoaded: true,
       termsConditions: defaultTerms
     };
+    // Already complete locally — don't let the open-project loader race the insert below.
+    loadedProjectIdsRef.current.add(project.id);
 
     // Attach version to project for optimistic UI
     const projectWithVersion = { ...projectWithUser, versions: [initialVersion] };
@@ -1138,9 +1164,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const duplicateProject = async (id: string) => {
-    // Fetch full project data to duplicate? or use local state?
     const sourceProject = projects.find(p => p.id === id);
     if (!sourceProject) return;
+
+    // Copy from the server, not local state: the project list doesn't carry snapshots, and
+    // BQ items are only loaded for projects that have been opened.
+    const [sourceVersionsRes, sourceItemsRes] = await Promise.all([
+      supabase.from('project_versions').select('*').eq('project_id', id).order('created_at', { ascending: true }),
+      supabase.from('bq_items').select('*').eq('project_id', id)
+        .order('order_index', { ascending: true }).order('created_at', { ascending: true }),
+    ]);
+    if (sourceVersionsRes.error || sourceItemsRes.error || !sourceVersionsRes.data || !sourceItemsRes.data) {
+      console.error('duplicateProject: failed to read source project', sourceVersionsRes.error || sourceItemsRes.error);
+      alert('Could not duplicate the project — please check your connection and try again.');
+      return;
+    }
+    const sourceVersions = sourceVersionsRes.data.map(mapVersionFromDB);
+    const allSourceItems = sourceItemsRes.data.map(mapBQItemFromDB);
 
     const newProjectName = `${sourceProject.projectName} (Copy)`;
 
@@ -1161,7 +1201,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newVersions: ProjectVersion[] = [];
 
-    for (const ver of sourceProject.versions) {
+    for (const ver of sourceVersions) {
       // Create Version
       const dbVer = mapVersionToDB({
         ...ver,
@@ -1177,7 +1217,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         newVersions.push(newVer);
 
         // Copy BQ Items for this version
-        const sourceItems = bqItems.filter(i => i.projectId === id && i.versionId === ver.id);
+        const sourceItems = allSourceItems.filter(i => i.versionId === ver.id);
         if (sourceItems.length > 0) {
           const dbItems = sourceItems.map(i => {
             const mapped = mapBQItemToDB(i);
@@ -1198,6 +1238,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const newProject = mapProjectFromDB(pData, newVersions);
+    loadedProjectIdsRef.current.add(newProject.id);
     setProjects(prev => [newProject, ...prev]);
   };
 
@@ -1216,7 +1257,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const sourceVersion = project.versions.find(v => v.id === sourceVersionId);
     if (!sourceVersion) return; // Should not happen
 
-    const sourceSnapshot = sourceVersion.masterSnapshot || [];
+    // The project list omits snapshots — read the source's from the server if it isn't loaded,
+    // otherwise the new version would be saved with an empty price list.
+    let sourceSnapshot = sourceVersion.masterSnapshot || [];
+    if (!sourceVersion.snapshotLoaded) {
+      const { data: srcRow, error: srcError } = await supabase
+        .from('project_versions')
+        .select('master_list_snapshot')
+        .eq('id', sourceVersionId)
+        .single();
+      if (srcError || !srcRow) {
+        console.error('createVersion: failed to read source snapshot', srcError);
+        alert('Could not create the version — please check your connection and try again.');
+        return;
+      }
+      sourceSnapshot = srcRow.master_list_snapshot || [];
+    }
 
     // 1. Create Version in DB
     const dbVer = mapVersionToDB({
@@ -1236,7 +1292,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newVer = mapVersionFromDB(vData);
 
     // 2. Clone BQ Items
-    const sourceItems = bqItems.filter(item => item.projectId === projectId && item.versionId === sourceVersionId);
+    let sourceItems = bqItems.filter(item => item.projectId === projectId && item.versionId === sourceVersionId);
+    if (!loadedProjectIdsRef.current.has(projectId)) {
+      // Items for this project may not be loaded yet — copy what's saved on the server.
+      const { data: srcItems } = await supabase.from('bq_items').select('*').eq('version_id', sourceVersionId)
+        .order('order_index', { ascending: true }).order('created_at', { ascending: true });
+      if (srcItems) sourceItems = srcItems.map(mapBQItemFromDB);
+    }
     const newBqItems: BQItem[] = [];
 
     if (sourceItems.length > 0) {
@@ -1931,7 +1993,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Quantity/pricing edits are applied optimistically to bqItems at edit time (unlike
     // description, which only ever lives in bqItemEdits) — a plain buffer-clear can't revert
     // those, so re-pull the last-saved state from the server instead.
-    fetchBQItems();
+    new Set<string>(bqItems.map(i => i.projectId)).forEach(id => loadProjectData(id));
   };
 
   // --- BQ Staged Edits Commit ---
@@ -2013,6 +2075,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bqStagedEdits, setBqStagedEdits, clearBqStagedEdits, commitBqStagedEdits,
         pendingProjectEdits, setPendingProjectEdit, discardPendingProjectEdits,
         hasUnsavedChanges, isSaving, saveAllChanges, discardAllChanges, refreshCurrentProject,
+        projectsLoadError, retryFetchProjects: () => { fetchProjects(); },
         user, login, logout, updateUserProfile, updateCompanyProfile, uploadCompanyLogo, uploadProfileSignature
       }}
 
